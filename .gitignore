@@ -1,0 +1,23 @@
+# Output of the go coverage tool
+*.out
+
+# IDE specific files
+#.vscode/
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+.prompts/
+

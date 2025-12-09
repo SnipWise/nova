@@ -1,2 +1,2 @@
 # nova
-Neural Optimized Virtual Assistant
+**N**eural **O**ptimized **V**irtual **A**ssistant
