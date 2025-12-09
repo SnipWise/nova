@@ -75,9 +75,21 @@ func NewAgent[Output any](
 	outputType := reflect.TypeOf((*Output)(nil)).Elem()
 	schema := StructToJSONSchema(outputType)
 
+	// Get schema name - handle slices/arrays
+	schemaName := outputType.Name()
+	if schemaName == "" {
+		// For slices/arrays, use the element type name
+		if outputType.Kind() == reflect.Slice || outputType.Kind() == reflect.Array {
+			elemType := outputType.Elem()
+			schemaName = elemType.Name() + "Array"
+		} else {
+			schemaName = "Response"
+		}
+	}
+
 	schemaParam := openai.ResponseFormatJSONSchemaJSONSchemaParam{
-		Name:        outputType.Name(),
-		Description: openai.String("Notable information about a " + strings.ToLower(outputType.Name())),
+		Name:        schemaName,
+		Description: openai.String("Notable information about " + strings.ToLower(schemaName)),
 		Schema:      schema,
 		Strict:      openai.Bool(true),
 	}

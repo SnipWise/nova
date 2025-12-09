@@ -63,9 +63,21 @@ func NewBaseAgent[Output any](
 	// }
 	// log.Info(string(jsonSchemaBytes))
 
+	// Get schema name - handle slices/arrays
+	schemaName := something.Name()
+	if schemaName == "" {
+		// For slices/arrays, use the element type name
+		if something.Kind() == reflect.Slice || something.Kind() == reflect.Array {
+			elemType := something.Elem()
+			schemaName = elemType.Name() + "Array"
+		} else {
+			schemaName = "Response"
+		}
+	}
+
 	schemaParam := openai.ResponseFormatJSONSchemaJSONSchemaParam{
-		Name:        something.Name(),
-		Description: openai.String("Notable information about a " + strings.ToLower(something.Name())),
+		Name:        schemaName,
+		Description: openai.String("Notable information about " + strings.ToLower(schemaName)),
 		Schema:      schema,
 		Strict:      openai.Bool(true),
 	}
@@ -135,6 +147,14 @@ func (agent *BaseAgent[Output]) GenerateStructuredData(messages []openai.ChatCom
 func StructToJSONSchema(t reflect.Type) map[string]any {
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
+	}
+
+	// Handle slices/arrays - wrap the element type in an array schema
+	if t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
+		return map[string]any{
+			"type":  "array",
+			"items": StructToJSONSchema(t.Elem()),
+		}
 	}
 
 	schema := map[string]any{
