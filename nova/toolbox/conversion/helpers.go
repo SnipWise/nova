@@ -96,4 +96,9 @@ func FloatToString(num float64) string {
 	return strconv.FormatFloat(num, 'f', -1, 64)
 }
 
+// BoolToString converts a boolean to a string
+func BoolToString(val bool) string {
+	return strconv.FormatBool(val)
+}
+
 

@@ -18,7 +18,6 @@ type BaseAgent struct {
 	config agents.AgentConfig
 
 	chatCompletionParams openai.ChatCompletionNewParams
-	// EmbeddingParams openai.EmbeddingNewParams
 	openaiClient openai.Client
 	log          logger.Logger
 }
