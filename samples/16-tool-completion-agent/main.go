@@ -9,51 +9,54 @@ import (
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/shared"
 	"github.com/snipwise/nova/nova/agents"
+	"github.com/snipwise/nova/nova/models"
 	"github.com/snipwise/nova/nova/tools"
 	"github.com/snipwise/nova/nova/ui/display"
 )
 
 func main() {
 	ctx := context.Background()
-	agent, err := tools.NewBaseAgent(
+	agent, err := tools.NewAgent(
 		ctx,
 		agents.AgentConfig{
 			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
 			SystemInstructions: "You are Bob, a helpful AI assistant.",
 		},
-		openai.ChatCompletionNewParams{
-			Model:       "hf.co/menlo/jan-nano-gguf:q4_k_m",
-			Temperature: openai.Opt(0.0),
-			ToolChoice: openai.ChatCompletionToolChoiceOptionUnionParam{
+		models.NewConfig("hf.co/menlo/jan-nano-gguf:q4_k_m").
+			WithTemperature(0.0).
+			WithToolChoice(openai.ChatCompletionToolChoiceOptionUnionParam{
 				OfAuto: openai.String("auto"),
-			},
-			ParallelToolCalls: openai.Opt(false),
-			Tools:             GetToolsIndex(),
-		},
+			}).
+			WithParallelToolCalls(false).
+			WithTools(GetToolsIndex()...),
 	)
+
 	if err != nil {
 		panic(err)
 	}
 	// Say "Exit" to stop the process
-	messages := []openai.ChatCompletionMessageParamUnion{
-		openai.UserMessage(`
+	messages := []tools.Message{
+		{
+			Content: `
 			Make the sum of 40 and 2,
 			then say hello to Bob and to Sam,
 			make the sum of 5 and 37
-			Say hello to Alice			
-		`),
+			Say hello to Alice
+			`,
+			Role: "user",
+		},
 	}
 
-	finishReason, results, assistantMessage, err := agent.DetectToolCalls(messages, executeFunction)
+	result, err := agent.DetectToolCalls(messages, executeFunction)
 	if err != nil {
 		panic(err)
 	}
 
-	display.KeyValue("Finish Reason", finishReason)
-	for _, value := range results {
+	display.KeyValue("Finish Reason", result.FinishReason)
+	for _, value := range result.Results {
 		display.KeyValue("Result for tool", value)
 	}
-	display.KeyValue("Assistant Message", assistantMessage)
+	display.KeyValue("Assistant Message", result.LastAssistantMessage)
 
 }
 

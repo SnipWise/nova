@@ -1,19 +1,26 @@
 package models
 
+import (
+	"github.com/openai/openai-go/v3"
+)
+
 // Config represents model configuration parameters
 type Config struct {
-	Name             string
-	Temperature      *float64
-	TopP             *float64
-	TopK             *int64
-	MinP             *float64
-	MaxTokens        *int64
-	FrequencyPenalty *float64
-	PresencePenalty  *float64
-	RepeatPenalty    *float64
-	Seed             *int64
-	Stop             []string
-	N                *int64
+	Name              string
+	Temperature       *float64
+	TopP              *float64
+	TopK              *int64
+	MinP              *float64
+	MaxTokens         *int64
+	FrequencyPenalty  *float64
+	PresencePenalty   *float64
+	RepeatPenalty     *float64
+	Seed              *int64
+	Stop              []string
+	N                 *int64
+	ToolChoice        *openai.ChatCompletionToolChoiceOptionUnionParam
+	ParallelToolCalls *bool
+	Tools             []openai.ChatCompletionToolUnionParam
 }
 
 // Helper functions to create pointers for optional parameters
@@ -93,5 +100,23 @@ func (mc Config) WithStop(stop ...string) Config {
 // WithN sets the number of completions to generate
 func (mc Config) WithN(n int64) Config {
 	mc.N = Int(n)
+	return mc
+}
+
+// WithToolChoice sets the tool choice parameter
+func (mc Config) WithToolChoice(toolChoice openai.ChatCompletionToolChoiceOptionUnionParam) Config {
+	mc.ToolChoice = &toolChoice
+	return mc
+}
+
+// WithParallelToolCalls sets whether to allow parallel tool calls
+func (mc Config) WithParallelToolCalls(parallel bool) Config {
+	mc.ParallelToolCalls = &parallel
+	return mc
+}
+
+// WithTools sets the available tools for the model
+func (mc Config) WithTools(tools ...openai.ChatCompletionToolUnionParam) Config {
+	mc.Tools = tools
 	return mc
 }

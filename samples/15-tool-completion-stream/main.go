@@ -155,6 +155,6 @@ func executeFunction(functionName string, arguments string) (string, error) {
 		return fmt.Sprintf(`{"message": "%s"}`, "❌ EXIT"), errors.New("exit_loop")
 
 	default:
-		return `{"error": "Unknown function"}`, errors.New(fmt.Sprintf("Unknown function: %s", functionName))
+		return `{"error": "Unknown function"}`, fmt.Errorf("unknown function: %s", functionName)
 	}
 }
