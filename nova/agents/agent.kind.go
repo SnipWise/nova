@@ -8,7 +8,7 @@ const (
 	Chat  Kind = "Chat"
 	ChatServer Kind = "ChatServer"
 	Remote Kind = "Remote"
-	Tool  Kind = "Tools"
+	Tools  Kind = "Tools"
 	Intent Kind = "Intent"
 	Rag    Kind = "Rag"
 	Compressor Kind = "Compressor"

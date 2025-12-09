@@ -1,4 +1,4 @@
-package openaihelpers
+package models
 
 import (
 	"context"
