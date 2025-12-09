@@ -7,6 +7,7 @@ import (
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/chat"
 	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/ui/display"
 )
 
@@ -30,7 +31,7 @@ func main() {
 
 	// Simple chat using only Message structs
 	result, err := agent.Chat([]chat.Message{
-		{Role: "user", Content: "Hello, what is your name?"},
+		{Role: roles.User, Content: "Hello, what is your name?"},
 	})
 	if err != nil {
 		panic(err)
@@ -54,7 +55,7 @@ func main() {
 
 	// Context is maintained automatically
 	result, err = agent.Chat([]chat.Message{
-		{Role: "user", Content: "[Brief] who is his best friend?"},
+		{Role: roles.User, Content: "[Brief] who is his best friend?"},
 	})
 	if err != nil {
 		panic(err)

@@ -7,6 +7,7 @@ import (
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/chat"
 	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/ui/display"
 )
 
@@ -32,7 +33,7 @@ func main() {
 	// Chat with streaming - no OpenAI types exposed
 	result, err := agent.ChatStream(
 		[]chat.Message{
-			{Role: "user", Content: "Tell me a short story about a brave knight."},
+			{Role: roles.User, Content: "Tell me a short story about a brave knight."},
 		},
 		func(chunk string, finishReason string) error {
 			// Simple callback that receives strings only

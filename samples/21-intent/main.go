@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/snipwise/nova/nova/agents"
+		"github.com/snipwise/nova/nova/roles"
+
 	"github.com/snipwise/nova/nova/models"
 	"github.com/snipwise/nova/nova/structured"
 	"github.com/snipwise/nova/nova/toolbox/conversion"
@@ -64,7 +66,7 @@ func main() {
 
 	intents, _, err := agent.GenerateStructuredData([]structured.Message{
 		{
-			Role: "user",
+			Role: roles.User,
 			Content: `
 				I want to chat with Thrain and learn about his blacksmith skills.
 				I want to meet a dwarf blacksmith.

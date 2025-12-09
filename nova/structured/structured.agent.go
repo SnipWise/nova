@@ -10,12 +10,13 @@ import (
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/toolbox/logger"
 )
 
 // Message represents a conversation message with a role and content
 type Message struct {
-	Role    string
+	Role    roles.Role
 	Content string
 }
 
@@ -128,7 +129,6 @@ func (agent *Agent[Output]) Kind() agents.Kind {
 	return agents.Structured
 }
 
-
 // convertToOpenAIMessages converts simplified messages to OpenAI format
 func (agent *Agent[Output]) convertToOpenAIMessages(messages []Message) []openai.ChatCompletionMessageParamUnion {
 	openaiMessages := make([]openai.ChatCompletionMessageParamUnion, 0, len(messages))
@@ -179,4 +179,3 @@ func (agent *Agent[Output]) GenerateStructuredData(userMessages []Message) (resp
 
 	return response, finishReason, nil
 }
-

@@ -10,6 +10,7 @@ import (
 	"github.com/openai/openai-go/v3/shared"
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/tools"
 	"github.com/snipwise/nova/nova/ui/display"
 )
@@ -39,7 +40,7 @@ func main() {
 			make the sum of 5 and 37
 			Say hello to Alice
 			`,
-			Role: "user",
+			Role: roles.User,
 		},
 	}
 

@@ -8,12 +8,13 @@ import (
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/toolbox/logger"
 )
 
 // Message represents a conversation message with a role and content
 type Message struct {
-	Role    string
+	Role    roles.Role
 	Content string
 }
 
@@ -134,7 +135,7 @@ func (agent *Agent) ResetMessages() {
 }
 
 // AddMessage adds a message to the conversation history
-func (agent *Agent) AddMessage(role, content string) {
+func (agent *Agent) AddMessage(role roles.Role, content string) {
 	agent.messages = append(agent.messages, Message{
 		Role:    role,
 		Content: content,
@@ -168,9 +169,7 @@ func (agent *Agent) Chat(userMessages []Message) (*CompletionResult, error) {
 	}
 
 	// Add user messages to history
-	for _, msg := range userMessages {
-		agent.messages = append(agent.messages, msg)
-	}
+	agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
 	openaiMessages := agent.convertToOpenAIMessages(userMessages)
@@ -200,9 +199,7 @@ func (agent *Agent) ChatWithReasoning(userMessages []Message) (*ReasoningResult,
 	}
 
 	// Add user messages to history
-	for _, msg := range userMessages {
-		agent.messages = append(agent.messages, msg)
-	}
+	agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
 	openaiMessages := agent.convertToOpenAIMessages(userMessages)
@@ -236,9 +233,7 @@ func (agent *Agent) ChatStream(
 	}
 
 	// Add user messages to history
-	for _, msg := range userMessages {
-		agent.messages = append(agent.messages, msg)
-	}
+	agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
 	openaiMessages := agent.convertToOpenAIMessages(userMessages)
@@ -272,9 +267,7 @@ func (agent *Agent) ChatStreamWithReasoning(
 	}
 
 	// Add user messages to history
-	for _, msg := range userMessages {
-		agent.messages = append(agent.messages, msg)
-	}
+	agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
 	openaiMessages := agent.convertToOpenAIMessages(userMessages)

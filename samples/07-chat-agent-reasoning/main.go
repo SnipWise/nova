@@ -1,8 +1,10 @@
 package main
 
 import (
-	"github.com/snipwise/nova/nova/models"
 	"context"
+
+	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/roles"
 
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/chat"
@@ -35,7 +37,7 @@ func main() {
 	// Chat with streaming and reasoning - no OpenAI types exposed
 	_, err = agent.ChatStreamWithReasoning(
 		[]chat.Message{
-			{Role: "user", Content: "What is 15 * 24?"},
+			{Role: roles.User, Content: "What is 15 * 24?"},
 		},
 		func(reasoningChunk string, finishReason string) error {
 			display.Color(reasoningChunk, display.ColorYellow)

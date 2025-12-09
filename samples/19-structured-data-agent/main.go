@@ -6,6 +6,7 @@ import (
 
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/structured"
 	"github.com/snipwise/nova/nova/toolbox/conversion"
 	"github.com/snipwise/nova/nova/ui/display"
@@ -37,7 +38,7 @@ func main() {
 	}
 
 	response, finishReason, err := agent.GenerateStructuredData([]structured.Message{
-		{Role: "user", Content: "Tell me about Canada."},
+		{Role: roles.User, Content: "Tell me about Canada."},
 	})
 
 	if err != nil {
