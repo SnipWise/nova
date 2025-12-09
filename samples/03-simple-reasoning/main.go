@@ -11,7 +11,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	agent, err := chat.NewAgent(
+	agent, err := chat.NewBaseAgent(
 		ctx,
 		agents.AgentConfig{
 			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",

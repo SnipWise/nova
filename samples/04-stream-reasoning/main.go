@@ -12,7 +12,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	agent, err := chat.NewAgent(
+	agent, err := chat.NewBaseAgent(
 		ctx,
 		agents.AgentConfig{
 			Name:               "Bob",

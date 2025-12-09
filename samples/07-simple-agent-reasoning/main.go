@@ -1,0 +1,67 @@
+package main
+
+import (
+	"github.com/snipwise/nova/nova/models"
+	"context"
+
+	"github.com/snipwise/nova/nova/agents"
+	"github.com/snipwise/nova/nova/chat"
+	"github.com/snipwise/nova/nova/toolbox/conversion"
+	"github.com/snipwise/nova/nova/ui/display"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// Create a simple agent without exposing OpenAI SDK types
+	agent, err := chat.NewAgent(
+		ctx,
+		agents.AgentConfig{
+			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: "You are a helpful AI assistant that thinks step by step.",
+		},
+		models.NewConfig("hf.co/menlo/lucy-gguf:q4_k_m").
+			WithTemperature(0.7).
+			WithTopP(0.9),
+			
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	display.Info("Streaming with reasoning:")
+	display.NewLine()
+
+	// Chat with streaming and reasoning - no OpenAI types exposed
+	_, err = agent.ChatStreamWithReasoning(
+		[]chat.Message{
+			{Role: "user", Content: "What is 15 * 24?"},
+		},
+		func(reasoningChunk string, finishReason string) error {
+			display.Color(reasoningChunk, display.ColorYellow)
+			if finishReason != "" {
+				display.NewLine()
+				display.KeyValue("Finish reason", finishReason)
+			}
+			return nil
+		},
+		func(responseChunk string, finishReason string) error {
+			display.Color(responseChunk, display.ColorGreen)
+			if finishReason != "" {
+				display.NewLine()
+				display.KeyValue("Finish reason", finishReason)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	display.NewLine()
+	display.Separator()
+
+	display.KeyValue("Context size", conversion.IntToString(agent.GetContextSize()))
+
+	display.Separator()
+}

@@ -6,358 +6,318 @@ import (
 	"errors"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
-
-	//"github.com/openai/openai-go/v3/shared"
 	"github.com/snipwise/nova/nova/agents"
+	"github.com/snipwise/nova/nova/models"
 	"github.com/snipwise/nova/nova/toolbox/logger"
 )
 
-type Agent struct {
-	ctx    context.Context
-	config agents.AgentConfig
-
-	chatCompletionParams openai.ChatCompletionNewParams
-	// EmbeddingParams openai.EmbeddingNewParams
-	openaiClient openai.Client
-	log          logger.Logger
-}
-
-type AgentOption func(*Agent)
-
-// NewAgent creates a new ChatAgent instance
-func NewAgent(
-	ctx context.Context,
-	agentConfig agents.AgentConfig,
-	modelConfig openai.ChatCompletionNewParams,
-	options ...AgentOption,
-) (chatAgent *Agent, err error) {
-
-	// export SNIP_LOG_LEVEL=debug  # Shows all logs
-	// export SNIP_LOG_LEVEL=info   # Shows info, warn, error
-	// export SNIP_LOG_LEVEL=warn   # Shows warn, error only
-	// export SNIP_LOG_LEVEL=error  # Shows errors only
-	// export SNIP_LOG_LEVEL=none   # No logging (default)
-
-	// Create logger from environment variable
-	log := logger.GetLoggerFromEnv()
-
-	client := openai.NewClient(
-		option.WithBaseURL(agentConfig.EngineURL),
-		option.WithAPIKey("I💙DockerModelRunner"),
-	)
-
-	_, err = client.Models.Get(ctx, modelConfig.Model)
-	if err != nil {
-		log.Error("Model not available:", err)
-		return nil, errors.New("model not available on the specified engine URL")
-	}
-	log.Info("Model %s is available on %s", modelConfig.Model, agentConfig.EngineURL)
-
-	chatAgent = &Agent{
-		ctx:                  ctx,
-		config:               agentConfig,
-		chatCompletionParams: modelConfig,
-		openaiClient:         client,
-		log:                  log,
-	}
-
-	chatAgent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{}
-
-	chatAgent.chatCompletionParams.Messages = append(chatAgent.chatCompletionParams.Messages, openai.SystemMessage(agentConfig.SystemInstructions))
-
-	for _, option := range options {
-		option(chatAgent)
-	}
-
-	return chatAgent, nil
-}
-
-func (agent *Agent) Kind() (kind agents.Kind) {
-	return agents.Chat
-}
-
-func (agent *Agent) GetMessages() (messages []openai.ChatCompletionMessageParamUnion) {
-	return agent.chatCompletionParams.Messages
-}
-
-// StringMessage represents a simplified message structure with role and content as strings
-type StringMessage struct {
+// Message represents a conversation message with a role and content
+type Message struct {
 	Role    string
 	Content string
 }
 
-// GetStringMessages converts all messages to a slice of StringMessage with role and content as strings
-func (agent *Agent) GetStringMessages() (stringMessages []StringMessage) {
-	stringMessages = []StringMessage{}
-
-	for _, msg := range agent.chatCompletionParams.Messages {
-		var role string
-		var content string
-
-		// Determine the role
-		if msg.OfSystem != nil {
-			role = "system"
-			content = msg.OfSystem.Content.OfString.Value
-		} else if msg.OfUser != nil {
-			role = "user"
-			content = msg.OfUser.Content.OfString.Value
-		} else if msg.OfAssistant != nil {
-			role = "assistant"
-			content = msg.OfAssistant.Content.OfString.Value
-			// } else if msg.OfTool != nil {
-			// 	role = "tool"
-			// } else if msg.OfFunction != nil {
-			// 	role = "function"
-		} else if msg.OfDeveloper != nil {
-			role = "developer"
-			content = msg.OfDeveloper.Content.OfString.Value
-		} else {
-			role = "unknown"
-			content = "Unknown message type"
-		}
-
-		stringMessages = append(stringMessages, StringMessage{
-			Role:    role,
-			Content: content,
-		})
-	}
-
-	return stringMessages
+// CompletionResult represents the result of a chat completion
+type CompletionResult struct {
+	Response     string
+	FinishReason string
 }
 
-func (agent *Agent) GetCurrentContextSize() (contextSize int) {
-	stringMessages := agent.GetStringMessages()
-	//var totalSize int
-	for _, msg := range stringMessages {
-		contextSize += len(msg.Content)
-	}
-	return contextSize + len(agent.config.SystemInstructions)
+// ReasoningResult represents the result of a chat completion with reasoning
+type ReasoningResult struct {
+	Response     string
+	Reasoning    string
+	FinishReason string
 }
 
-// ResetMessages clears the agent's message history except for the initial system message
+// StreamCallback is a function called for each chunk of streaming response
+type StreamCallback func(chunk string, finishReason string) error
+
+// Agent represents a simplified chat agent that hides OpenAI SDK details
+type Agent struct {
+	ctx           context.Context
+	config        agents.AgentConfig
+	modelConfig   models.Config
+	messages      []Message
+	internalAgent *BaseAgent
+	log           logger.Logger
+}
+
+// NewAgent creates a new simplified chat agent
+func NewAgent(
+	ctx context.Context,
+	agentConfig agents.AgentConfig,
+	modelConfig models.Config,
+) (*Agent, error) {
+	log := logger.GetLoggerFromEnv()
+
+	// Create internal OpenAI-based agent with converted parameters
+	openaiModelConfig := openai.ChatCompletionNewParams{
+		Model: modelConfig.Name,
+	}
+
+	// Set optional parameters if provided
+	if modelConfig.Temperature != nil {
+		openaiModelConfig.Temperature = openai.Float(*modelConfig.Temperature)
+	}
+	if modelConfig.TopP != nil {
+		openaiModelConfig.TopP = openai.Float(*modelConfig.TopP)
+	}
+	if modelConfig.MaxTokens != nil {
+		openaiModelConfig.MaxTokens = openai.Int(*modelConfig.MaxTokens)
+	}
+	if modelConfig.FrequencyPenalty != nil {
+		openaiModelConfig.FrequencyPenalty = openai.Float(*modelConfig.FrequencyPenalty)
+	}
+	if modelConfig.PresencePenalty != nil {
+		openaiModelConfig.PresencePenalty = openai.Float(*modelConfig.PresencePenalty)
+	}
+	if modelConfig.Seed != nil {
+		openaiModelConfig.Seed = openai.Int(*modelConfig.Seed)
+	}
+	if modelConfig.N != nil {
+		openaiModelConfig.N = openai.Int(*modelConfig.N)
+	}
+	// Note: TopK, MinP, RepeatPenalty, and Stop are model-specific parameters
+	// that may need to be passed differently depending on the model/engine
+
+	internalAgent, err := NewBaseAgent(ctx, agentConfig, openaiModelConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	agent := &Agent{
+		ctx:           ctx,
+		config:        agentConfig,
+		modelConfig:   modelConfig,
+		messages:      []Message{},
+		internalAgent: internalAgent,
+		log:           log,
+	}
+
+	// Add system instruction as first message
+	agent.messages = append(agent.messages, Message{
+		Role:    "system",
+		Content: agentConfig.SystemInstructions,
+	})
+
+	return agent, nil
+}
+
+// Kind returns the agent type
+func (agent *Agent) Kind() agents.Kind {
+	return agents.Chat
+}
+
+// GetMessages returns all conversation messages
+func (agent *Agent) GetMessages() []Message {
+	return agent.messages
+}
+
+// GetContextSize returns the approximate size of the current context
+func (agent *Agent) GetContextSize() int {
+	totalSize := 0
+	for _, msg := range agent.messages {
+		totalSize += len(msg.Content)
+	}
+	return totalSize
+}
+
+// ResetMessages clears all messages except the system instruction
 func (agent *Agent) ResetMessages() {
-	// Remove existing messages except the first system message if it's a system message
-	if len(agent.chatCompletionParams.Messages) > 0 {
-		firstMsg := agent.chatCompletionParams.Messages[0]
-		if firstMsg.OfSystem != nil {
-			agent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{firstMsg}
-		} else {
-			agent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{}
-		}
-	}
-}
-
-func (agent *Agent) Run(messages []openai.ChatCompletionMessageParamUnion) (response string, finishReason string, err error) {
-	// Preserve existing system messages from agent.Params
-	// Combine existing system messages with new messages
-	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, messages...)
-	completion, err := agent.openaiClient.Chat.Completions.New(agent.ctx, agent.chatCompletionParams)
-
-	if err != nil {
-		return "", "", err
-	}
-
-	if len(completion.Choices) > 0 {
-		// Append the full response as an assistant message to the agent's messages
-		agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, openai.AssistantMessage(completion.Choices[0].Message.Content))
-
-		response = completion.Choices[0].Message.Content
-		finishReason = completion.Choices[0].FinishReason
-
-		return response, finishReason, nil
+	if len(agent.messages) > 0 && agent.messages[0].Role == "system" {
+		agent.messages = []Message{agent.messages[0]}
 	} else {
-		return "", "", errors.New("no choices found")
+		agent.messages = []Message{}
 	}
+	agent.internalAgent.ResetMessages()
 }
 
-// RunWithReasoning executes a chat completion with the provided messages.
-// It sends the messages to the model and returns the first choice's content and reasoning.
-//
-// Parameters:
-//   - messages: The conversation messages to send to the model
-//
-// Returns:
-//   - string: The content of the first choice from the model's response
-//   - string: The reasoning content from the model's response
-func (agent *Agent) RunWithReasoning(messages []openai.ChatCompletionMessageParamUnion) (response string, reasoning string, finishReason string, err error) {
+// AddMessage adds a message to the conversation history
+func (agent *Agent) AddMessage(role, content string) {
+	agent.messages = append(agent.messages, Message{
+		Role:    role,
+		Content: content,
+	})
+}
 
-	// Combine existing system messages with new messages
-	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, messages...)
-	completion, err := agent.openaiClient.Chat.Completions.New(agent.ctx, agent.chatCompletionParams)
+// convertToOpenAIMessages converts simplified messages to OpenAI format
+func (agent *Agent) convertToOpenAIMessages(messages []Message) []openai.ChatCompletionMessageParamUnion {
+	openaiMessages := make([]openai.ChatCompletionMessageParamUnion, 0, len(messages))
 
+	for _, msg := range messages {
+		switch msg.Role {
+		case "system":
+			openaiMessages = append(openaiMessages, openai.SystemMessage(msg.Content))
+		case "user":
+			openaiMessages = append(openaiMessages, openai.UserMessage(msg.Content))
+		case "assistant":
+			openaiMessages = append(openaiMessages, openai.AssistantMessage(msg.Content))
+		case "developer":
+			openaiMessages = append(openaiMessages, openai.DeveloperMessage(msg.Content))
+		}
+	}
+
+	return openaiMessages
+}
+
+// Chat sends messages and returns the completion result
+func (agent *Agent) Chat(userMessages []Message) (*CompletionResult, error) {
+	if len(userMessages) == 0 {
+		return nil, errors.New("no messages provided")
+	}
+
+	// Add user messages to history
+	for _, msg := range userMessages {
+		agent.messages = append(agent.messages, msg)
+	}
+
+	// Convert to OpenAI format
+	openaiMessages := agent.convertToOpenAIMessages(userMessages)
+
+	// Call internal agent
+	response, finishReason, err := agent.internalAgent.Run(openaiMessages)
 	if err != nil {
-		return "", "", "", err
+		return nil, err
 	}
-	finishReason = completion.Choices[0].FinishReason
 
-	if len(completion.Choices) > 0 {
-		jsonResponse := completion.Choices[0].Message.RawJSON()
+	// Add assistant response to history
+	agent.messages = append(agent.messages, Message{
+		Role:    "assistant",
+		Content: response,
+	})
 
-		// extract the content of the reasoning_content field from the jsonResponse
-		var reasoningContent struct {
-			ReasoningContent string `json:"reasoning_content"`
-		}
-		err := json.Unmarshal([]byte(jsonResponse), &reasoningContent)
-		if err != nil {
-			return response, reasoning, finishReason, err
-		}
-
-		reasoning = reasoningContent.ReasoningContent
-		response = completion.Choices[0].Message.Content
-		finishReason = completion.Choices[0].FinishReason
-
-		// Append the full response as an assistant message to the agent's messages
-		agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, openai.AssistantMessage(response))
-
-		return response, reasoning, finishReason, nil
-	} else {
-		return response, reasoning, finishReason, errors.New("no choices found")
-	}
+	return &CompletionResult{
+		Response:     response,
+		FinishReason: finishReason,
+	}, nil
 }
 
-func (agent *Agent) RunStream(
-	messages []openai.ChatCompletionMessageParamUnion,
-	callBack func(partialResponse string, finishReason string) error) (response string, finishReason string, err error) {
-
-	// Combine existing system messages with new messages
-	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, messages...)
-	stream := agent.openaiClient.Chat.Completions.NewStreaming(agent.ctx, agent.chatCompletionParams)
-
-	var callBackError error
-	finalFinishReason := ""
-
-	for stream.Next() {
-		chunk := stream.Current()
-
-		// Capture finishReason if present (even if there's no content)
-		if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != "" {
-			finalFinishReason = chunk.Choices[0].FinishReason
-		}
-
-		// Stream each chunk as it arrives
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			callBackError = callBack(chunk.Choices[0].Delta.Content, finalFinishReason)
-			response += chunk.Choices[0].Delta.Content
-		}
-
-		if callBackError != nil {
-			break
-		}
-
+// ChatWithReasoning sends messages and returns the completion result with reasoning
+func (agent *Agent) ChatWithReasoning(userMessages []Message) (*ReasoningResult, error) {
+	if len(userMessages) == 0 {
+		return nil, errors.New("no messages provided")
 	}
 
-	// QUESTION: IMPORTANT: what happens if it's something other than stop?
-	// Call callback one last time with the final finishReason and empty content
-	if finalFinishReason != "" {
-		callBackError = callBack("", finalFinishReason)
-		if callBackError != nil {
-			return response, finalFinishReason, callBackError
-		}
+	// Add user messages to history
+	for _, msg := range userMessages {
+		agent.messages = append(agent.messages, msg)
 	}
 
-	if callBackError != nil {
-		return response, finalFinishReason, callBackError
-	}
-	if err := stream.Err(); err != nil {
-		return response, finalFinishReason, err
-	}
-	if err := stream.Close(); err != nil {
-		return response, finalFinishReason, err
+	// Convert to OpenAI format
+	openaiMessages := agent.convertToOpenAIMessages(userMessages)
+
+	// Call internal agent
+	response, reasoning, finishReason, err := agent.internalAgent.RunWithReasoning(openaiMessages)
+	if err != nil {
+		return nil, err
 	}
 
-	// Append the full response as an assistant message to the agent's messages
-	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, openai.AssistantMessage(response))
+	// Add assistant response to history
+	agent.messages = append(agent.messages, Message{
+		Role:    "assistant",
+		Content: response,
+	})
 
-	return response, finalFinishReason, nil
+	return &ReasoningResult{
+		Response:     response,
+		Reasoning:    reasoning,
+		FinishReason: finishReason,
+	}, nil
 }
 
-func (agent *Agent) RunStreamWithReasoning(
-	messages []openai.ChatCompletionMessageParamUnion,
-	reasoningCallback func(partialReasoning string, finishReason string) error,
-	responseCallback func(partialResponse string, finishReason string) error,
-) (response string, reasoning string, finishReason string, err error) {
-
-	// Combine existing system messages with new messages
-	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, messages...)
-	stream := agent.openaiClient.Chat.Completions.NewStreaming(agent.ctx, agent.chatCompletionParams)
-
-	var callBackError error
-	var hasReceivedReasoning bool
-	var reasoningEnded bool
-
-	for stream.Next() {
-		chunk := stream.Current()
-
-		// Capture finishReason if present (even if there's no content)
-		if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != "" {
-			finishReason = chunk.Choices[0].FinishReason
-		}
-
-		// NOTE: Reasoning
-		// Extract and stream reasoning content if available
-		if len(chunk.Choices) > 0 {
-			jsonResponse := chunk.Choices[0].Delta.RawJSON()
-			var reasoningContent struct {
-				ReasoningContent string `json:"reasoning_content"`
-			}
-			err := json.Unmarshal([]byte(jsonResponse), &reasoningContent)
-
-			if err == nil && reasoningContent.ReasoningContent != "" {
-				hasReceivedReasoning = true
-				reasoningChunk := reasoningContent.ReasoningContent
-				if reasoningChunk != "" {
-					callBackError = reasoningCallback(reasoningChunk, finishReason)
-					reasoning += reasoningChunk
-					if callBackError != nil {
-						break
-					}
-				}
-			}
-		}
-
-		// Stream content chunk as it arrives
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			// If we had reasoning and this is the first content chunk, signal end of reasoning
-			if hasReceivedReasoning && !reasoningEnded {
-				reasoningEnded = true
-				//callBackError = reasoningCallback("", finishReason)
-				callBackError = reasoningCallback("", "end_of_reasoning")
-				if callBackError != nil {
-					break
-				}
-			}
-
-			callBackError = responseCallback(chunk.Choices[0].Delta.Content, finishReason)
-			response += chunk.Choices[0].Delta.Content
-			if callBackError != nil {
-				break
-			}
-		}
+// ChatStream sends messages and streams the response via callback
+func (agent *Agent) ChatStream(
+	userMessages []Message,
+	callback StreamCallback,
+) (*CompletionResult, error) {
+	if len(userMessages) == 0 {
+		return nil, errors.New("no messages provided")
 	}
 
-	// Call callbacks one last time with the final finishReason and empty content
-	if finishReason != "" {
-
-		// Call response callback with empty content to signal response completion
-		callBackError = responseCallback("", finishReason)
-		if callBackError != nil {
-			return response, reasoning, finishReason, callBackError
-		}
+	// Add user messages to history
+	for _, msg := range userMessages {
+		agent.messages = append(agent.messages, msg)
 	}
 
-	if callBackError != nil {
-		return response, reasoning, finishReason, callBackError
-	}
-	if err := stream.Err(); err != nil {
-		return response, reasoning, finishReason, err
-	}
-	if err := stream.Close(); err != nil {
-		return response, reasoning, finishReason, err
+	// Convert to OpenAI format
+	openaiMessages := agent.convertToOpenAIMessages(userMessages)
+
+	// Call internal agent with streaming
+	response, finishReason, err := agent.internalAgent.RunStream(openaiMessages, callback)
+	if err != nil {
+		return nil, err
 	}
 
-	// Append the full response as an assistant message to the agent's messages
-	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, openai.AssistantMessage(response))
+	// Add assistant response to history
+	agent.messages = append(agent.messages, Message{
+		Role:    "assistant",
+		Content: response,
+	})
 
-	return response, reasoning, finishReason, nil
+	return &CompletionResult{
+		Response:     response,
+		FinishReason: finishReason,
+	}, nil
+}
+
+// ChatStreamWithReasoning sends messages and streams both reasoning and response
+func (agent *Agent) ChatStreamWithReasoning(
+	userMessages []Message,
+	reasoningCallback StreamCallback,
+	responseCallback StreamCallback,
+) (*ReasoningResult, error) {
+	if len(userMessages) == 0 {
+		return nil, errors.New("no messages provided")
+	}
+
+	// Add user messages to history
+	for _, msg := range userMessages {
+		agent.messages = append(agent.messages, msg)
+	}
+
+	// Convert to OpenAI format
+	openaiMessages := agent.convertToOpenAIMessages(userMessages)
+
+	// Call internal agent with streaming
+	response, reasoning, finishReason, err := agent.internalAgent.RunStreamWithReasoning(
+		openaiMessages,
+		reasoningCallback,
+		responseCallback,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add assistant response to history
+	agent.messages = append(agent.messages, Message{
+		Role:    "assistant",
+		Content: response,
+	})
+
+	return &ReasoningResult{
+		Response:     response,
+		Reasoning:    reasoning,
+		FinishReason: finishReason,
+	}, nil
+}
+
+// ExportMessagesToJSON exports the conversation history to JSON
+func (agent *Agent) ExportMessagesToJSON() (string, error) {
+	jsonData, err := json.MarshalIndent(agent.messages, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(jsonData), nil
+}
+
+// ImportMessagesFromJSON imports conversation history from JSON
+func (agent *Agent) ImportMessagesFromJSON(jsonData string) error {
+	var messages []Message
+	err := json.Unmarshal([]byte(jsonData), &messages)
+	if err != nil {
+		return err
+	}
+	agent.messages = messages
+	return nil
 }

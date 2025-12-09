@@ -1,0 +1,56 @@
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/snipwise/nova/nova/agents"
+	"github.com/snipwise/nova/nova/chat"
+	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/ui/display"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// Create a simple agent without exposing OpenAI SDK types
+	agent, err := chat.NewAgent(
+		ctx,
+		agents.AgentConfig{
+			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: "You are Bob, a helpful AI assistant.",
+		},
+		models.NewConfig("ai/qwen2.5:1.5B-F16").WithTemperature(0.8),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	display.Info("Streaming response:")
+	display.NewLine()
+
+	// Chat with streaming - no OpenAI types exposed
+	result, err := agent.ChatStream(
+		[]chat.Message{
+			{Role: "user", Content: "Tell me a short story about a brave knight."},
+		},
+		func(chunk string, finishReason string) error {
+			// Simple callback that receives strings only
+			if chunk != "" {
+				fmt.Print(chunk)
+			}
+			if finishReason == "stop" {
+				fmt.Println()
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	display.NewLine()
+	display.Separator()
+	display.KeyValue("Finish reason", result.FinishReason)
+	display.KeyValue("Context size", fmt.Sprintf("%d characters", agent.GetContextSize()))
+}
