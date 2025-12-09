@@ -48,7 +48,6 @@ func main() {
 	streamCallback := func(content string) error {
 		fmt.Print(content)
 		return nil
-		//return &mu.ExitStreamCompletionError{Message: "❌ EXIT"} // This will stop the streaming
 	}
 
 	// Tool execution callback

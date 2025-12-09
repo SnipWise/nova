@@ -24,11 +24,9 @@ func main() {
 		},
 		models.NewConfig("hf.co/menlo/jan-nano-gguf:q4_k_m").
 			WithTemperature(0.0).
-			//WithToolChoiceAuto().
 			WithParallelToolCalls(false).
 			WithTools(GetToolsIndex()...),
 	)
-
 	if err != nil {
 		panic(err)
 	}
@@ -45,10 +43,24 @@ func main() {
 		},
 	}
 
-	result, err := agent.DetectToolCalls(messages, executeFunction)
+	// Stream callback for real-time content display
+	streamCallback := func(content string) error {
+		fmt.Print(content)
+		return nil
+	}
+
+	// Tool execution callback
+	//toolCallback := executeFunction
+
+	display.Colorf(display.ColorCyan, "🚀 Starting streaming tool completion...\n")
+	display.Separator()
+
+	result, err := agent.DetectToolCallsStream(messages, executeFunction, streamCallback)
 	if err != nil {
 		panic(err)
 	}
+	display.NewLine()
+	display.Separator()
 
 	display.KeyValue("Finish Reason", result.FinishReason)
 	for _, value := range result.Results {

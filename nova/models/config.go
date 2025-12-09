@@ -109,6 +109,23 @@ func (mc Config) WithToolChoice(toolChoice openai.ChatCompletionToolChoiceOption
 	return mc
 }
 
+// WithToolChoiceAuto sets tool choice to "auto" - the model decides whether to use tools
+func (mc Config) WithToolChoiceAuto() Config {
+	mc.ToolChoice = &openai.ChatCompletionToolChoiceOptionUnionParam{
+		OfAuto: openai.String("auto"),
+	}
+	return mc
+}
+
+// WithToolChoiceFunction forces the model to use a specific function/tool
+func (mc Config) WithToolChoiceFunction(functionName string) Config {
+	toolChoice := openai.ToolChoiceOptionFunctionToolChoice(openai.ChatCompletionNamedToolChoiceFunctionParam{
+		Name: functionName,
+	})
+	mc.ToolChoice = &toolChoice
+	return mc
+}
+
 // WithParallelToolCalls sets whether to allow parallel tool calls
 func (mc Config) WithParallelToolCalls(parallel bool) Config {
 	mc.ParallelToolCalls = &parallel
