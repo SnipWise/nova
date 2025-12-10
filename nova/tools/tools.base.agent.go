@@ -7,6 +7,7 @@ import (
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/shared/constant"
 	"github.com/snipwise/nova/nova/agents"
+	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/toolbox/logger"
 )
 
@@ -55,6 +56,45 @@ func NewBaseAgent(
 
 func (agent *BaseAgent) Kind() (kind agents.Kind) {
 	return agents.Tools
+}
+
+func (agent *BaseAgent) GetMessages() (messages []openai.ChatCompletionMessageParamUnion) {
+	return agent.chatCompletionParams.Messages
+}
+
+// AddMessage adds a new message to the agent's message history
+func (agent *BaseAgent) AddMessage(message openai.ChatCompletionMessageParamUnion) {
+	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, message)
+}
+
+// GetStringMessages converts all messages to a slice of StringMessage with role and content as strings
+func (agent *BaseAgent) GetStringMessages() (stringMessages []messages.Message) {
+
+	stringMessages = messages.ConvertFromOpenAIMessages(agent.chatCompletionParams.Messages)
+
+	return stringMessages
+}
+
+func (agent *BaseAgent) GetCurrentContextSize() (contextSize int) {
+	stringMessages := agent.GetStringMessages()
+	//var totalSize int
+	for _, msg := range stringMessages {
+		contextSize += len(msg.Content)
+	}
+	return contextSize + len(agent.config.SystemInstructions)
+}
+
+// ResetMessages clears the agent's message history except for the initial system message
+func (agent *BaseAgent) ResetMessages() {
+	// Remove existing messages except the first system message if it's a system message
+	if len(agent.chatCompletionParams.Messages) > 0 {
+		firstMsg := agent.chatCompletionParams.Messages[0]
+		if firstMsg.OfSystem != nil {
+			agent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{firstMsg}
+		} else {
+			agent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{}
+		}
+	}
 }
 
 func (agent *BaseAgent) DetectToolCalls(messages []openai.ChatCompletionMessageParamUnion, toolCallBack func(functionName string, arguments string) (string, error)) (string, []string, string, error) {

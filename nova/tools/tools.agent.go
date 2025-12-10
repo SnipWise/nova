@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/models"
@@ -26,10 +27,9 @@ type StreamCallback func(chunk string) error
 
 // Agent represents a simplified tools agent that hides OpenAI SDK details
 type Agent struct {
-	ctx           context.Context
-	config        agents.AgentConfig
-	modelConfig   models.Config
-	messages      []messages.Message
+	ctx         context.Context
+	config      agents.AgentConfig
+	modelConfig models.Config
 	internalAgent *BaseAgent
 	log           logger.Logger
 }
@@ -51,20 +51,17 @@ func NewAgent(
 	}
 
 	agent := &Agent{
-		ctx:           ctx,
-		config:        agentConfig,
-		modelConfig:   modelConfig,
-		messages:      []messages.Message{},
+		ctx:         ctx,
+		config:      agentConfig,
+		modelConfig: modelConfig,
 		internalAgent: internalAgent,
 		log:           log,
 	}
 
 	// Add system instruction as first message
-	agent.messages = append(agent.messages, messages.Message{
-		Role:    roles.System,
-		Content: agentConfig.SystemInstructions,
-	})
-
+	agent.internalAgent.AddMessage(
+		openai.SystemMessage(agentConfig.SystemInstructions),
+	)
 	return agent, nil
 }
 
@@ -75,33 +72,29 @@ func (agent *Agent) Kind() agents.Kind {
 
 // GetMessages returns all conversation messages
 func (agent *Agent) GetMessages() []messages.Message {
-	return agent.messages
+	openaiMessages := agent.internalAgent.GetMessages()
+	agentMessages := messages.ConvertFromOpenAIMessages(openaiMessages)
+	return agentMessages
 }
 
 // GetContextSize returns the approximate size of the current context
 func (agent *Agent) GetContextSize() int {
-	totalSize := 0
-	for _, msg := range agent.messages {
-		totalSize += len(msg.Content)
-	}
-	return totalSize
+	return agent.internalAgent.GetCurrentContextSize()
 }
 
 // ResetMessages clears all messages except the system instruction
 func (agent *Agent) ResetMessages() {
-	if len(agent.messages) > 0 && agent.messages[0].Role == roles.System {
-		agent.messages = []messages.Message{agent.messages[0]}
-	} else {
-		agent.messages = []messages.Message{}
-	}
+	agent.internalAgent.ResetMessages()
 }
 
 // AddMessage adds a message to the conversation history
 func (agent *Agent) AddMessage(role roles.Role, content string) {
-	agent.messages = append(agent.messages, messages.Message{
-		Role:    role,
-		Content: content,
-	})
+	agent.internalAgent.AddMessage(
+		messages.ConvertToOpenAIMessage(messages.Message{
+			Role:    role,
+			Content: content,
+		}),
+	)
 }
 
 // DetectToolCalls sends messages and detects tool calls, executing them via callback
@@ -112,9 +105,6 @@ func (agent *Agent) DetectToolCalls(
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
 	}
-
-	// Add user messages to history
-	agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
@@ -127,10 +117,9 @@ func (agent *Agent) DetectToolCalls(
 
 	// Add assistant response to history if present
 	if lastAssistantMessage != "" {
-		agent.messages = append(agent.messages, messages.Message{
-			Role:    roles.Assistant,
-			Content: lastAssistantMessage,
-		})
+		agent.internalAgent.AddMessage(
+			openai.AssistantMessage(lastAssistantMessage),
+		)
 	}
 
 	return &ToolCallResult{
@@ -150,9 +139,6 @@ func (agent *Agent) DetectToolCallsStream(
 		return nil, errors.New("no messages provided")
 	}
 
-	// Add user messages to history
-	agent.messages = append(agent.messages, userMessages...)
-
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
@@ -168,10 +154,9 @@ func (agent *Agent) DetectToolCallsStream(
 
 	// Add assistant response to history if present
 	if lastAssistantMessage != "" {
-		agent.messages = append(agent.messages, messages.Message{
-			Role:    roles.Assistant,
-			Content: lastAssistantMessage,
-		})
+		agent.internalAgent.AddMessage(
+			openai.AssistantMessage(lastAssistantMessage),
+		)
 	}
 
 	return &ToolCallResult{
