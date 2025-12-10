@@ -27,9 +27,9 @@ type StreamCallback func(chunk string) error
 
 // Agent represents a simplified tools agent that hides OpenAI SDK details
 type Agent struct {
-	ctx         context.Context
-	config      agents.AgentConfig
-	modelConfig models.Config
+	ctx           context.Context
+	config        agents.AgentConfig
+	modelConfig   models.Config
 	internalAgent *BaseAgent
 	log           logger.Logger
 }
@@ -51,9 +51,9 @@ func NewAgent(
 	}
 
 	agent := &Agent{
-		ctx:         ctx,
-		config:      agentConfig,
-		modelConfig: modelConfig,
+		ctx:           ctx,
+		config:        agentConfig,
+		modelConfig:   modelConfig,
 		internalAgent: internalAgent,
 		log:           log,
 	}

@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/shared"
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/models"
@@ -28,7 +26,7 @@ func main() {
 			WithTemperature(0.0).
 			//WithToolChoiceAuto().
 			WithParallelToolCalls(false).
-			WithTools(GetToolsIndex()...),
+			WithTools(tools.ToOpenAITools(GetToolsIndex())),
 	)
 
 	if err != nil {
@@ -60,51 +58,21 @@ func main() {
 
 }
 
-func GetToolsIndex() []openai.ChatCompletionToolUnionParam {
-	calculateSumTool := openai.ChatCompletionFunctionTool(shared.FunctionDefinitionParam{
-		Name:        "calculate_sum",
-		Description: openai.String("Calculate the sum of two numbers"),
-		Parameters: shared.FunctionParameters{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"a": map[string]string{
-					"type":        "number",
-					"description": "The first number",
-				},
-				"b": map[string]string{
-					"type":        "number",
-					"description": "The second number",
-				},
-			},
-			"required": []string{"a", "b"},
-		},
-	})
+// TODO: add handler to Tool?
+func GetToolsIndex() []*tools.Tool {
+	calculateSumTool := tools.NewTool("calculate_sum").
+		SetDescription("Calculate the sum of two numbers").
+		AddParameter("a", "number", "The first number", true).
+		AddParameter("b", "number", "The second number", true)
 
-	sayHelloTool := openai.ChatCompletionFunctionTool(shared.FunctionDefinitionParam{
-		Name:        "say_hello",
-		Description: openai.String("Say hello to the given name"),
-		Parameters: shared.FunctionParameters{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"name": map[string]string{
-					"type":        "string",
-					"description": "The name to greet",
-				},
-			},
-			"required": []string{"name"},
-		},
-	})
+	sayHelloTool := tools.NewTool("say_hello").
+		SetDescription("Say hello to the given name").
+		AddParameter("name", "string", "The name to greet", true)
 
-	sayExit := openai.ChatCompletionFunctionTool(shared.FunctionDefinitionParam{
-		Name:        "say_exit",
-		Description: openai.String("Say exit"),
-		Parameters: shared.FunctionParameters{
-			"type":       "object",
-			"properties": map[string]interface{}{},
-		},
-	})
+	sayExit := tools.NewTool("say_exit").
+		SetDescription("Say exit")
 
-	return []openai.ChatCompletionToolUnionParam{
+	return []*tools.Tool{
 		calculateSumTool,
 		sayHelloTool,
 		sayExit,
