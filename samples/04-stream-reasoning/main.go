@@ -28,7 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	_, _, _, err = agent.RunStreamWithReasoning(
+	_, _, _, err = agent.GenerateStreamCompletionWithReasoning(
 		[]openai.ChatCompletionMessageParamUnion{
 			openai.UserMessage("[Brief] who is James T Kirk?"),
 		},

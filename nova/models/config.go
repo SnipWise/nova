@@ -137,3 +137,45 @@ func (mc Config) WithTools(tools ...openai.ChatCompletionToolUnionParam) Config 
 	mc.Tools = tools
 	return mc
 }
+
+// =====
+
+func ConvertToOpenAIModelConfig(modelConfig Config) openai.ChatCompletionNewParams {
+	openaiModelConfig := openai.ChatCompletionNewParams{
+		Model: modelConfig.Name,
+	}
+
+	// Set optional parameters if provided
+	if modelConfig.Temperature != nil {
+		openaiModelConfig.Temperature = openai.Float(*modelConfig.Temperature)
+	}
+	if modelConfig.TopP != nil {
+		openaiModelConfig.TopP = openai.Float(*modelConfig.TopP)
+	}
+	if modelConfig.MaxTokens != nil {
+		openaiModelConfig.MaxTokens = openai.Int(*modelConfig.MaxTokens)
+	}
+	if modelConfig.FrequencyPenalty != nil {
+		openaiModelConfig.FrequencyPenalty = openai.Float(*modelConfig.FrequencyPenalty)
+	}
+	if modelConfig.PresencePenalty != nil {
+		openaiModelConfig.PresencePenalty = openai.Float(*modelConfig.PresencePenalty)
+	}
+	if modelConfig.Seed != nil {
+		openaiModelConfig.Seed = openai.Int(*modelConfig.Seed)
+	}
+	if modelConfig.N != nil {
+		openaiModelConfig.N = openai.Int(*modelConfig.N)
+	}
+	if modelConfig.ToolChoice != nil {
+		openaiModelConfig.ToolChoice = *modelConfig.ToolChoice
+	}
+	if modelConfig.ParallelToolCalls != nil {
+		openaiModelConfig.ParallelToolCalls = openai.Bool(*modelConfig.ParallelToolCalls)
+	}
+	if modelConfig.Tools != nil {
+		openaiModelConfig.Tools = modelConfig.Tools
+	}
+
+	return openaiModelConfig
+}

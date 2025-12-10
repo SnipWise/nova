@@ -5,18 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova/agents"
+	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/models"
 	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/toolbox/logger"
 )
-
-// Message represents a conversation message with a role and content
-type Message struct {
-	Role    roles.Role
-	Content string
-}
 
 // CompletionResult represents the result of a chat completion
 type CompletionResult struct {
@@ -39,7 +33,7 @@ type Agent struct {
 	ctx           context.Context
 	config        agents.AgentConfig
 	modelConfig   models.Config
-	messages      []Message
+	messages      []messages.Message
 	internalAgent *BaseAgent
 	log           logger.Logger
 }
@@ -53,34 +47,7 @@ func NewAgent(
 	log := logger.GetLoggerFromEnv()
 
 	// Create internal OpenAI-based agent with converted parameters
-	openaiModelConfig := openai.ChatCompletionNewParams{
-		Model: modelConfig.Name,
-	}
-
-	// Set optional parameters if provided
-	if modelConfig.Temperature != nil {
-		openaiModelConfig.Temperature = openai.Float(*modelConfig.Temperature)
-	}
-	if modelConfig.TopP != nil {
-		openaiModelConfig.TopP = openai.Float(*modelConfig.TopP)
-	}
-	if modelConfig.MaxTokens != nil {
-		openaiModelConfig.MaxTokens = openai.Int(*modelConfig.MaxTokens)
-	}
-	if modelConfig.FrequencyPenalty != nil {
-		openaiModelConfig.FrequencyPenalty = openai.Float(*modelConfig.FrequencyPenalty)
-	}
-	if modelConfig.PresencePenalty != nil {
-		openaiModelConfig.PresencePenalty = openai.Float(*modelConfig.PresencePenalty)
-	}
-	if modelConfig.Seed != nil {
-		openaiModelConfig.Seed = openai.Int(*modelConfig.Seed)
-	}
-	if modelConfig.N != nil {
-		openaiModelConfig.N = openai.Int(*modelConfig.N)
-	}
-	// Note: TopK, MinP, RepeatPenalty, and Stop are model-specific parameters
-	// that may need to be passed differently depending on the model/engine
+	openaiModelConfig := models.ConvertToOpenAIModelConfig(modelConfig)
 
 	internalAgent, err := NewBaseAgent(ctx, agentConfig, openaiModelConfig)
 	if err != nil {
@@ -91,14 +58,14 @@ func NewAgent(
 		ctx:           ctx,
 		config:        agentConfig,
 		modelConfig:   modelConfig,
-		messages:      []Message{},
+		messages:      []messages.Message{},
 		internalAgent: internalAgent,
 		log:           log,
 	}
 
 	// Add system instruction as first message
-	agent.messages = append(agent.messages, Message{
-		Role:    "system",
+	agent.messages = append(agent.messages, messages.Message{
+		Role:    roles.System,
 		Content: agentConfig.SystemInstructions,
 	})
 
@@ -111,7 +78,7 @@ func (agent *Agent) Kind() agents.Kind {
 }
 
 // GetMessages returns all conversation messages
-func (agent *Agent) GetMessages() []Message {
+func (agent *Agent) GetMessages() []messages.Message {
 	return agent.messages
 }
 
@@ -126,44 +93,24 @@ func (agent *Agent) GetContextSize() int {
 
 // ResetMessages clears all messages except the system instruction
 func (agent *Agent) ResetMessages() {
-	if len(agent.messages) > 0 && agent.messages[0].Role == "system" {
-		agent.messages = []Message{agent.messages[0]}
+	if len(agent.messages) > 0 && agent.messages[0].Role == roles.System {
+		agent.messages = []messages.Message{agent.messages[0]}
 	} else {
-		agent.messages = []Message{}
+		agent.messages = []messages.Message{}
 	}
 	agent.internalAgent.ResetMessages()
 }
 
 // AddMessage adds a message to the conversation history
 func (agent *Agent) AddMessage(role roles.Role, content string) {
-	agent.messages = append(agent.messages, Message{
+	agent.messages = append(agent.messages, messages.Message{
 		Role:    role,
 		Content: content,
 	})
 }
 
-// convertToOpenAIMessages converts simplified messages to OpenAI format
-func (agent *Agent) convertToOpenAIMessages(messages []Message) []openai.ChatCompletionMessageParamUnion {
-	openaiMessages := make([]openai.ChatCompletionMessageParamUnion, 0, len(messages))
-
-	for _, msg := range messages {
-		switch msg.Role {
-		case "system":
-			openaiMessages = append(openaiMessages, openai.SystemMessage(msg.Content))
-		case "user":
-			openaiMessages = append(openaiMessages, openai.UserMessage(msg.Content))
-		case "assistant":
-			openaiMessages = append(openaiMessages, openai.AssistantMessage(msg.Content))
-		case "developer":
-			openaiMessages = append(openaiMessages, openai.DeveloperMessage(msg.Content))
-		}
-	}
-
-	return openaiMessages
-}
-
-// Chat sends messages and returns the completion result
-func (agent *Agent) Chat(userMessages []Message) (*CompletionResult, error) {
+// GenerateCompletion sends messages and returns the completion result
+func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*CompletionResult, error) {
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
 	}
@@ -172,17 +119,17 @@ func (agent *Agent) Chat(userMessages []Message) (*CompletionResult, error) {
 	agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
-	openaiMessages := agent.convertToOpenAIMessages(userMessages)
+	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
 	// Call internal agent
-	response, finishReason, err := agent.internalAgent.Run(openaiMessages)
+	response, finishReason, err := agent.internalAgent.GenerateCompletion(openaiMessages)
 	if err != nil {
 		return nil, err
 	}
 
 	// Add assistant response to history
-	agent.messages = append(agent.messages, Message{
-		Role:    "assistant",
+	agent.messages = append(agent.messages, messages.Message{
+		Role:    roles.Assistant,
 		Content: response,
 	})
 
@@ -192,8 +139,8 @@ func (agent *Agent) Chat(userMessages []Message) (*CompletionResult, error) {
 	}, nil
 }
 
-// ChatWithReasoning sends messages and returns the completion result with reasoning
-func (agent *Agent) ChatWithReasoning(userMessages []Message) (*ReasoningResult, error) {
+// GenerateCompletionWithReasoning sends messages and returns the completion result with reasoning
+func (agent *Agent) GenerateCompletionWithReasoning(userMessages []messages.Message) (*ReasoningResult, error) {
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
 	}
@@ -202,17 +149,17 @@ func (agent *Agent) ChatWithReasoning(userMessages []Message) (*ReasoningResult,
 	agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
-	openaiMessages := agent.convertToOpenAIMessages(userMessages)
+	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
 	// Call internal agent
-	response, reasoning, finishReason, err := agent.internalAgent.RunWithReasoning(openaiMessages)
+	response, reasoning, finishReason, err := agent.internalAgent.GenerateCompletionWithReasoning(openaiMessages)
 	if err != nil {
 		return nil, err
 	}
 
 	// Add assistant response to history
-	agent.messages = append(agent.messages, Message{
-		Role:    "assistant",
+	agent.messages = append(agent.messages, messages.Message{
+		Role:    roles.Assistant,
 		Content: response,
 	})
 
@@ -223,9 +170,9 @@ func (agent *Agent) ChatWithReasoning(userMessages []Message) (*ReasoningResult,
 	}, nil
 }
 
-// ChatStream sends messages and streams the response via callback
-func (agent *Agent) ChatStream(
-	userMessages []Message,
+// GenerateStreamCompletion sends messages and streams the response via callback
+func (agent *Agent) GenerateStreamCompletion(
+	userMessages []messages.Message,
 	callback StreamCallback,
 ) (*CompletionResult, error) {
 	if len(userMessages) == 0 {
@@ -236,16 +183,16 @@ func (agent *Agent) ChatStream(
 	agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
-	openaiMessages := agent.convertToOpenAIMessages(userMessages)
+	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
 	// Call internal agent with streaming
-	response, finishReason, err := agent.internalAgent.RunStream(openaiMessages, callback)
+	response, finishReason, err := agent.internalAgent.GenerateStreamCompletion(openaiMessages, callback)
 	if err != nil {
 		return nil, err
 	}
 
 	// Add assistant response to history
-	agent.messages = append(agent.messages, Message{
+	agent.messages = append(agent.messages, messages.Message{
 		Role:    "assistant",
 		Content: response,
 	})
@@ -256,9 +203,9 @@ func (agent *Agent) ChatStream(
 	}, nil
 }
 
-// ChatStreamWithReasoning sends messages and streams both reasoning and response
-func (agent *Agent) ChatStreamWithReasoning(
-	userMessages []Message,
+// GenerateStreamCompletionWithReasoning sends messages and streams both reasoning and response
+func (agent *Agent) GenerateStreamCompletionWithReasoning(
+	userMessages []messages.Message,
 	reasoningCallback StreamCallback,
 	responseCallback StreamCallback,
 ) (*ReasoningResult, error) {
@@ -270,10 +217,10 @@ func (agent *Agent) ChatStreamWithReasoning(
 	agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
-	openaiMessages := agent.convertToOpenAIMessages(userMessages)
+	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
 	// Call internal agent with streaming
-	response, reasoning, finishReason, err := agent.internalAgent.RunStreamWithReasoning(
+	response, reasoning, finishReason, err := agent.internalAgent.GenerateStreamCompletionWithReasoning(
 		openaiMessages,
 		reasoningCallback,
 		responseCallback,
@@ -283,8 +230,8 @@ func (agent *Agent) ChatStreamWithReasoning(
 	}
 
 	// Add assistant response to history
-	agent.messages = append(agent.messages, Message{
-		Role:    "assistant",
+	agent.messages = append(agent.messages, messages.Message{
+		Role:    roles.Assistant,
 		Content: response,
 	})
 
@@ -306,7 +253,7 @@ func (agent *Agent) ExportMessagesToJSON() (string, error) {
 
 // ImportMessagesFromJSON imports conversation history from JSON
 func (agent *Agent) ImportMessagesFromJSON(jsonData string) error {
-	var messages []Message
+	var messages []messages.Message
 	err := json.Unmarshal([]byte(jsonData), &messages)
 	if err != nil {
 		return err

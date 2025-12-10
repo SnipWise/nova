@@ -9,6 +9,7 @@ import (
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/shared"
 	"github.com/snipwise/nova/nova/agents"
+	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/models"
 	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/tools"
@@ -34,7 +35,7 @@ func main() {
 		panic(err)
 	}
 	// Say "Exit" to stop the process
-	messages := []tools.Message{
+	messages := []messages.Message{
 		{
 			Content: `
 			Make the sum of 40 and 2,

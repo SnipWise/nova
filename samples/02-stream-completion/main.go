@@ -29,7 +29,7 @@ func main() {
 		panic(err)
 	}
 
-	_, finishReason, err := agent.RunStream(
+	_, finishReason, err := agent.GenerateStreamCompletion(
 		[]openai.ChatCompletionMessageParamUnion{
 			openai.UserMessage("[Brief] who is James T Kirk?"),
 		},
@@ -47,7 +47,7 @@ func main() {
 	display.KeyValue("Finish reason", finishReason)
 	display.KeyValue("Context size", conversion.IntToString(agent.GetCurrentContextSize()))
 
-	_, finishReason, err = agent.RunStream(
+	_, finishReason, err = agent.GenerateStreamCompletion(
 		[]openai.ChatCompletionMessageParamUnion{
 			openai.UserMessage("[Brief] who is his best friend?"),
 		},

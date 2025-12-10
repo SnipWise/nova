@@ -1,8 +1,11 @@
 package main
 
 import (
-	"github.com/snipwise/nova/nova/models"
 	"context"
+
+	"github.com/snipwise/nova/nova/messages"
+	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/roles"
 
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/chat"
@@ -13,25 +16,25 @@ import (
 var (
 	// Deterministic configuration for consistent outputs
 	DeterministicConfig = models.NewConfig("ai/qwen2.5:1.5B-F16").
-		WithTemperature(0.0).
-		WithSeed(42)
+				WithTemperature(0.0).
+				WithSeed(42)
 
 	// Creative configuration for storytelling
 	CreativeConfig = models.NewConfig("ai/qwen2.5:1.5B-F16").
-		WithTemperature(0.9).
-		WithTopP(0.95).
-		WithPresencePenalty(0.6)
+			WithTemperature(0.9).
+			WithTopP(0.95).
+			WithPresencePenalty(0.6)
 
 	// Balanced configuration for general use
 	BalancedConfig = models.NewConfig("ai/qwen2.5:1.5B-F16").
-		WithTemperature(0.7).
-		WithMaxTokens(2000)
+			WithTemperature(0.7).
+			WithMaxTokens(2000)
 
 	// Concise configuration for brief responses
 	ConciseConfig = models.NewConfig("ai/qwen2.5:1.5B-F16").
-		WithTemperature(0.3).
-		WithMaxTokens(500).
-		WithFrequencyPenalty(0.5)
+			WithTemperature(0.3).
+			WithMaxTokens(500).
+			WithFrequencyPenalty(0.5)
 )
 
 func main() {
@@ -48,14 +51,14 @@ func main() {
 		panic(err)
 	}
 
-	result1, _ := deterministicAgent.Chat([]chat.Message{
-		{Role: "user", Content: "Count from 1 to 5"},
+	result1, _ := deterministicAgent.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "Count from 1 to 5"},
 	})
 	display.KeyValue("Response", result1.Response)
 
 	// Run the same query again - should get the same result
-	result2, _ := deterministicAgent.Chat([]chat.Message{
-		{Role: "user", Content: "Now count backwards from 5 to 1"},
+	result2, _ := deterministicAgent.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "Now count backwards from 5 to 1"},
 	})
 	display.KeyValue("Response", result2.Response)
 
@@ -69,8 +72,8 @@ func main() {
 		panic(err)
 	}
 
-	result3, _ := creativeAgent.Chat([]chat.Message{
-		{Role: "user", Content: "Tell me a creative idea for a story"},
+	result3, _ := creativeAgent.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "Tell me a creative idea for a story"},
 	})
 	display.KeyValue("Response", result3.Response)
 
@@ -84,8 +87,8 @@ func main() {
 		panic(err)
 	}
 
-	result4, _ := balancedAgent.Chat([]chat.Message{
-		{Role: "user", Content: "What is artificial intelligence?"},
+	result4, _ := balancedAgent.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "What is artificial intelligence?"},
 	})
 	display.KeyValue("Response", result4.Response)
 
@@ -99,8 +102,8 @@ func main() {
 		panic(err)
 	}
 
-	result5, _ := conciseAgent.Chat([]chat.Message{
-		{Role: "user", Content: "Explain quantum computing in simple terms"},
+	result5, _ := conciseAgent.GenerateCompletion([]messages.Message{
+		{Role:roles.User, Content: "Explain quantum computing in simple terms"},
 	})
 	display.KeyValue("Response", result5.Response)
 

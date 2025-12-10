@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/snipwise/nova/nova/agents"
+	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/models"
 	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/structured"
@@ -37,7 +38,7 @@ func main() {
 		panic(err)
 	}
 
-	response, finishReason, err := agent.GenerateStructuredData([]structured.Message{
+	response, finishReason, err := agent.GenerateStructuredData([]messages.Message{
 		{Role: roles.User, Content: "Tell me about Canada."},
 	})
 

@@ -6,10 +6,9 @@ import (
 	"errors"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
 
-	//"github.com/openai/openai-go/v3/shared"
 	"github.com/snipwise/nova/nova/agents"
+	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/toolbox/logger"
 )
 
@@ -18,8 +17,8 @@ type BaseAgent struct {
 	config agents.AgentConfig
 
 	chatCompletionParams openai.ChatCompletionNewParams
-	openaiClient openai.Client
-	log          logger.Logger
+	openaiClient         openai.Client
+	log                  logger.Logger
 }
 
 type AgentOption func(*BaseAgent)
@@ -32,26 +31,10 @@ func NewBaseAgent(
 	options ...AgentOption,
 ) (chatAgent *BaseAgent, err error) {
 
-	// export SNIP_LOG_LEVEL=debug  # Shows all logs
-	// export SNIP_LOG_LEVEL=info   # Shows info, warn, error
-	// export SNIP_LOG_LEVEL=warn   # Shows warn, error only
-	// export SNIP_LOG_LEVEL=error  # Shows errors only
-	// export SNIP_LOG_LEVEL=none   # No logging (default)
-
-	// Create logger from environment variable
-	log := logger.GetLoggerFromEnv()
-
-	client := openai.NewClient(
-		option.WithBaseURL(agentConfig.EngineURL),
-		option.WithAPIKey("I💙DockerModelRunner"),
-	)
-
-	_, err = client.Models.Get(ctx, modelConfig.Model)
+	client, log, err := agents.InitializeConnection(ctx, agentConfig.EngineURL, modelConfig.Model)
 	if err != nil {
-		log.Error("Model not available:", err)
-		return nil, errors.New("model not available on the specified engine URL")
+		return nil, err
 	}
-	log.Info("Model %s is available on %s", modelConfig.Model, agentConfig.EngineURL)
 
 	chatAgent = &BaseAgent{
 		ctx:                  ctx,
@@ -80,47 +63,15 @@ func (agent *BaseAgent) GetMessages() (messages []openai.ChatCompletionMessagePa
 	return agent.chatCompletionParams.Messages
 }
 
-// StringMessage represents a simplified message structure with role and content as strings
-type StringMessage struct {
-	Role    string
-	Content string
+// AddMessage adds a new message to the agent's message history
+func (agent *BaseAgent) AddMessage(message openai.ChatCompletionMessageParamUnion) {
+	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, message)
 }
 
 // GetStringMessages converts all messages to a slice of StringMessage with role and content as strings
-func (agent *BaseAgent) GetStringMessages() (stringMessages []StringMessage) {
-	stringMessages = []StringMessage{}
+func (agent *BaseAgent) GetStringMessages() (stringMessages []messages.Message) {
 
-	for _, msg := range agent.chatCompletionParams.Messages {
-		var role string
-		var content string
-
-		// Determine the role
-		if msg.OfSystem != nil {
-			role = "system"
-			content = msg.OfSystem.Content.OfString.Value
-		} else if msg.OfUser != nil {
-			role = "user"
-			content = msg.OfUser.Content.OfString.Value
-		} else if msg.OfAssistant != nil {
-			role = "assistant"
-			content = msg.OfAssistant.Content.OfString.Value
-			// } else if msg.OfTool != nil {
-			// 	role = "tool"
-			// } else if msg.OfFunction != nil {
-			// 	role = "function"
-		} else if msg.OfDeveloper != nil {
-			role = "developer"
-			content = msg.OfDeveloper.Content.OfString.Value
-		} else {
-			role = "unknown"
-			content = "Unknown message type"
-		}
-
-		stringMessages = append(stringMessages, StringMessage{
-			Role:    role,
-			Content: content,
-		})
-	}
+	stringMessages = messages.ConvertFromOpenAIMessages(agent.chatCompletionParams.Messages)
 
 	return stringMessages
 }
@@ -147,10 +98,11 @@ func (agent *BaseAgent) ResetMessages() {
 	}
 }
 
-func (agent *BaseAgent) Run(messages []openai.ChatCompletionMessageParamUnion) (response string, finishReason string, err error) {
+func (agent *BaseAgent) GenerateCompletion(messages []openai.ChatCompletionMessageParamUnion) (response string, finishReason string, err error) {
 	// Preserve existing system messages from agent.Params
 	// Combine existing system messages with new messages
 	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, messages...)
+
 	completion, err := agent.openaiClient.Chat.Completions.New(agent.ctx, agent.chatCompletionParams)
 
 	if err != nil {
@@ -170,7 +122,7 @@ func (agent *BaseAgent) Run(messages []openai.ChatCompletionMessageParamUnion) (
 	}
 }
 
-// RunWithReasoning executes a chat completion with the provided messages.
+// GenerateCompletionWithReasoning executes a chat completion with the provided messages.
 // It sends the messages to the model and returns the first choice's content and reasoning.
 //
 // Parameters:
@@ -179,7 +131,7 @@ func (agent *BaseAgent) Run(messages []openai.ChatCompletionMessageParamUnion) (
 // Returns:
 //   - string: The content of the first choice from the model's response
 //   - string: The reasoning content from the model's response
-func (agent *BaseAgent) RunWithReasoning(messages []openai.ChatCompletionMessageParamUnion) (response string, reasoning string, finishReason string, err error) {
+func (agent *BaseAgent) GenerateCompletionWithReasoning(messages []openai.ChatCompletionMessageParamUnion) (response string, reasoning string, finishReason string, err error) {
 
 	// Combine existing system messages with new messages
 	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, messages...)
@@ -215,7 +167,7 @@ func (agent *BaseAgent) RunWithReasoning(messages []openai.ChatCompletionMessage
 	}
 }
 
-func (agent *BaseAgent) RunStream(
+func (agent *BaseAgent) GenerateStreamCompletion(
 	messages []openai.ChatCompletionMessageParamUnion,
 	callBack func(partialResponse string, finishReason string) error) (response string, finishReason string, err error) {
 
@@ -271,7 +223,7 @@ func (agent *BaseAgent) RunStream(
 	return response, finalFinishReason, nil
 }
 
-func (agent *BaseAgent) RunStreamWithReasoning(
+func (agent *BaseAgent) GenerateStreamCompletionWithReasoning(
 	messages []openai.ChatCompletionMessageParamUnion,
 	reasoningCallback func(partialReasoning string, finishReason string) error,
 	responseCallback func(partialResponse string, finishReason string) error,

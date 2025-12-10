@@ -4,7 +4,8 @@ import (
 	"context"
 
 	"github.com/snipwise/nova/nova/agents"
-		"github.com/snipwise/nova/nova/roles"
+	"github.com/snipwise/nova/nova/messages"
+	"github.com/snipwise/nova/nova/roles"
 
 	"github.com/snipwise/nova/nova/models"
 	"github.com/snipwise/nova/nova/structured"
@@ -64,7 +65,7 @@ func main() {
 		panic(err)
 	}
 
-	intents, _, err := agent.GenerateStructuredData([]structured.Message{
+	intents, _, err := agent.GenerateStructuredData([]messages.Message{
 		{
 			Role: roles.User,
 			Content: `
@@ -82,7 +83,7 @@ func main() {
 
 	for _, intent := range *intents {
 		display.NewLine()
-		display.Title("Intant Detection")
+		display.Title("Intent Detection")
 
 		display.KeyValue("Action", intent.Action)
 		display.KeyValue("Character", intent.Character)

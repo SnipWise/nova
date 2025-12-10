@@ -1,8 +1,11 @@
 package main
 
 import (
-	"github.com/snipwise/nova/nova/models"
 	"context"
+
+	"github.com/snipwise/nova/nova/messages"
+	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/roles"
 
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/chat"
@@ -25,8 +28,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	result1, _ := agent1.Chat([]chat.Message{
-		{Role: "user", Content: "Say hello!"},
+	result1, _ := agent1.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "Say hello!"},
 	})
 	display.KeyValue("Response", result1.Response)
 
@@ -52,8 +55,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	result2, _ := agent2.Chat([]chat.Message{
-		{Role: "user", Content: "Tell me a very short story."},
+	result2, _ := agent2.GenerateCompletion([]messages.Message{
+		{Role:roles.User, Content: "Tell me a very short story."},
 	})
 	display.KeyValue("Response", result2.Response)
 
@@ -75,8 +78,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	result3, _ := agent3.Chat([]chat.Message{
-		{Role: "user", Content: "Count from 1 to 5"},
+	result3, _ := agent3.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "Count from 1 to 5"},
 	})
 	display.KeyValue("Response", result3.Response)
 
@@ -100,8 +103,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	result4, _ := agent4.Chat([]chat.Message{
-		{Role: "user", Content: "What is Go?"},
+	result4, _ := agent4.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "What is Go?"},
 	})
 	display.KeyValue("Response", result4.Response)
 

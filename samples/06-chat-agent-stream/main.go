@@ -6,6 +6,7 @@ import (
 
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/chat"
+	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/models"
 	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/ui/display"
@@ -31,8 +32,8 @@ func main() {
 	display.NewLine()
 
 	// Chat with streaming - no OpenAI types exposed
-	result, err := agent.ChatStream(
-		[]chat.Message{
+	result, err := agent.GenerateStreamCompletion(
+		[]messages.Message{
 			{Role: roles.User, Content: "Tell me a short story about a brave knight."},
 		},
 		func(chunk string, finishReason string) error {

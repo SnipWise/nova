@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/models"
 	"github.com/snipwise/nova/nova/roles"
 
@@ -25,7 +26,6 @@ func main() {
 		models.NewConfig("hf.co/menlo/lucy-gguf:q4_k_m").
 			WithTemperature(0.7).
 			WithTopP(0.9),
-			
 	)
 	if err != nil {
 		panic(err)
@@ -35,8 +35,8 @@ func main() {
 	display.NewLine()
 
 	// Chat with streaming and reasoning - no OpenAI types exposed
-	_, err = agent.ChatStreamWithReasoning(
-		[]chat.Message{
+	_, err = agent.GenerateStreamCompletionWithReasoning(
+		[]messages.Message{
 			{Role: roles.User, Content: "What is 15 * 24?"},
 		},
 		func(reasoningChunk string, finishReason string) error {

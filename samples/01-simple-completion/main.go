@@ -26,7 +26,7 @@ func main() {
 		panic(err)
 	}
 
-	response, finishReason, err := agent.Run([]openai.ChatCompletionMessageParamUnion{
+	response, finishReason, err := agent.GenerateCompletion([]openai.ChatCompletionMessageParamUnion{
 		openai.UserMessage("Hello, what is your name?"),
 	})
 
@@ -38,7 +38,7 @@ func main() {
 	display.KeyValue("Response", response)
 	display.KeyValue("Finish reason", finishReason)
 
-	response, finishReason, err = agent.Run([]openai.ChatCompletionMessageParamUnion{
+	response, finishReason, err = agent.GenerateCompletion([]openai.ChatCompletionMessageParamUnion{
 		openai.UserMessage("[Brief] who is James T Kirk?"),
 	})
 
@@ -50,7 +50,7 @@ func main() {
 	display.KeyValue("Response", response)
 	display.KeyValue("Finish reason", finishReason)
 
-	response, finishReason, err = agent.Run([]openai.ChatCompletionMessageParamUnion{
+	response, finishReason, err = agent.GenerateCompletion([]openai.ChatCompletionMessageParamUnion{
 		openai.UserMessage("[Brief] who is his best friend?"),
 	})
 

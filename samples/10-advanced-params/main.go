@@ -1,8 +1,11 @@
 package main
 
 import (
-	"github.com/snipwise/nova/nova/models"
 	"context"
+
+	"github.com/snipwise/nova/nova/messages"
+	"github.com/snipwise/nova/nova/models"
+	"github.com/snipwise/nova/nova/roles"
 
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/chat"
@@ -23,16 +26,16 @@ func main() {
 		engineConfig,
 		models.NewConfig("ai/qwen2.5:1.5B-F16").
 			WithTemperature(0.8).
-			WithTopK(40).      // Only consider top 40 most likely tokens
-			WithMinP(0.05).    // Minimum probability threshold
+			WithTopK(40).   // Only consider top 40 most likely tokens
+			WithMinP(0.05). // Minimum probability threshold
 			WithMaxTokens(100),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	result1, _ := agent1.Chat([]chat.Message{
-		{Role: "user", Content: "What is machine learning?"},
+	result1, _ := agent1.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "What is machine learning?"},
 	})
 	display.KeyValue("Response", result1.Response)
 	display.NewLine()
@@ -52,8 +55,8 @@ func main() {
 		panic(err)
 	}
 
-	result2, _ := agent2.Chat([]chat.Message{
-		{Role: "user", Content: "Tell me about artificial intelligence"},
+	result2, _ := agent2.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "Tell me about artificial intelligence"},
 	})
 	display.KeyValue("Response", result2.Response)
 	display.NewLine()
@@ -73,8 +76,8 @@ func main() {
 		panic(err)
 	}
 
-	result3, _ := agent3.Chat([]chat.Message{
-		{Role: "user", Content: "Complete this: The future of AI is"},
+	result3, _ := agent3.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "Complete this: The future of AI is"},
 	})
 	display.KeyValue("Response", result3.Response)
 	display.KeyValue("Finish reason", result3.FinishReason)
@@ -105,8 +108,8 @@ func main() {
 		panic(err)
 	}
 
-	result4, _ := agent4.Chat([]chat.Message{
-		{Role: "user", Content: "Explain quantum computing briefly"},
+	result4, _ := agent4.GenerateCompletion([]messages.Message{
+		{Role: roles.User, Content: "Explain quantum computing briefly"},
 	})
 	display.KeyValue("Response", result4.Response)
 	display.NewLine()

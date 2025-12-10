@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/snipwise/nova/nova/agents"
+		"github.com/snipwise/nova/nova/messages"
+
 	"github.com/snipwise/nova/nova/models"
 	"github.com/snipwise/nova/nova/roles"
 	"github.com/snipwise/nova/nova/structured"
@@ -54,15 +56,15 @@ func main() {
 		panic(err)
 	}
 
-	messages := []string{
+	messagesList := []string{
 		"I want to chat with Thrain and learn about his blacksmith skills.",
 		"I want to meet a dwarf blacksmith.",
 		"I want to speak about spells and magic.",
 		"I want to speak to Bob Morane.",
 	}
 
-	for _, message := range messages {
-		response, finishReason, err := agent.GenerateStructuredData([]structured.Message{
+	for _, message := range messagesList {
+		response, finishReason, err := agent.GenerateStructuredData([]messages.Message{
 			{
 				Role:    roles.User,
 				Content: message,
@@ -73,7 +75,7 @@ func main() {
 		}
 
 		display.NewLine()
-		display.Title("Intant Detection")
+		display.Title("Intent Detection")
 
 		display.KeyValue("Action", response.Action)
 		display.KeyValue("Character", response.Character)

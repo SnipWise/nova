@@ -26,7 +26,7 @@ func main() {
 		panic(err)
 	}
 
-	response, reasoning, finishReason, err := agent.RunWithReasoning([]openai.ChatCompletionMessageParamUnion{
+	response, reasoning, finishReason, err := agent.GenerateCompletionWithReasoning([]openai.ChatCompletionMessageParamUnion{
 		openai.UserMessage("[Brief] who is James T Kirk?"),
 	})
 	if err != nil {
