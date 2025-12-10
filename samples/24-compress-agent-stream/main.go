@@ -72,7 +72,7 @@ func main() {
 	display.Info("Compressing context (streaming)...")
 	display.NewLine()
 
-	compressionResult, err := compressorAgent.CompressMessagesStream(
+	compressionResult, err := compressorAgent.CompressContextStream(
 		chatAgent.GetMessages(),
 		func(partialResponse string, finishReason string) error {
 			display.Color(partialResponse, display.ColorCyan)

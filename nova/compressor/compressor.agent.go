@@ -62,7 +62,7 @@ func (agent *Agent) SetCompressionPrompt(prompt string) {
 }
 
 // CompressMessages compresses a list of messages and returns the compressed result
-func (agent *Agent) CompressMessages(messagesList []messages.Message) (*CompressionResult, error) {
+func (agent *Agent) CompressContext(messagesList []messages.Message) (*CompressionResult, error) {
 	if len(messagesList) == 0 {
 		return nil, errors.New("no messages provided")
 	}
@@ -83,7 +83,7 @@ func (agent *Agent) CompressMessages(messagesList []messages.Message) (*Compress
 }
 
 // CompressMessagesStream compresses a list of messages and streams the result via callback
-func (agent *Agent) CompressMessagesStream(
+func (agent *Agent) CompressContextStream(
 	messagesList []messages.Message,
 	callback StreamCallback,
 ) (*CompressionResult, error) {
