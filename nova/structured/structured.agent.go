@@ -22,10 +22,9 @@ type StructuredResult[Output any] struct {
 
 // Agent represents a simplified structured data agent that hides OpenAI SDK details
 type Agent[Output any] struct {
-	ctx           context.Context
-	config        agents.AgentConfig
-	modelConfig   models.Config
-	messages      []messages.Message
+	ctx         context.Context
+	config      agents.AgentConfig
+	modelConfig models.Config
 	internalAgent *BaseAgent[Output]
 	log           logger.Logger
 }
@@ -76,19 +75,17 @@ func NewAgent[Output any](
 	}
 
 	agent := &Agent[Output]{
-		ctx:           ctx,
-		config:        agentConfig,
-		modelConfig:   modelConfig,
-		messages:      []messages.Message{},
+		ctx:         ctx,
+		config:      agentConfig,
+		modelConfig: modelConfig,
 		internalAgent: internalAgent,
 		log:           log,
 	}
 
 	// Add system instruction as first message
-	agent.messages = append(agent.messages, messages.Message{
-		Role:    "system",
-		Content: agentConfig.SystemInstructions,
-	})
+	agent.internalAgent.AddMessage(
+		openai.SystemMessage(agentConfig.SystemInstructions),
+	)
 
 	return agent, nil
 }
@@ -98,15 +95,16 @@ func (agent *Agent[Output]) Kind() agents.Kind {
 	return agents.Structured
 }
 
+// ResetMessages clears all messages except the system instruction
+func (agent *Agent[Output]) ResetMessages() {
+	agent.internalAgent.ResetMessages()
+}
 
 // Generate sends messages and returns structured data
 func (agent *Agent[Output]) GenerateStructuredData(userMessages []messages.Message) (response *Output, finishReason string, err error) {
 	if len(userMessages) == 0 {
 		return nil, "", errors.New("no messages provided")
 	}
-
-	// Add user messages to history
-	agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
@@ -122,10 +120,10 @@ func (agent *Agent[Output]) GenerateStructuredData(userMessages []messages.Messa
 	if err != nil {
 		return nil, finishReason, err
 	}
-	agent.messages = append(agent.messages, messages.Message{
-		Role:    "assistant",
-		Content: string(jsonData),
-	})
+
+	agent.internalAgent.AddMessage(
+		openai.AssistantMessage(string(jsonData)),
+	)
 
 	return response, finishReason, nil
 }

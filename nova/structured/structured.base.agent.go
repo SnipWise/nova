@@ -94,6 +94,24 @@ func (agent *BaseAgent[Output]) Kind() (kind agents.Kind) {
 	return agents.Structured
 }
 
+// AddMessage adds a new message to the agent's message history
+func (agent *BaseAgent[Output]) AddMessage(message openai.ChatCompletionMessageParamUnion) {
+	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, message)
+}
+
+// ResetMessages clears the agent's message history except for the initial system message
+func (agent *BaseAgent[Output]) ResetMessages() {
+	// Remove existing messages except the first system message if it's a system message
+	if len(agent.chatCompletionParams.Messages) > 0 {
+		firstMsg := agent.chatCompletionParams.Messages[0]
+		if firstMsg.OfSystem != nil {
+			agent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{firstMsg}
+		} else {
+			agent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{}
+		}
+	}
+}
+
 func (agent *BaseAgent[Output]) GenerateStructuredData(messages []openai.ChatCompletionMessageParamUnion) (response *Output, finishReason string, err error) {
 	// Preserve existing system messages from agent.Params
 	// Combine existing system messages with new messages
