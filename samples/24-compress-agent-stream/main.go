@@ -73,7 +73,7 @@ func main() {
 	display.NewLine()
 
 	// newContext
-	newContext, _, err := compressorAgent.CompressContextStream(
+	newContext, err := compressorAgent.CompressContextStream(
 		chatAgent.GetMessages(),
 		func(partialResponse string, finishReason string) error {
 			display.Color(partialResponse, display.ColorCyan)
@@ -92,7 +92,7 @@ func main() {
 
 	chatAgent.AddMessage(
 		roles.System,
-		newContext,
+		newContext.CompressedText,
 	)
 
 	listOfMessages := chatAgent.GetMessages()

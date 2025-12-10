@@ -86,19 +86,22 @@ func (agent *Agent) CompressContext(messagesList []messages.Message) (*Compressi
 func (agent *Agent) CompressContextStream(
 	messagesList []messages.Message,
 	callback StreamCallback,
-) (response string, finishReason string, err error) {
+) (*CompressionResult, error) {
 	if len(messagesList) == 0 {
-		return "", "", errors.New("no messages provided")
+		return nil, errors.New("no messages provided")
 	}
 
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(messagesList)
 
 	// Call internal agent with streaming
-	response, finishReason, err = agent.internalAgent.CompressContextStream(openaiMessages, callback)
+	response, finishReason, err := agent.internalAgent.CompressContextStream(openaiMessages, callback)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return response, finishReason, nil
+	return &CompressionResult{
+		CompressedText: response,
+		FinishReason:   finishReason,
+	}, nil
 }
