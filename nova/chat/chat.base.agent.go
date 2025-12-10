@@ -195,7 +195,6 @@ func (agent *BaseAgent) GenerateStreamCompletion(
 		if callBackError != nil {
 			break
 		}
-
 	}
 
 	// QUESTION: IMPORTANT: what happens if it's something other than stop?

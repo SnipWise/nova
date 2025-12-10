@@ -5,12 +5,21 @@ import (
 	"github.com/openai/openai-go/v3/shared"
 )
 
+type ConfirmationResponse int
+
+const (
+	Confirmed ConfirmationResponse = iota
+	Denied
+	Quit
+)
+
 // Tool represents a function tool with a fluent builder API
 type Tool struct {
-	name        string
-	description string
-	parameters  map[string]Parameter
-	required    []string
+	Name        string
+	Description string
+	Parameters  map[string]Parameter
+	Required    []string
+	//Function   func(string) (string, error)
 }
 
 // Parameter represents a function parameter
@@ -22,15 +31,15 @@ type Parameter struct {
 // NewTool creates a new Tool with the given name
 func NewTool(name string) *Tool {
 	return &Tool{
-		name:       name,
-		parameters: make(map[string]Parameter),
-		required:   []string{},
+		Name:       name,
+		Parameters: make(map[string]Parameter),
+		Required:   []string{},
 	}
 }
 
 // SetDescription sets the description of the tool
 func (t *Tool) SetDescription(description string) *Tool {
-	t.description = description
+	t.Description = description
 	return t
 }
 
@@ -38,12 +47,12 @@ func (t *Tool) SetDescription(description string) *Tool {
 // paramType should be one of: "string", "number", "boolean", "object", "array"
 // isRequired indicates whether the parameter is required
 func (t *Tool) AddParameter(name, paramType, description string, isRequired bool) *Tool {
-	t.parameters[name] = Parameter{
+	t.Parameters[name] = Parameter{
 		Type:        paramType,
 		Description: description,
 	}
 	if isRequired {
-		t.required = append(t.required, name)
+		t.Required = append(t.Required, name)
 	}
 	return t
 }
@@ -51,7 +60,7 @@ func (t *Tool) AddParameter(name, paramType, description string, isRequired bool
 // ToOpenAI converts the Tool to an OpenAI ChatCompletionToolUnionParam
 func (t *Tool) ToOpenAI() openai.ChatCompletionToolUnionParam {
 	properties := make(map[string]any)
-	for name, param := range t.parameters {
+	for name, param := range t.Parameters {
 		properties[name] = map[string]string{
 			"type":        param.Type,
 			"description": param.Description,
@@ -64,35 +73,35 @@ func (t *Tool) ToOpenAI() openai.ChatCompletionToolUnionParam {
 	}
 
 	// Only add required field if there are required parameters
-	if len(t.required) > 0 {
-		functionParams["required"] = t.required
+	if len(t.Required) > 0 {
+		functionParams["required"] = t.Required
 	}
 
 	return openai.ChatCompletionFunctionTool(shared.FunctionDefinitionParam{
-		Name:        t.name,
-		Description: openai.String(t.description),
+		Name:        t.Name,
+		Description: openai.String(t.Description),
 		Parameters:  functionParams,
 	})
 }
 
 // GetName returns the name of the tool
 func (t *Tool) GetName() string {
-	return t.name
+	return t.Name
 }
 
 // GetDescription returns the description of the tool
 func (t *Tool) GetDescription() string {
-	return t.description
+	return t.Description
 }
 
 // GetParameters returns the parameters of the tool
 func (t *Tool) GetParameters() map[string]Parameter {
-	return t.parameters
+	return t.Parameters
 }
 
 // GetRequired returns the list of required parameter names
 func (t *Tool) GetRequired() []string {
-	return t.required
+	return t.Required
 }
 
 // ToOpenAITools converts a slice of Tool pointers to a slice of OpenAI ChatCompletionToolUnionParam
