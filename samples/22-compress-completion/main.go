@@ -8,6 +8,7 @@ import (
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/chat"
 	"github.com/snipwise/nova/nova/compressor"
+	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/toolbox/conversion"
 	"github.com/snipwise/nova/nova/ui/display"
 )
@@ -79,6 +80,12 @@ func main() {
 	chatAgent.AddMessage(
 		openai.SystemMessage(newContext),
 	)
+
+	listOfMessages := messages.ConvertFromOpenAIMessages(chatAgent.GetMessages())
+
+	for _, msg := range listOfMessages {
+		display.Color(fmt.Sprintf("[%s] %s\n", msg.Role, msg.Content), display.ColorBrightPurple)
+	}
 
 	display.KeyValue("New context size", conversion.IntToString(chatAgent.GetCurrentContextSize()))
 	display.Separator()

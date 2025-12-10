@@ -34,7 +34,7 @@ func main() {
 	// Chat with streaming - no OpenAI types exposed
 	result, err := agent.GenerateStreamCompletion(
 		[]messages.Message{
-			{Role: roles.User, Content: "Tell me a short story about a brave knight."},
+			{Role: roles.User, Content: "Who is James T Kirk?"},
 		},
 		func(chunk string, finishReason string) error {
 			// Simple callback that receives strings only
@@ -55,4 +55,30 @@ func main() {
 	display.Separator()
 	display.KeyValue("Finish reason", result.FinishReason)
 	display.KeyValue("Context size", fmt.Sprintf("%d characters", agent.GetContextSize()))
+	display.Separator()
+
+	result, err = agent.GenerateStreamCompletion(
+		[]messages.Message{
+			{Role: roles.User, Content: "Who is his best friend?"},
+		},
+		func(chunk string, finishReason string) error {
+			// Simple callback that receives strings only
+			if chunk != "" {
+				fmt.Print(chunk)
+			}
+			if finishReason == "stop" {
+				fmt.Println()
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	display.NewLine()
+	display.Separator()
+	display.KeyValue("Finish reason", result.FinishReason)
+	display.KeyValue("Context size", fmt.Sprintf("%d characters", agent.GetContextSize()))
+	display.Separator()
 }

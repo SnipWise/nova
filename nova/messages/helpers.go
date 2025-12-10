@@ -5,21 +5,29 @@ import (
 	"github.com/snipwise/nova/nova/roles"
 )
 
+// ConvertToOpenAIMessage converts a single message to OpenAI format
+func ConvertToOpenAIMessage(message Message) openai.ChatCompletionMessageParamUnion {
+	switch message.Role {
+	case roles.System:
+		return openai.SystemMessage(message.Content)
+	case roles.User:
+		return openai.UserMessage(message.Content)
+	case roles.Assistant:
+		return openai.AssistantMessage(message.Content)
+	case roles.Developer:
+		return openai.DeveloperMessage(message.Content)
+	default:
+		// Default to user message for unknown roles
+		return openai.UserMessage(message.Content)
+	}
+}
+
 // ConvertToOpenAIMessages converts simplified messages to OpenAI format
 func ConvertToOpenAIMessages(messages []Message) []openai.ChatCompletionMessageParamUnion {
 	openaiMessages := make([]openai.ChatCompletionMessageParamUnion, 0, len(messages))
 
 	for _, msg := range messages {
-		switch msg.Role {
-		case roles.System:
-			openaiMessages = append(openaiMessages, openai.SystemMessage(msg.Content))
-		case roles.User:
-			openaiMessages = append(openaiMessages, openai.UserMessage(msg.Content))
-		case roles.Assistant:
-			openaiMessages = append(openaiMessages, openai.AssistantMessage(msg.Content))
-		case roles.Developer:
-			openaiMessages = append(openaiMessages, openai.DeveloperMessage(msg.Content))
-		}
+		openaiMessages = append(openaiMessages, ConvertToOpenAIMessage(msg))
 	}
 
 	return openaiMessages

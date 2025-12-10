@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/models"
@@ -30,10 +31,10 @@ type StreamCallback func(chunk string, finishReason string) error
 
 // Agent represents a simplified chat agent that hides OpenAI SDK details
 type Agent struct {
-	ctx           context.Context
-	config        agents.AgentConfig
-	modelConfig   models.Config
-	messages      []messages.Message
+	ctx         context.Context
+	config      agents.AgentConfig
+	modelConfig models.Config
+	//messages      []messages.Message
 	internalAgent *BaseAgent
 	log           logger.Logger
 }
@@ -55,19 +56,23 @@ func NewAgent(
 	}
 
 	agent := &Agent{
-		ctx:           ctx,
-		config:        agentConfig,
-		modelConfig:   modelConfig,
-		messages:      []messages.Message{},
+		ctx:         ctx,
+		config:      agentConfig,
+		modelConfig: modelConfig,
+		//messages:      []messages.Message{},
 		internalAgent: internalAgent,
 		log:           log,
 	}
 
-	// Add system instruction as first message
-	agent.messages = append(agent.messages, messages.Message{
-		Role:    roles.System,
-		Content: agentConfig.SystemInstructions,
-	})
+	agent.internalAgent.AddMessage(
+		openai.SystemMessage(agentConfig.SystemInstructions),
+	)
+
+	// // Add system instruction as first message
+	// agent.messages = append(agent.messages, messages.Message{
+	// 	Role:    roles.System,
+	// 	Content: agentConfig.SystemInstructions,
+	// })
 
 	return agent, nil
 }
@@ -79,34 +84,35 @@ func (agent *Agent) Kind() agents.Kind {
 
 // GetMessages returns all conversation messages
 func (agent *Agent) GetMessages() []messages.Message {
-	return agent.messages
+	openaiMessages := agent.internalAgent.GetMessages()
+	agentMessages := messages.ConvertFromOpenAIMessages(openaiMessages)
+	return agentMessages
 }
 
 // GetContextSize returns the approximate size of the current context
 func (agent *Agent) GetContextSize() int {
-	totalSize := 0
-	for _, msg := range agent.messages {
-		totalSize += len(msg.Content)
-	}
-	return totalSize
+	return agent.internalAgent.GetCurrentContextSize()
 }
 
 // ResetMessages clears all messages except the system instruction
 func (agent *Agent) ResetMessages() {
-	if len(agent.messages) > 0 && agent.messages[0].Role == roles.System {
-		agent.messages = []messages.Message{agent.messages[0]}
-	} else {
-		agent.messages = []messages.Message{}
-	}
 	agent.internalAgent.ResetMessages()
 }
 
 // AddMessage adds a message to the conversation history
 func (agent *Agent) AddMessage(role roles.Role, content string) {
-	agent.messages = append(agent.messages, messages.Message{
-		Role:    role,
-		Content: content,
-	})
+
+	agent.internalAgent.AddMessage(
+		messages.ConvertToOpenAIMessage(messages.Message{
+			Role:    role,
+			Content: content,
+		}),
+	)
+
+	// agent.messages = append(agent.messages, messages.Message{
+	// 	Role:    role,
+	// 	Content: content,
+	// })
 }
 
 // GenerateCompletion sends messages and returns the completion result
@@ -116,7 +122,7 @@ func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*Comple
 	}
 
 	// Add user messages to history
-	agent.messages = append(agent.messages, userMessages...)
+	//agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
@@ -128,10 +134,14 @@ func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*Comple
 	}
 
 	// Add assistant response to history
-	agent.messages = append(agent.messages, messages.Message{
-		Role:    roles.Assistant,
-		Content: response,
-	})
+	agent.internalAgent.AddMessage(
+		openai.AssistantMessage(response),
+	)
+
+	// agent.messages = append(agent.messages, messages.Message{
+	// 	Role:    roles.Assistant,
+	// 	Content: response,
+	// })
 
 	return &CompletionResult{
 		Response:     response,
@@ -146,7 +156,7 @@ func (agent *Agent) GenerateCompletionWithReasoning(userMessages []messages.Mess
 	}
 
 	// Add user messages to history
-	agent.messages = append(agent.messages, userMessages...)
+	//agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
@@ -158,10 +168,14 @@ func (agent *Agent) GenerateCompletionWithReasoning(userMessages []messages.Mess
 	}
 
 	// Add assistant response to history
-	agent.messages = append(agent.messages, messages.Message{
-		Role:    roles.Assistant,
-		Content: response,
-	})
+	agent.internalAgent.AddMessage(
+		openai.AssistantMessage(response),
+	)
+
+	// agent.messages = append(agent.messages, messages.Message{
+	// 	Role:    roles.Assistant,
+	// 	Content: response,
+	// })
 
 	return &ReasoningResult{
 		Response:     response,
@@ -180,7 +194,7 @@ func (agent *Agent) GenerateStreamCompletion(
 	}
 
 	// Add user messages to history
-	agent.messages = append(agent.messages, userMessages...)
+	//agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
@@ -192,10 +206,13 @@ func (agent *Agent) GenerateStreamCompletion(
 	}
 
 	// Add assistant response to history
-	agent.messages = append(agent.messages, messages.Message{
-		Role:    "assistant",
-		Content: response,
-	})
+	agent.internalAgent.AddMessage(
+		openai.AssistantMessage(response),
+	)
+	// agent.messages = append(agent.messages, messages.Message{
+	// 	Role:    "assistant",
+	// 	Content: response,
+	// })
 
 	return &CompletionResult{
 		Response:     response,
@@ -214,7 +231,7 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 	}
 
 	// Add user messages to history
-	agent.messages = append(agent.messages, userMessages...)
+	//agent.messages = append(agent.messages, userMessages...)
 
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
@@ -230,10 +247,13 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 	}
 
 	// Add assistant response to history
-	agent.messages = append(agent.messages, messages.Message{
-		Role:    roles.Assistant,
-		Content: response,
-	})
+	agent.internalAgent.AddMessage(
+		openai.AssistantMessage(response),
+	)
+	// agent.messages = append(agent.messages, messages.Message{
+	// 	Role:    roles.Assistant,
+	// 	Content: response,
+	// })
 
 	return &ReasoningResult{
 		Response:     response,
@@ -244,20 +264,11 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 
 // ExportMessagesToJSON exports the conversation history to JSON
 func (agent *Agent) ExportMessagesToJSON() (string, error) {
-	jsonData, err := json.MarshalIndent(agent.messages, "", "  ")
+	messagesList := agent.GetMessages()
+	jsonData, err := json.MarshalIndent(messagesList, "", "  ")
 	if err != nil {
 		return "", err
 	}
 	return string(jsonData), nil
 }
 
-// ImportMessagesFromJSON imports conversation history from JSON
-func (agent *Agent) ImportMessagesFromJSON(jsonData string) error {
-	var messages []messages.Message
-	err := json.Unmarshal([]byte(jsonData), &messages)
-	if err != nil {
-		return err
-	}
-	agent.messages = messages
-	return nil
-}

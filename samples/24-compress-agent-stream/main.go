@@ -72,7 +72,8 @@ func main() {
 	display.Info("Compressing context (streaming)...")
 	display.NewLine()
 
-	compressionResult, err := compressorAgent.CompressContextStream(
+	// newContext
+	newContext, _, err := compressorAgent.CompressContextStream(
 		chatAgent.GetMessages(),
 		func(partialResponse string, finishReason string) error {
 			display.Color(partialResponse, display.ColorCyan)
@@ -88,10 +89,20 @@ func main() {
 
 	// Reset chat agent messages and add new compressed context
 	chatAgent.ResetMessages()
-	chatAgent.AddMessage(roles.System, compressionResult.CompressedText)
+
+	chatAgent.AddMessage(
+		roles.System,
+		newContext,
+	)
+
+	listOfMessages := chatAgent.GetMessages()
+	for _, msg := range listOfMessages {
+		display.Color(fmt.Sprintf("[%s] %s\n", msg.Role, msg.Content), display.ColorBrightPurple)
+	}
 
 	display.KeyValue("New context size", conversion.IntToString(chatAgent.GetContextSize()))
 	display.Separator()
+
 
 	// Second conversation using compressed context
 	result, err = chatAgent.GenerateStreamCompletion(
