@@ -85,6 +85,11 @@ func (agent *Agent) GetContextSize() int {
 	return agent.internalAgent.GetCurrentContextSize()
 }
 
+// StopStream interrupts the current streaming operation
+func (agent *Agent) StopStream() {
+	agent.internalAgent.StopStream()
+}
+
 // ResetMessages clears all messages except the system instruction
 func (agent *Agent) ResetMessages() {
 	agent.internalAgent.ResetMessages()

@@ -19,6 +19,7 @@ type BaseAgent struct {
 	chatCompletionParams openai.ChatCompletionNewParams
 	openaiClient         openai.Client
 	log                  logger.Logger
+	streamCanceled       bool
 }
 
 type AgentOption func(*BaseAgent)
@@ -83,6 +84,11 @@ func (agent *BaseAgent) GetCurrentContextSize() (contextSize int) {
 		contextSize += len(msg.Content)
 	}
 	return contextSize + len(agent.config.SystemInstructions)
+}
+
+// StopStream interrupts the current streaming operation
+func (agent *BaseAgent) StopStream() {
+	agent.streamCanceled = true
 }
 
 // ResetMessages clears the agent's message history except for the initial system message
@@ -171,6 +177,9 @@ func (agent *BaseAgent) GenerateStreamCompletion(
 	messages []openai.ChatCompletionMessageParamUnion,
 	callBack func(partialResponse string, finishReason string) error) (response string, finishReason string, err error) {
 
+	// Reset cancellation flag at the start of streaming
+	agent.streamCanceled = false
+
 	// Combine existing system messages with new messages
 	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, messages...)
 	stream := agent.openaiClient.Chat.Completions.NewStreaming(agent.ctx, agent.chatCompletionParams)
@@ -179,6 +188,12 @@ func (agent *BaseAgent) GenerateStreamCompletion(
 	finalFinishReason := ""
 
 	for stream.Next() {
+		// Check if stream was canceled
+		if agent.streamCanceled {
+			callBackError = errors.New("stream canceled by user")
+			break
+		}
+
 		chunk := stream.Current()
 
 		// Capture finishReason if present (even if there's no content)
@@ -228,6 +243,9 @@ func (agent *BaseAgent) GenerateStreamCompletionWithReasoning(
 	responseCallback func(partialResponse string, finishReason string) error,
 ) (response string, reasoning string, finishReason string, err error) {
 
+	// Reset cancellation flag at the start of streaming
+	agent.streamCanceled = false
+
 	// Combine existing system messages with new messages
 	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, messages...)
 	stream := agent.openaiClient.Chat.Completions.NewStreaming(agent.ctx, agent.chatCompletionParams)
@@ -237,6 +255,12 @@ func (agent *BaseAgent) GenerateStreamCompletionWithReasoning(
 	var reasoningEnded bool
 
 	for stream.Next() {
+		// Check if stream was canceled
+		if agent.streamCanceled {
+			callBackError = errors.New("stream canceled by user")
+			break
+		}
+
 		chunk := stream.Current()
 
 		// Capture finishReason if present (even if there's no content)
