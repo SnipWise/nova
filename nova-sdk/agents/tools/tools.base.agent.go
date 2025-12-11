@@ -6,9 +6,9 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/shared/constant"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/messages"
-	"github.com/snipwise/nova/nova/toolbox/logger"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
 type BaseAgent struct {
@@ -213,7 +213,6 @@ func (agent *BaseAgent) DetectToolCalls(messages []openai.ChatCompletionMessageP
 	return finishReason, results, lastAssistantMessage, nil
 }
 
-
 func (agent *BaseAgent) DetectToolCallsWithConfirmation(
 	messages []openai.ChatCompletionMessageParamUnion,
 	toolCallBack func(functionName string, arguments string) (string, error),
@@ -357,7 +356,6 @@ func (agent *BaseAgent) DetectToolCallsWithConfirmation(
 	return finishReason, results, lastAssistantMessage, nil
 }
 
-
 func (agent *BaseAgent) DetectToolCallsStream(messages []openai.ChatCompletionMessageParamUnion, toolCallback func(functionName string, arguments string) (string, error), streamCallback func(content string) error) (string, []string, string, error) {
 	stopped := false
 	results := []string{}
@@ -486,7 +484,6 @@ func (agent *BaseAgent) DetectToolCallsStream(messages []openai.ChatCompletionMe
 	}
 	return finishReason, results, lastAssistantMessage, nil
 }
-
 
 func (agent *BaseAgent) DetectToolCallsWithConfirmationStream(
 	messages []openai.ChatCompletionMessageParamUnion,

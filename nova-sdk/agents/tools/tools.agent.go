@@ -5,11 +5,11 @@ import (
 	"errors"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/messages"
-	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/messages/roles"
-	"github.com/snipwise/nova/nova/toolbox/logger"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
 // ToolCallResult represents the result of tool call detection
@@ -150,8 +150,8 @@ func (agent *Agent) DetectToolCallsWithConfirmation(
 
 	// Call internal agent
 	finishReason, results, lastAssistantMessage, err := agent.internalAgent.DetectToolCallsWithConfirmation(
-		openaiMessages, 
-		toolCallback, 
+		openaiMessages,
+		toolCallback,
 		confirmationCallback,
 	)
 
@@ -209,8 +209,6 @@ func (agent *Agent) DetectToolCallsStream(
 		LastAssistantMessage: lastAssistantMessage,
 	}, nil
 }
-
-
 
 // DetectToolCallsStream sends messages and detects tool calls with streaming
 func (agent *Agent) DetectToolCallsWithConfirmationStream(

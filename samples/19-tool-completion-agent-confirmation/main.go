@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/messages"
-	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/messages/roles"
-	"github.com/snipwise/nova/nova/agents/tools"
-	"github.com/snipwise/nova/nova/ui/display"
-	"github.com/snipwise/nova/nova/ui/prompt"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/tools"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/ui/display"
+	"github.com/snipwise/nova/nova-sdk/ui/prompt"
 )
 
 func main() {
@@ -47,8 +47,8 @@ func main() {
 	}
 
 	result, err := agent.DetectToolCallsWithConfirmation(
-		messages, 
-		executeFunction, 
+		messages,
+		executeFunction,
 		confirmationPrompt,
 	)
 	if err != nil {

@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 
-	"github.com/snipwise/nova/nova/messages"
-	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/models"
 
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/agents/chat"
-	"github.com/snipwise/nova/nova/ui/display"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/chat"
+	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
 func main() {
@@ -56,7 +56,7 @@ func main() {
 		panic(err)
 	}
 	result2, _ := agent2.GenerateCompletion([]messages.Message{
-		{Role:roles.User, Content: "Tell me a very short story."},
+		{Role: roles.User, Content: "Tell me a very short story."},
 	})
 	display.KeyValue("Response", result2.Response)
 

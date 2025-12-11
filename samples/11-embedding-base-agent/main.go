@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/agents/rag"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/rag"
 
-	"github.com/snipwise/nova/nova/ui/display"
+	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
 func main() {

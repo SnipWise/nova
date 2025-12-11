@@ -2,7 +2,7 @@ package messages
 
 import (
 	"github.com/openai/openai-go/v3"
-	"github.com/snipwise/nova/nova/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/messages/roles"
 )
 
 // ConvertToOpenAIMessage converts a single message to OpenAI format

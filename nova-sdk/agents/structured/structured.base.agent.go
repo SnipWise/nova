@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/toolbox/logger"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
 type BaseAgent[Output any] struct {

@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/toolbox/logger"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 
-	"github.com/snipwise/nova/nova/agents/rag/stores"
+	"github.com/snipwise/nova/nova-sdk/agents/rag/stores"
 )
 
 type BaseAgent struct {

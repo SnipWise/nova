@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/agents/chat"
-	"github.com/snipwise/nova/nova/agents/compressor"
-	"github.com/snipwise/nova/nova/messages"
-	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/messages/roles"
-	"github.com/snipwise/nova/nova/toolbox/conversion"
-	"github.com/snipwise/nova/nova/ui/display"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/chat"
+	"github.com/snipwise/nova/nova-sdk/agents/compressor"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/conversion"
+	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
 func main() {
@@ -102,7 +102,6 @@ func main() {
 
 	display.KeyValue("New context size", conversion.IntToString(chatAgent.GetContextSize()))
 	display.Separator()
-
 
 	// Second conversation using compressed context
 	result, err = chatAgent.GenerateStreamCompletion(

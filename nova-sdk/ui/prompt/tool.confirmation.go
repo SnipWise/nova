@@ -3,7 +3,7 @@ package prompt
 import (
 	"log"
 
-	"github.com/snipwise/nova/nova/agents/tools"
+	"github.com/snipwise/nova/nova-sdk/agents/tools"
 )
 
 func HumanConfirmation(text string) tools.ConfirmationResponse {

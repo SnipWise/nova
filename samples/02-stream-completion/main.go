@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/agents/chat"
-	"github.com/snipwise/nova/nova/toolbox/conversion"
-	"github.com/snipwise/nova/nova/ui/display"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/chat"
+	"github.com/snipwise/nova/nova-sdk/toolbox/conversion"
+	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
 func main() {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
-	"github.com/snipwise/nova/nova/toolbox/logger"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
 func InitializeConnection(ctx context.Context, engineURL, model string) (client openai.Client, log logger.Logger, err error) {
@@ -27,7 +27,7 @@ func InitializeConnection(ctx context.Context, engineURL, model string) (client 
 	_, err = client.Models.Get(ctx, model)
 	if err != nil {
 		log.Error("Model not available:", err)
-		return openai.Client{},nil, errors.New("model not available on the specified engine URL")
+		return openai.Client{}, nil, errors.New("model not available on the specified engine URL")
 	}
 	log.Info("Model %s is available on %s", model, engineURL)
 

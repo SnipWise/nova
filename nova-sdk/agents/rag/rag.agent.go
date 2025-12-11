@@ -5,17 +5,17 @@ import (
 	"errors"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/toolbox/logger"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
 // VectorRecord represents a vector record with prompt and embedding
 type VectorRecord struct {
-	ID         string
-	Prompt     string
-	Embedding  []float64
-	Metadata   map[string]any
+	ID        string
+	Prompt    string
+	Embedding []float64
+	Metadata  map[string]any
 	// CosineSimilarity
 	Similarity float64
 }

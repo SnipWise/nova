@@ -8,10 +8,10 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/shared"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/agents/tools"
-	"github.com/snipwise/nova/nova/ui/display"
-	"github.com/snipwise/nova/nova/ui/prompt"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/tools"
+	"github.com/snipwise/nova/nova-sdk/ui/display"
+	"github.com/snipwise/nova/nova-sdk/ui/prompt"
 )
 
 func main() {

@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/agents/chat"
-	"github.com/snipwise/nova/nova/agents/compressor"
-	"github.com/snipwise/nova/nova/messages"
-	"github.com/snipwise/nova/nova/toolbox/conversion"
-	"github.com/snipwise/nova/nova/ui/display"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/chat"
+	"github.com/snipwise/nova/nova-sdk/agents/compressor"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/toolbox/conversion"
+	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
 func main() {
@@ -94,7 +94,7 @@ func main() {
 	)
 
 	listOfMessages := messages.ConvertFromOpenAIMessages(chatAgent.GetMessages())
-	
+
 	for _, msg := range listOfMessages {
 		display.Color(fmt.Sprintf("[%s] %s\n", msg.Role, msg.Content), display.ColorBrightPurple)
 	}

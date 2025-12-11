@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/messages"
-	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/toolbox/logger"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
 // StructuredResult represents the result of structured data generation
@@ -22,9 +22,9 @@ type StructuredResult[Output any] struct {
 
 // Agent represents a simplified structured data agent that hides OpenAI SDK details
 type Agent[Output any] struct {
-	ctx         context.Context
-	config      agents.AgentConfig
-	modelConfig models.Config
+	ctx           context.Context
+	config        agents.AgentConfig
+	modelConfig   models.Config
 	internalAgent *BaseAgent[Output]
 	log           logger.Logger
 }
@@ -75,9 +75,9 @@ func NewAgent[Output any](
 	}
 
 	agent := &Agent[Output]{
-		ctx:         ctx,
-		config:      agentConfig,
-		modelConfig: modelConfig,
+		ctx:           ctx,
+		config:        agentConfig,
+		modelConfig:   modelConfig,
 		internalAgent: internalAgent,
 		log:           log,
 	}

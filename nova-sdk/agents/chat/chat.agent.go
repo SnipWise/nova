@@ -6,11 +6,11 @@ import (
 	"errors"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/messages"
-	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/messages/roles"
-	"github.com/snipwise/nova/nova/toolbox/logger"
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
 // CompletionResult represents the result of a chat completion
@@ -31,9 +31,9 @@ type StreamCallback func(chunk string, finishReason string) error
 
 // Agent represents a simplified chat agent that hides OpenAI SDK details
 type Agent struct {
-	ctx         context.Context
-	config      agents.AgentConfig
-	modelConfig models.Config
+	ctx           context.Context
+	config        agents.AgentConfig
+	modelConfig   models.Config
 	internalAgent *BaseAgent
 	log           logger.Logger
 }
@@ -55,9 +55,9 @@ func NewAgent(
 	}
 
 	agent := &Agent{
-		ctx:         ctx,
-		config:      agentConfig,
-		modelConfig: modelConfig,
+		ctx:           ctx,
+		config:        agentConfig,
+		modelConfig:   modelConfig,
 		internalAgent: internalAgent,
 		log:           log,
 	}
@@ -219,7 +219,6 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 		openai.AssistantMessage(response),
 	)
 
-
 	return &ReasoningResult{
 		Response:     response,
 		Reasoning:    reasoning,
@@ -236,4 +235,3 @@ func (agent *Agent) ExportMessagesToJSON() (string, error) {
 	}
 	return string(jsonData), nil
 }
-
