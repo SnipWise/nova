@@ -7,7 +7,7 @@ import (
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/toolbox/logger"
 
-	"github.com/snipwise/nova/nova/rag/stores"
+	"github.com/snipwise/nova/nova/agents/rag/stores"
 )
 
 type BaseAgent struct {

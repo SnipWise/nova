@@ -5,10 +5,10 @@ import (
 
 	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/roles"
+	"github.com/snipwise/nova/nova/messages/roles"
 
 	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/chat"
+	"github.com/snipwise/nova/nova/agents/chat"
 	"github.com/snipwise/nova/nova/ui/display"
 )
 

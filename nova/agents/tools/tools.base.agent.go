@@ -213,15 +213,6 @@ func (agent *BaseAgent) DetectToolCalls(messages []openai.ChatCompletionMessageP
 	return finishReason, results, lastAssistantMessage, nil
 }
 
-/*
-type ConfirmationResponse int
-
-const (
-	Confirmed ConfirmationResponse = iota
-	Denied
-	Quit
-)
-*/
 
 func (agent *BaseAgent) DetectToolCallsWithConfirmation(
 	messages []openai.ChatCompletionMessageParamUnion,

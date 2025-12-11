@@ -9,8 +9,8 @@ import (
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/roles"
-	"github.com/snipwise/nova/nova/tools"
+	"github.com/snipwise/nova/nova/messages/roles"
+	"github.com/snipwise/nova/nova/agents/tools"
 	"github.com/snipwise/nova/nova/ui/display"
 )
 

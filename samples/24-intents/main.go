@@ -7,8 +7,8 @@ import (
 		"github.com/snipwise/nova/nova/messages"
 
 	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/roles"
-	"github.com/snipwise/nova/nova/structured"
+	"github.com/snipwise/nova/nova/messages/roles"
+	"github.com/snipwise/nova/nova/agents/structured"
 	"github.com/snipwise/nova/nova/toolbox/conversion"
 	"github.com/snipwise/nova/nova/ui/display"
 )

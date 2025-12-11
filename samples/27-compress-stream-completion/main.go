@@ -6,8 +6,8 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/chat"
-	"github.com/snipwise/nova/nova/compressor"
+	"github.com/snipwise/nova/nova/agents/chat"
+	"github.com/snipwise/nova/nova/agents/compressor"
 	"github.com/snipwise/nova/nova/messages"
 	"github.com/snipwise/nova/nova/toolbox/conversion"
 	"github.com/snipwise/nova/nova/ui/display"

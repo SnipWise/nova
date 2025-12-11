@@ -5,7 +5,7 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova/agents"
-	"github.com/snipwise/nova/nova/rag"
+	"github.com/snipwise/nova/nova/agents/rag"
 
 	"github.com/snipwise/nova/nova/ui/display"
 )
@@ -55,6 +55,5 @@ func main() {
 		display.Colorf(display.ColorCyan, "Content: %s\n", sim.Prompt)
 		display.Colorf(display.ColorYellow, "Score: %f\n", sim.CosineSimilarity)
 	}
-
 
 }

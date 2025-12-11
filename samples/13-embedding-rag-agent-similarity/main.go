@@ -5,7 +5,7 @@ import (
 
 	"github.com/snipwise/nova/nova/agents"
 	"github.com/snipwise/nova/nova/models"
-	"github.com/snipwise/nova/nova/rag"
+	"github.com/snipwise/nova/nova/agents/rag"
 
 	"github.com/snipwise/nova/nova/ui/display"
 )
