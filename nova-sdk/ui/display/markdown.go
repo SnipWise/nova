@@ -34,7 +34,14 @@ func Markdown(content string) {
 		}
 
 		if inCodeBlock {
-			fmt.Printf("%s│ %s%s\n", ColorGray, trimmed, ColorReset)
+			// Use original line to preserve indentation, but trim trailing spaces only
+			codeLine := strings.TrimRight(line, " \t")
+			// For empty lines in code blocks, just show the vertical bar
+			if codeLine == "" {
+				fmt.Printf("%s│%s\n", ColorGray, ColorReset)
+			} else {
+				fmt.Printf("%s│ %s%s\n", ColorGray, codeLine, ColorReset)
+			}
 			continue
 		}
 
