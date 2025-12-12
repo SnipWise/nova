@@ -42,7 +42,6 @@ func main() {
 	// Create markdown chunk parser for streaming display
 	markdownParser := display.NewMarkdownChunkParser()
 
-	// Chat with streaming - no OpenAI types exposed
 	result, err := agent.GenerateStreamCompletion(
 		[]messages.Message{
 			{
@@ -59,7 +58,6 @@ func main() {
 				loadingSpinner.Success("Model loaded!")
 				loadingSpinner.Stop()
 			}
-
 			// Use markdown chunk parser for colorized streaming output
 			if chunk != "" {
 				display.MarkdownChunk(markdownParser, chunk)
