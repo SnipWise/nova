@@ -8,14 +8,17 @@ import (
 
 // MarkdownChunkParser holds state for streaming markdown parsing
 type MarkdownChunkParser struct {
-	buffer          strings.Builder
-	inCodeBlock     bool
-	codeBlockLang   string
-	lineBuffer      string
-	lastWasNewline  bool
-	inList          bool
-	pendingChars    int // Number of characters pending colorization
-	
+	buffer           strings.Builder
+	inCodeBlock      bool
+	codeBlockLang    string
+	lineBuffer       string
+	lastWasNewline   bool
+	inList           bool
+	pendingChars     int    // Number of characters pending colorization
+	lastFormatted    string // Last formatted output to prevent duplicate rendering
+	lastRawLine      string // Last raw line that was formatted
+	lastDisplayedLen int    // Length of the last displayed line (raw)
+
 }
 
 // NewMarkdownChunkParser creates a new streaming markdown parser
@@ -78,6 +81,11 @@ func (p *MarkdownChunkParser) processLine() {
 	line := p.lineBuffer
 	trimmed := strings.TrimSpace(line)
 
+	// Reset state when processing a complete line
+	p.lastFormatted = ""
+	p.lastRawLine = ""
+	p.lastDisplayedLen = 0
+
 	// Handle code block delimiters
 	if strings.HasPrefix(trimmed, "```") {
 		p.inCodeBlock = !p.inCodeBlock
@@ -119,6 +127,17 @@ func (p *MarkdownChunkParser) processLine() {
 			}
 		}
 		headerText := strings.TrimSpace(trimmed[level:])
+
+		// Only treat as header if there's actual content after the #
+		// If empty, skip it (might be malformed or content on next line)
+		if headerText == "" {
+			// Don't display empty headers - just skip this line
+			return
+		}
+
+		// Apply inline formatting to header text
+		headerText = formatInlineMarkdown(headerText)
+
 		switch level {
 		case 1:
 			p.eraseAndPrint(fmt.Sprintf("\n%s%s%s%s\n", ColorBold, ColorBrightCyan, headerText, ColorReset))
@@ -206,18 +225,95 @@ func (p *MarkdownChunkParser) tryProcessInline() {
 	// Don't process inside code blocks
 	if p.inCodeBlock {
 		fmt.Print(string(line[len(line)-1]))
+		p.lastDisplayedLen++
 		return
 	}
 
-	// Check for common inline patterns that can be immediately displayed
-	// For now, just print the character - full colorization happens on newline
-	// This gives immediate feedback while typing
+	// Check if line looks like it might be starting a header or list
+	// If so, don't display anything yet - wait for the newline to process properly
+	trimmed := strings.TrimSpace(line)
 
-	lastChar := string(line[len(line)-1])
+	// Empty header check
+	if regexp.MustCompile(`^#{1,6}\s*$`).MatchString(trimmed) {
+		// Line is just "#", "##", "###", etc. with optional trailing spaces
+		// Don't display - wait to see if content comes on next line
+		return
+	}
 
-	// Special handling for backticks, asterisks, underscores
-	// We'll just print them normally and recolor on line completion
-	fmt.Print(lastChar)
+	// List item check - if line starts with list markers, don't display inline
+	// Let processLine() handle the formatting when newline arrives
+	if regexp.MustCompile(`^[-*+]\s`).MatchString(trimmed) ||
+	   regexp.MustCompile(`^\d+\.\s`).MatchString(trimmed) ||
+	   regexp.MustCompile(`^[-*+]\s+\[[ xX]\]`).MatchString(trimmed) {
+		// Line starts with list marker, wait for newline to process
+		return
+	}
+
+	// Check if we're in the middle of building a markdown pattern
+	// Count unclosed delimiters
+	isBuilding := false
+
+	// Count ** pairs
+	boldCount := strings.Count(line, "**")
+	if boldCount%2 == 1 {
+		isBuilding = true // Odd number means one is unclosed
+	}
+
+	// Count ` pairs
+	codeCount := strings.Count(line, "`")
+	if codeCount%2 == 1 {
+		isBuilding = true // Odd number means one is unclosed
+	}
+
+	// Count single * (after removing **) for italic
+	tempLine := strings.ReplaceAll(line, "**", "")
+	singleStarCount := strings.Count(tempLine, "*")
+	if singleStarCount%2 == 1 {
+		isBuilding = true
+	}
+
+	// Check if we have complete inline markdown patterns
+	hasPattern := false
+	if regexp.MustCompile(`\*\*[^*]+\*\*`).MatchString(line) ||
+	   regexp.MustCompile(`__[^_]+__`).MatchString(line) ||
+	   regexp.MustCompile(`\*[^*]+\*`).MatchString(line) ||
+	   regexp.MustCompile(`_[^_]+_`).MatchString(line) ||
+	   regexp.MustCompile("`[^`]+`").MatchString(line) {
+		hasPattern = true
+	}
+
+	if hasPattern {
+		// We have at least one complete pattern
+		formatted := formatInlineMarkdown(line)
+
+		// If we weren't showing formatted content before, we need to redraw
+		if p.lastDisplayedLen == 0 || p.lastFormatted == "" {
+			// First time seeing a pattern, redraw the whole line
+			fmt.Print("\r\033[K" + formatted)
+			p.lastFormatted = formatted
+			p.lastRawLine = line
+			p.lastDisplayedLen = len(line)
+		} else if len(line) > p.lastDisplayedLen {
+			// Line got longer, just append new character
+			lastChar := string(line[len(line)-1])
+			fmt.Print(lastChar)
+			p.lastDisplayedLen = len(line)
+			// Update formatted cache
+			p.lastFormatted = formatted
+			p.lastRawLine = line
+		}
+	} else if isBuilding {
+		// We're building a pattern but it's not complete yet
+		// Don't display anything to avoid showing raw markdown
+		p.lastDisplayedLen = len(line)
+	} else {
+		// No patterns at all, just print the new character normally
+		lastChar := string(line[len(line)-1])
+		fmt.Print(lastChar)
+		p.lastFormatted = ""
+		p.lastRawLine = ""
+		p.lastDisplayedLen = len(line)
+	}
 }
 
 // eraseAndPrint erases the pending characters and prints the formatted version
@@ -252,4 +348,7 @@ func (p *MarkdownChunkParser) Reset() {
 	p.lastWasNewline = true
 	p.inList = false
 	p.pendingChars = 0
+	p.lastFormatted = ""
+	p.lastRawLine = ""
+	p.lastDisplayedLen = 0
 }
