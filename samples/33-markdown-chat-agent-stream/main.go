@@ -10,10 +10,16 @@ import (
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 	"github.com/snipwise/nova/nova-sdk/models"
 	"github.com/snipwise/nova/nova-sdk/ui/display"
+	"github.com/snipwise/nova/nova-sdk/ui/spinner"
 )
 
 func main() {
 	ctx := context.Background()
+
+	loadingSpinner := spinner.NewWithColor("").SetSuffix("loading model...").SetFrames(spinner.FramesPulsingStar)
+	loadingSpinner.SetSuffixColor(spinner.ColorPurple).SetFrameColor(spinner.ColorRed)
+
+	loadingSpinner.Start()
 
 	agent, err := chat.NewAgent(
 		ctx,
@@ -33,7 +39,9 @@ func main() {
 		panic(err)
 	}
 
-	// Chat with streaming - no OpenAI types exposed
+	// Create markdown chunk parser for streaming display
+	markdownParser := display.NewMarkdownChunkParser()
+
 	result, err := agent.GenerateStreamCompletion(
 		[]messages.Message{
 			{
@@ -46,11 +54,16 @@ func main() {
 			},
 		},
 		func(chunk string, finishReason string) error {
-			// Simple callback that receives strings only
+			if loadingSpinner.IsRunning() && finishReason == "" {
+				loadingSpinner.Success("Model loaded!")
+				loadingSpinner.Stop()
+			}
+			// Use markdown chunk parser for colorized streaming output
 			if chunk != "" {
-				fmt.Print(chunk)
+				display.MarkdownChunk(markdownParser, chunk)
 			}
 			if finishReason == "stop" {
+				markdownParser.Flush()
 				fmt.Println()
 			}
 			return nil
