@@ -28,6 +28,7 @@ func main() {
 			`,
 		},
 		models.NewConfig("hf.co/menlo/jan-nano-gguf:q4_k_m").
+		//models.NewConfig("ai/qwen2.5:1.5B-F16").
 			WithTemperature(0.8),
 	)
 	if err != nil {
@@ -35,9 +36,11 @@ func main() {
 	}
 
 	// Create markdown chunk parser for streaming display
-	markdownParser := display.NewMarkdownChunkParser()
+	
 
 	for {
+
+		markdownParser := display.NewMarkdownChunkParser()
 
 		input := prompt.NewWithColor("🤖 Ask me something?").
 			SetMessageColor(prompt.ColorBrightCyan).
@@ -68,6 +71,7 @@ func main() {
 				}
 				if finishReason == "stop" {
 					markdownParser.Flush()
+					markdownParser.Reset()
 					fmt.Println()
 				}
 				return nil
@@ -82,7 +86,11 @@ func main() {
 		display.KeyValue("Context size", fmt.Sprintf("%d characters", agent.GetContextSize()))
 		display.Separator()
 
+
 	}
 
 }
 // create a golang hello world program and explain it
+// [Brief] who is james t kirk
+// tell me a story about jean-luc picard
+// create an http server in golang and explain it

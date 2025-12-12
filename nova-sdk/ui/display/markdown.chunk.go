@@ -34,7 +34,7 @@ func MarkdownChunk(parser *MarkdownChunkParser, chunk string) {
 	if parser == nil {
 		return
 	}
-	
+
 	for _, ch := range chunk {
 		parser.buffer.WriteRune(ch)
 		parser.lineBuffer += string(ch)
@@ -75,16 +75,15 @@ func MarkdownChunk(parser *MarkdownChunkParser, chunk string) {
 		}
 	}
 }
- */
+*/
 // processLine processes a complete line of markdown
 func (p *MarkdownChunkParser) processLine() {
 	line := p.lineBuffer
 	trimmed := strings.TrimSpace(line)
 
-	// Reset state when processing a complete line
-	p.lastFormatted = ""
-	p.lastRawLine = ""
-	p.lastDisplayedLen = 0
+	// Note: We don't reset lastFormatted, lastRawLine, lastDisplayedLen here
+	// because eraseAndPrint() needs them to properly clear the line
+	// They will be reset in eraseAndPrint() after use
 
 	// Handle code block delimiters
 	if strings.HasPrefix(trimmed, "```") {
@@ -105,7 +104,17 @@ func (p *MarkdownChunkParser) processLine() {
 
 	// Inside code block
 	if p.inCodeBlock {
-		p.eraseAndPrint(fmt.Sprintf("%s│ %s%s\n", ColorGray, trimmed, ColorReset))
+		// Use original line to preserve indentation, but trim trailing spaces only
+		codeLine := strings.TrimRight(line, " \t")
+		// Check if the line is truly empty (not just whitespace)
+		if strings.TrimSpace(line) == "" {
+			p.eraseAndPrint(fmt.Sprintf("%s│%s\n", ColorGray, ColorReset))
+
+		} else {
+			// 🤓 Fix by @k33g: Avoid printing trailing spaces in empty code lines
+			//p.eraseAndPrint(fmt.Sprintf("%s│ %s%s\n", ColorGray, codeLine, ColorReset))
+			p.eraseAndPrint(fmt.Sprintf("%s│ %s%s", ColorGray, codeLine, ColorReset))
+		}
 		return
 	}
 
@@ -211,6 +220,9 @@ func (p *MarkdownChunkParser) processLine() {
 
 	// Regular paragraph with inline formatting
 	formatted := formatInlineMarkdown(trimmed)
+
+	// Always use eraseAndPrint to avoid duplication issues
+	// This ensures we always display the complete, properly formatted line
 	if p.inList {
 		p.eraseAndPrint(fmt.Sprintf("  %s\n", formatted))
 	} else {
@@ -222,10 +234,10 @@ func (p *MarkdownChunkParser) processLine() {
 func (p *MarkdownChunkParser) tryProcessInline() {
 	line := p.lineBuffer
 
-	// Don't process inside code blocks
+	// Don't process inside code blocks - wait for newline to display properly
 	if p.inCodeBlock {
-		fmt.Print(string(line[len(line)-1]))
-		p.lastDisplayedLen++
+		// Don't display anything until we have the complete line
+		// This prevents issues with line clearing in eraseAndPrint
 		return
 	}
 
@@ -240,11 +252,18 @@ func (p *MarkdownChunkParser) tryProcessInline() {
 		return
 	}
 
+	// Code block check - if line contains ```, don't display inline
+	// Let processLine() handle the formatting when newline arrives
+	if strings.Contains(trimmed, "```") {
+		// Line contains code block delimiter, wait for newline to process
+		return
+	}
+
 	// List item check - if line starts with list markers, don't display inline
 	// Let processLine() handle the formatting when newline arrives
 	if regexp.MustCompile(`^[-*+]\s`).MatchString(trimmed) ||
-	   regexp.MustCompile(`^\d+\.\s`).MatchString(trimmed) ||
-	   regexp.MustCompile(`^[-*+]\s+\[[ xX]\]`).MatchString(trimmed) {
+		regexp.MustCompile(`^\d+\.\s`).MatchString(trimmed) ||
+		regexp.MustCompile(`^[-*+]\s+\[[ xX]\]`).MatchString(trimmed) {
 		// Line starts with list marker, wait for newline to process
 		return
 	}
@@ -275,10 +294,10 @@ func (p *MarkdownChunkParser) tryProcessInline() {
 	// Check if we have complete inline markdown patterns
 	hasPattern := false
 	if regexp.MustCompile(`\*\*[^*]+\*\*`).MatchString(line) ||
-	   regexp.MustCompile(`__[^_]+__`).MatchString(line) ||
-	   regexp.MustCompile(`\*[^*]+\*`).MatchString(line) ||
-	   regexp.MustCompile(`_[^_]+_`).MatchString(line) ||
-	   regexp.MustCompile("`[^`]+`").MatchString(line) {
+		regexp.MustCompile(`__[^_]+__`).MatchString(line) ||
+		regexp.MustCompile(`\*[^*]+\*`).MatchString(line) ||
+		regexp.MustCompile(`_[^_]+_`).MatchString(line) ||
+		regexp.MustCompile("`[^`]+`").MatchString(line) {
 		hasPattern = true
 	}
 
@@ -286,21 +305,13 @@ func (p *MarkdownChunkParser) tryProcessInline() {
 		// We have at least one complete pattern
 		formatted := formatInlineMarkdown(line)
 
-		// If we weren't showing formatted content before, we need to redraw
-		if p.lastDisplayedLen == 0 || p.lastFormatted == "" {
-			// First time seeing a pattern, redraw the whole line
+		// Always redraw the whole line to ensure proper formatting
+		// This ensures that markdown delimiters (*, **, etc.) are properly hidden
+		if formatted != p.lastFormatted {
 			fmt.Print("\r\033[K" + formatted)
 			p.lastFormatted = formatted
 			p.lastRawLine = line
 			p.lastDisplayedLen = len(line)
-		} else if len(line) > p.lastDisplayedLen {
-			// Line got longer, just append new character
-			lastChar := string(line[len(line)-1])
-			fmt.Print(lastChar)
-			p.lastDisplayedLen = len(line)
-			// Update formatted cache
-			p.lastFormatted = formatted
-			p.lastRawLine = line
 		}
 	} else if isBuilding {
 		// We're building a pattern but it's not complete yet
@@ -318,9 +329,9 @@ func (p *MarkdownChunkParser) tryProcessInline() {
 
 // eraseAndPrint erases the pending characters and prints the formatted version
 func (p *MarkdownChunkParser) eraseAndPrint(formatted string) {
-	lineLen := len(p.lineBuffer)
-
-	if lineLen > 0 {
+	// Always clear the line to prevent duplication from tryProcessInline()
+	// Use the lastDisplayedLen to know how much to erase if available
+	if p.lastDisplayedLen > 0 || len(p.lineBuffer) > 0 {
 		// Move cursor back to start of line and clear it
 		fmt.Print("\r\033[K")
 	}
@@ -328,8 +339,11 @@ func (p *MarkdownChunkParser) eraseAndPrint(formatted string) {
 	// Print the formatted content
 	fmt.Print(formatted)
 
-	// Reset pending counter
+	// Reset tracking variables
 	p.pendingChars = 0
+	p.lastFormatted = ""
+	p.lastRawLine = ""
+	p.lastDisplayedLen = 0
 }
 
 // Flush processes any remaining buffered content
