@@ -8,14 +8,17 @@ import (
 
 // MarkdownChunkParser holds state for streaming markdown parsing
 type MarkdownChunkParser struct {
-	buffer          strings.Builder
-	inCodeBlock     bool
-	codeBlockLang   string
-	lineBuffer      string
-	lastWasNewline  bool
-	inList          bool
-	pendingChars    int // Number of characters pending colorization
-	
+	buffer           strings.Builder
+	inCodeBlock      bool
+	codeBlockLang    string
+	lineBuffer       string
+	lastWasNewline   bool
+	inList           bool
+	pendingChars     int    // Number of characters pending colorization
+	lastFormatted    string // Last formatted output to prevent duplicate rendering
+	lastRawLine      string // Last raw line that was formatted
+	lastDisplayedLen int    // Length of the last displayed line (raw)
+
 }
 
 // NewMarkdownChunkParser creates a new streaming markdown parser
@@ -77,6 +80,11 @@ func MarkdownChunk(parser *MarkdownChunkParser, chunk string) {
 func (p *MarkdownChunkParser) processLine() {
 	line := p.lineBuffer
 	trimmed := strings.TrimSpace(line)
+
+	// Reset state when processing a complete line
+	p.lastFormatted = ""
+	p.lastRawLine = ""
+	p.lastDisplayedLen = 0
 
 	// Handle code block delimiters
 	if strings.HasPrefix(trimmed, "```") {
@@ -206,18 +214,50 @@ func (p *MarkdownChunkParser) tryProcessInline() {
 	// Don't process inside code blocks
 	if p.inCodeBlock {
 		fmt.Print(string(line[len(line)-1]))
+		p.lastDisplayedLen++
 		return
 	}
 
-	// Check for common inline patterns that can be immediately displayed
-	// For now, just print the character - full colorization happens on newline
-	// This gives immediate feedback while typing
+	// Check if we have complete inline markdown patterns
+	hasPattern := false
 
-	lastChar := string(line[len(line)-1])
+	// Check for complete patterns
+	if regexp.MustCompile(`\*\*[^*]+\*\*`).MatchString(line) ||
+	   regexp.MustCompile(`__[^_]+__`).MatchString(line) ||
+	   regexp.MustCompile(`\*[^*]+\*`).MatchString(line) ||
+	   regexp.MustCompile(`_[^_]+_`).MatchString(line) ||
+	   regexp.MustCompile("`[^`]+`").MatchString(line) {
+		hasPattern = true
+	}
 
-	// Special handling for backticks, asterisks, underscores
-	// We'll just print them normally and recolor on line completion
-	fmt.Print(lastChar)
+	if hasPattern {
+		// Format the line
+		formatted := formatInlineMarkdown(line)
+
+		// Check if this is a new character being added after the pattern
+		currentLen := len(line)
+		if currentLen > p.lastDisplayedLen && p.lastDisplayedLen > 0 {
+			// We've already displayed part of this line with formatting
+			// Just append the new character without redrawing everything
+			lastChar := string(line[len(line)-1])
+			fmt.Print(lastChar)
+			p.lastDisplayedLen = currentLen
+		} else {
+			// First time formatting this line, or pattern just completed
+			// Erase the current line and print the formatted version
+			fmt.Print("\r\033[K" + formatted)
+			p.lastFormatted = formatted
+			p.lastRawLine = line
+			p.lastDisplayedLen = currentLen
+		}
+	} else {
+		// No complete patterns yet, just print the new character
+		lastChar := string(line[len(line)-1])
+		fmt.Print(lastChar)
+		p.lastFormatted = ""
+		p.lastRawLine = ""
+		p.lastDisplayedLen = len(line)
+	}
 }
 
 // eraseAndPrint erases the pending characters and prints the formatted version
@@ -252,4 +292,7 @@ func (p *MarkdownChunkParser) Reset() {
 	p.lastWasNewline = true
 	p.inList = false
 	p.pendingChars = 0
+	p.lastFormatted = ""
+	p.lastRawLine = ""
+	p.lastDisplayedLen = 0
 }

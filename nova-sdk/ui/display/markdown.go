@@ -144,31 +144,36 @@ func formatInlineMarkdown(text string) string {
 	text = strings.ReplaceAll(text, "\\_", "\x00UNDERSCORE\x00")
 	text = strings.ReplaceAll(text, "\\`", "\x00BACKTICK\x00")
 
-	// Bold with ** or __
-	boldRe := regexp.MustCompile(`\*\*(.+?)\*\*`)
+	// Process in order to avoid conflicts:
+	// 1. Bold+Code combination: **`text`** (must be processed first)
+	boldCodeRe := regexp.MustCompile(`\*\*\x60([^\x60]+?)\x60\*\*`)
+	text = boldCodeRe.ReplaceAllString(text, ColorBold+ColorBrightYellow+BgBlack+"$1"+ColorReset)
+
+	// 2. Bold with ** or __ (process before italic to avoid conflicts)
+	boldRe := regexp.MustCompile(`\*\*([^*]+?)\*\*`)
 	text = boldRe.ReplaceAllString(text, ColorBold+"$1"+ColorReset)
-	boldRe2 := regexp.MustCompile(`__(.+?)__`)
+	boldRe2 := regexp.MustCompile(`__([^_]+?)__`)
 	text = boldRe2.ReplaceAllString(text, ColorBold+"$1"+ColorReset)
 
-	// Italic with * or _
-	italicRe := regexp.MustCompile(`\*(.+?)\*`)
-	text = italicRe.ReplaceAllString(text, ColorItalic+"$1"+ColorReset)
-	italicRe2 := regexp.MustCompile(`_(.+?)_`)
-	text = italicRe2.ReplaceAllString(text, ColorItalic+"$1"+ColorReset)
-
-	// Inline code with `
+	// 3. Inline code with ` (process before italic to avoid conflicts)
 	codeRe := regexp.MustCompile("`([^`]+)`")
 	text = codeRe.ReplaceAllString(text, ColorBrightYellow+BgBlack+"$1"+ColorReset)
 
-	// Strikethrough with ~~
+	// 4. Italic with * or _ (process after bold and code)
+	italicRe := regexp.MustCompile(`\*([^*]+?)\*`)
+	text = italicRe.ReplaceAllString(text, ColorItalic+"$1"+ColorReset)
+	italicRe2 := regexp.MustCompile(`_([^_]+?)_`)
+	text = italicRe2.ReplaceAllString(text, ColorItalic+"$1"+ColorReset)
+
+	// 5. Strikethrough with ~~
 	strikeRe := regexp.MustCompile(`~~(.+?)~~`)
 	text = strikeRe.ReplaceAllString(text, ColorDim+"$1"+ColorReset)
 
-	// Links [text](url)
+	// 6. Links [text](url)
 	linkRe := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
 	text = linkRe.ReplaceAllString(text, ColorBrightCyan+ColorUnderline+"$1"+ColorReset+ColorGray+" ($2)"+ColorReset)
 
-	// Images ![alt](url)
+	// 7. Images ![alt](url)
 	imageRe := regexp.MustCompile(`!\[([^\]]*)\]\(([^)]+)\)`)
 	text = imageRe.ReplaceAllString(text, ColorBrightMagenta+"🖼  $1"+ColorReset+ColorGray+" ($2)"+ColorReset)
 

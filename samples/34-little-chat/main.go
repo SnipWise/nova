@@ -34,6 +34,9 @@ func main() {
 		panic(err)
 	}
 
+	// Create markdown chunk parser for streaming display
+	markdownParser := display.NewMarkdownChunkParser()
+
 	for {
 
 		input := prompt.NewWithColor("🤖 Ask me something?").
@@ -49,8 +52,6 @@ func main() {
 			fmt.Println("Goodbye!")
 			break
 		}
-		// Create markdown chunk parser for streaming display
-		markdownParser := display.NewMarkdownChunkParser()
 
 		result, err := agent.GenerateStreamCompletion(
 			[]messages.Message{
@@ -84,3 +85,4 @@ func main() {
 	}
 
 }
+// create a golang hello world program and explain it
