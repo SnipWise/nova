@@ -3,6 +3,12 @@
 
 ## Nova SDK - Getting Started Examples
 
+> Nova SDK has been tested with:
+> - Docker Model Runner
+> - Ollama
+
+> This `README.md` file is a work in progress and will be expanded with more examples soon.
+
 ### Chat agent
 > Simple completion
 
