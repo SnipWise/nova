@@ -4,8 +4,8 @@
 ## Nova SDK - Getting Started Examples
 
 > Nova SDK has been tested with:
-> - Docker Model Runner
-> - Ollama
+> - [Docker Model Runner](https://docs.docker.com/ai/model-runner/)
+> - [Ollama](https://ollama.com/)
 
 > This `README.md` file is a work in progress and will be expanded with more examples soon.
 
