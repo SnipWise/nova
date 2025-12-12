@@ -9,6 +9,13 @@
 
 > This `README.md` file is a work in progress and will be expanded with more examples soon.
 
+### Installation
+
+```bash
+go get github.com/snipwise/nova@latest
+```
+
+
 ### Chat agent
 > Simple completion
 
