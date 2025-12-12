@@ -63,6 +63,7 @@ func main() {
 				display.MarkdownChunk(markdownParser, chunk)
 			}
 			if finishReason == "stop" {
+				markdownParser.Reset()
 				markdownParser.Flush()
 				fmt.Println()
 			}
@@ -100,6 +101,7 @@ func main() {
 				display.MarkdownChunk(markdownParser, chunk)
 			}
 			if finishReason == "stop" {
+				markdownParser.Reset()
 				markdownParser.Flush()
 				fmt.Println()
 			}
@@ -137,6 +139,7 @@ func main() {
 				display.MarkdownChunk(markdownParser, chunk)
 			}
 			if finishReason == "stop" {
+				markdownParser.Reset()
 				markdownParser.Flush()
 				fmt.Println()
 			}
@@ -152,6 +155,5 @@ func main() {
 	display.KeyValue("Finish reason", result.FinishReason)
 	display.KeyValue("Context size", fmt.Sprintf("%d characters", agent.GetContextSize()))
 	display.Separator()
-
 
 }
