@@ -127,6 +127,17 @@ func (p *MarkdownChunkParser) processLine() {
 			}
 		}
 		headerText := strings.TrimSpace(trimmed[level:])
+
+		// Only treat as header if there's actual content after the #
+		// If empty, skip it (might be malformed or content on next line)
+		if headerText == "" {
+			// Don't display empty headers - just skip this line
+			return
+		}
+
+		// Apply inline formatting to header text
+		headerText = formatInlineMarkdown(headerText)
+
 		switch level {
 		case 1:
 			p.eraseAndPrint(fmt.Sprintf("\n%s%s%s%s\n", ColorBold, ColorBrightCyan, headerText, ColorReset))
@@ -218,10 +229,51 @@ func (p *MarkdownChunkParser) tryProcessInline() {
 		return
 	}
 
+	// Check if line looks like it might be starting a header or list
+	// If so, don't display anything yet - wait for the newline to process properly
+	trimmed := strings.TrimSpace(line)
+
+	// Empty header check
+	if regexp.MustCompile(`^#{1,6}\s*$`).MatchString(trimmed) {
+		// Line is just "#", "##", "###", etc. with optional trailing spaces
+		// Don't display - wait to see if content comes on next line
+		return
+	}
+
+	// List item check - if line starts with list markers, don't display inline
+	// Let processLine() handle the formatting when newline arrives
+	if regexp.MustCompile(`^[-*+]\s`).MatchString(trimmed) ||
+	   regexp.MustCompile(`^\d+\.\s`).MatchString(trimmed) ||
+	   regexp.MustCompile(`^[-*+]\s+\[[ xX]\]`).MatchString(trimmed) {
+		// Line starts with list marker, wait for newline to process
+		return
+	}
+
+	// Check if we're in the middle of building a markdown pattern
+	// Count unclosed delimiters
+	isBuilding := false
+
+	// Count ** pairs
+	boldCount := strings.Count(line, "**")
+	if boldCount%2 == 1 {
+		isBuilding = true // Odd number means one is unclosed
+	}
+
+	// Count ` pairs
+	codeCount := strings.Count(line, "`")
+	if codeCount%2 == 1 {
+		isBuilding = true // Odd number means one is unclosed
+	}
+
+	// Count single * (after removing **) for italic
+	tempLine := strings.ReplaceAll(line, "**", "")
+	singleStarCount := strings.Count(tempLine, "*")
+	if singleStarCount%2 == 1 {
+		isBuilding = true
+	}
+
 	// Check if we have complete inline markdown patterns
 	hasPattern := false
-
-	// Check for complete patterns
 	if regexp.MustCompile(`\*\*[^*]+\*\*`).MatchString(line) ||
 	   regexp.MustCompile(`__[^_]+__`).MatchString(line) ||
 	   regexp.MustCompile(`\*[^*]+\*`).MatchString(line) ||
@@ -231,27 +283,31 @@ func (p *MarkdownChunkParser) tryProcessInline() {
 	}
 
 	if hasPattern {
-		// Format the line
+		// We have at least one complete pattern
 		formatted := formatInlineMarkdown(line)
 
-		// Check if this is a new character being added after the pattern
-		currentLen := len(line)
-		if currentLen > p.lastDisplayedLen && p.lastDisplayedLen > 0 {
-			// We've already displayed part of this line with formatting
-			// Just append the new character without redrawing everything
-			lastChar := string(line[len(line)-1])
-			fmt.Print(lastChar)
-			p.lastDisplayedLen = currentLen
-		} else {
-			// First time formatting this line, or pattern just completed
-			// Erase the current line and print the formatted version
+		// If we weren't showing formatted content before, we need to redraw
+		if p.lastDisplayedLen == 0 || p.lastFormatted == "" {
+			// First time seeing a pattern, redraw the whole line
 			fmt.Print("\r\033[K" + formatted)
 			p.lastFormatted = formatted
 			p.lastRawLine = line
-			p.lastDisplayedLen = currentLen
+			p.lastDisplayedLen = len(line)
+		} else if len(line) > p.lastDisplayedLen {
+			// Line got longer, just append new character
+			lastChar := string(line[len(line)-1])
+			fmt.Print(lastChar)
+			p.lastDisplayedLen = len(line)
+			// Update formatted cache
+			p.lastFormatted = formatted
+			p.lastRawLine = line
 		}
+	} else if isBuilding {
+		// We're building a pattern but it's not complete yet
+		// Don't display anything to avoid showing raw markdown
+		p.lastDisplayedLen = len(line)
 	} else {
-		// No complete patterns yet, just print the new character
+		// No patterns at all, just print the new character normally
 		lastChar := string(line[len(line)-1])
 		fmt.Print(lastChar)
 		p.lastFormatted = ""
