@@ -119,8 +119,8 @@ choices := []prompt.Choice{
     {Label: "Development", Value: "dev"},
     {Label: "Production", Value: "prod"},
 }
-select := prompt.NewColorSelect("Choose environment", choices)
-env, err := select.Run()
+selectEnv := prompt.NewColorSelect("Choose environment", choices)
+env, err := selectEnv.Run()
 ```
 
 **Documentation**: [color-prompt.md](./color-prompt.md#colorselect)

@@ -80,7 +80,10 @@ case tools.Quit:
 
 ### In Agent Tool Loop
 
+Example usage in an agent loop:
+
 ```go
+// Example: Using HumanConfirmation in a tool execution loop
 for _, tool := range toolsToExecute {
     message := fmt.Sprintf("Execute tool '%s' with args: %v?",
         tool.Name, tool.Args)
@@ -105,7 +108,10 @@ for _, tool := range toolsToExecute {
 
 ### File Operations
 
+Example for file deletion confirmation:
+
 ```go
+// Example function (not part of the package)
 func deleteFile(path string) error {
     message := fmt.Sprintf("🗑️  Delete file '%s'?", path)
     response := prompt.HumanConfirmation(message)
@@ -122,7 +128,10 @@ func deleteFile(path string) error {
 
 ### Database Operations
 
+Example for database query confirmation:
+
 ```go
+// Example function (not part of the package)
 func executeQuery(query string) error {
     message := fmt.Sprintf("💾 Execute SQL query?\n%s", query)
     response := prompt.HumanConfirmation(message)
@@ -143,7 +152,10 @@ func executeQuery(query string) error {
 
 ### API Calls
 
+Example for API call confirmation:
+
 ```go
+// Example function (not part of the package)
 func callExternalAPI(endpoint string, data interface{}) error {
     message := fmt.Sprintf("🌐 Make API call to %s?", endpoint)
     response := prompt.HumanConfirmation(message)
@@ -205,6 +217,7 @@ The function uses:
 This function is designed to work with the Nova SDK agent system:
 
 ```go
+// Example integration (pseudocode - adapt to your agent implementation)
 import (
     "github.com/snipwise/nova/nova-sdk/agents"
     "github.com/snipwise/nova/nova-sdk/agents/tools"
@@ -228,6 +241,7 @@ agent.Run()
 If you need different behavior, you can create your own confirmation function:
 
 ```go
+// Example custom confirmation function (not part of the package)
 func MyCustomConfirmation(text string) tools.ConfirmationResponse {
     choices := []prompt.Choice{
         {Label: "Approve", Value: "a"},
@@ -320,7 +334,7 @@ This confirmation system is crucial for:
 The function uses `log.Fatal()` on prompt errors. In production, you may want to handle this differently:
 
 ```go
-// Wrapper with custom error handling
+// Example wrapper with custom error handling (not part of the package)
 func SafeHumanConfirmation(text string) (tools.ConfirmationResponse, error) {
     choices := []prompt.Choice{
         {Label: "yes", Value: "y"},
