@@ -63,8 +63,8 @@ func main() {
 				display.MarkdownChunk(markdownParser, chunk)
 			}
 			if finishReason == "stop" {
-				markdownParser.Reset()
 				markdownParser.Flush()
+				markdownParser.Reset()
 				fmt.Println()
 			}
 			return nil
@@ -101,8 +101,8 @@ func main() {
 				display.MarkdownChunk(markdownParser, chunk)
 			}
 			if finishReason == "stop" {
-				markdownParser.Reset()
 				markdownParser.Flush()
+				markdownParser.Reset()
 				fmt.Println()
 			}
 			return nil
@@ -139,8 +139,8 @@ func main() {
 				display.MarkdownChunk(markdownParser, chunk)
 			}
 			if finishReason == "stop" {
-				markdownParser.Reset()
 				markdownParser.Flush()
+				markdownParser.Reset()
 				fmt.Println()
 			}
 			return nil

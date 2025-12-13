@@ -23,9 +23,11 @@ func main() {
 			SystemInstructions: `
 			You are B.O.B, an AI assistant created by SnipWise.
 			You are friendly, concise, and very helpful.
+			You are a Star Trek expert.
+			Your answers should be in markdown format.
 			`,
 		},
-		models.NewConfig("hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m").
+		models.NewConfig("hf.co/menlo/lucy-gguf:q4_k_m").
 			WithTemperature(0.0),
 	)
 	if err != nil {
@@ -47,12 +49,10 @@ func main() {
 			// Use markdown chunk parser for colorized streaming output
 			if chunk != "" {
 				display.MarkdownChunk(markdownParser, chunk)
-				//fmt.Print(chunk)
 			}
 			if finishReason == "stop" {
-				markdownParser.Reset()
 				markdownParser.Flush()
-
+				markdownParser.Reset()
 				fmt.Println()
 			}
 			return nil
@@ -83,11 +83,10 @@ func main() {
 			// Use markdown chunk parser for colorized streaming output
 			if chunk != "" {
 				display.MarkdownChunk(markdownParser, chunk)
-				//fmt.Print(chunk)
 			}
 			if finishReason == "stop" {
-				markdownParser.Reset()
 				markdownParser.Flush()
+				markdownParser.Reset()
 				fmt.Println()
 			}
 			return nil
@@ -117,11 +116,10 @@ func main() {
 			// Use markdown chunk parser for colorized streaming output
 			if chunk != "" {
 				display.MarkdownChunk(markdownParser, chunk)
-				//fmt.Print(chunk)
 			}
 			if finishReason == "stop" {
-				markdownParser.Reset()
 				markdownParser.Flush()
+				markdownParser.Reset()
 				fmt.Println()
 			}
 			return nil

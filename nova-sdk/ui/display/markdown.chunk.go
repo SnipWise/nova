@@ -8,12 +8,13 @@ import (
 
 // MarkdownChunkParser holds state for streaming markdown parsing
 type MarkdownChunkParser struct {
-	buffer         strings.Builder
-	inCodeBlock    bool
-	codeBlockLang  string
-	lineBuffer     string
-	lastWasNewline bool
-	inList         bool
+	buffer          strings.Builder
+	inCodeBlock     bool
+	codeBlockLang   string
+	lineBuffer      string
+	lastWasNewline  bool
+	inList          bool
+	alreadyPrinted  bool // Track if current incomplete line was already printed
 	// Note: pendingChars, lastFormatted, lastRawLine, lastDisplayedLen removed in Option 1 fix
 }
 
@@ -42,12 +43,40 @@ func MarkdownChunk(parser *MarkdownChunkParser, chunk string) {
 		parser.lineBuffer = lines[i]
 		parser.processLine()
 		parser.lineBuffer = ""
+		parser.alreadyPrinted = false // Reset for next line
 	}
 
 	// Keep the last incomplete line in the buffer
 	parser.buffer.Reset()
-	parser.buffer.WriteString(lines[len(lines)-1])
-	parser.lineBuffer = lines[len(lines)-1]
+	lastLine := lines[len(lines)-1]
+	parser.buffer.WriteString(lastLine)
+	parser.lineBuffer = lastLine
+
+	// For incomplete lines that don't look like markdown structures,
+	// print them directly for real-time streaming
+	if lastLine != "" && !parser.inCodeBlock {
+		trimmed := strings.TrimSpace(lastLine)
+		// Check if this looks like a markdown structure that needs a complete line
+		isMarkdownStructure := strings.HasPrefix(trimmed, "#") ||
+			strings.HasPrefix(trimmed, "```") ||
+			strings.HasPrefix(trimmed, ">") ||
+			strings.HasPrefix(trimmed, "-") ||
+			strings.HasPrefix(trimmed, "*") ||
+			strings.HasPrefix(trimmed, "+") ||
+			regexp.MustCompile(`^\d+\.`).MatchString(trimmed) ||
+			regexp.MustCompile(`^(\*\*\*+|---+|___+)`).MatchString(trimmed)
+
+		// Also check if this COULD BECOME a markdown structure
+		// (e.g., "1" could become "1. " for ordered list)
+		couldBecomeMarkdown := regexp.MustCompile(`^\d+$`).MatchString(trimmed) || // Just digits (could become "1.")
+			trimmed == "" // Empty lines should wait for next chunk
+
+		// If it's not a markdown structure and won't become one, print the new chunk directly
+		if !isMarkdownStructure && !couldBecomeMarkdown {
+			fmt.Print(chunk)
+			parser.alreadyPrinted = true
+		}
+	}
 }
 
 /* func MarkdownChunk(parser *MarkdownChunkParser, chunk string) {
@@ -212,12 +241,16 @@ func (p *MarkdownChunkParser) processLine() {
 	// Regular paragraph with inline formatting
 	formatted := formatInlineMarkdown(trimmed)
 
-	// Always use eraseAndPrint to avoid duplication issues
-	// This ensures we always display the complete, properly formatted line
-	if p.inList {
-		p.eraseAndPrint(fmt.Sprintf("  %s\n", formatted))
+	// Only print if not already printed during streaming
+	if !p.alreadyPrinted {
+		if p.inList {
+			p.eraseAndPrint(fmt.Sprintf("  %s\n", formatted))
+		} else {
+			p.eraseAndPrint(fmt.Sprintf("%s\n", formatted))
+		}
 	} else {
-		p.eraseAndPrint(fmt.Sprintf("%s\n", formatted))
+		// Line was already printed, just add newline
+		fmt.Println()
 	}
 }
 
@@ -249,5 +282,6 @@ func (p *MarkdownChunkParser) Reset() {
 	p.codeBlockLang = ""
 	p.lastWasNewline = true
 	p.inList = false
+	p.alreadyPrinted = false
 	// Note: pendingChars, lastFormatted, lastRawLine, lastDisplayedLen removed in Option 1 fix
 }
