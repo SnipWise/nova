@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/mcptools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 	"github.com/snipwise/nova/nova-sdk/models"
@@ -36,19 +38,50 @@ type Agent struct {
 	toolsFunctions map[string]func(args ...any) (any, error)
 }
 
+// ToolAgentOption is a functional option for configuring an Agent during creation
+type ToolAgentOption func(*openai.ChatCompletionNewParams)
+
+// WithTools sets custom tools for the agent
+func WithOpenAITools(tools []openai.ChatCompletionToolUnionParam) ToolAgentOption {
+	return func(params *openai.ChatCompletionNewParams) {
+		params.Tools = tools
+	}
+}
+
+func WithTools(tools []*Tool) ToolAgentOption {
+	return func(params *openai.ChatCompletionNewParams) {
+		params.Tools = ToOpenAITools(tools)
+	}
+}
+
+func WithMCPTools(tools []mcp.Tool) ToolAgentOption {
+	return func(params *openai.ChatCompletionNewParams) {
+		params.Tools = mcptools.ConvertMCPToolsToOpenAITools(tools)
+	}
+}
+
+// TODO: WithMCPToolsWithFilter
+
 // NewAgent creates a new simplified tools agent
 func NewAgent(
 	ctx context.Context,
 	agentConfig agents.AgentConfig,
-	tools []*Tool,
 	modelConfig models.Config,
+	opts ...ToolAgentOption,
 ) (*Agent, error) {
 	log := logger.GetLoggerFromEnv()
 
 	// Create internal OpenAI-based agent with converted parameters
 	openaiModelConfig := models.ConvertToOpenAIModelConfig(modelConfig)
+
 	// Add tools to model config
-	openaiModelConfig.Tools = ToOpenAITools(tools)
+	//openaiModelConfig.Tools = ToOpenAITools(tools)
+	// Replaced by functional options
+
+	// Apply optional configurations
+	for _, opt := range opts {
+		opt(&openaiModelConfig)
+	}
 
 	internalAgent, err := NewBaseAgent(ctx, agentConfig, openaiModelConfig)
 	if err != nil {
