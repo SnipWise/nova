@@ -69,8 +69,9 @@ func main() {
 					display.MarkdownChunk(markdownParser, chunk)
 				}
 				if finishReason == "stop" {
-					markdownParser.Reset()
 					markdownParser.Flush()
+					markdownParser.Reset()
+					//markdownParser.Flush()
 					fmt.Println()
 				}
 				return nil
