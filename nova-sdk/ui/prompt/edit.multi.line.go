@@ -18,6 +18,7 @@ type MultiLineEditor struct {
 	cursorStyle   CursorStyle
 	cursorMutex   sync.Mutex
 	stopBlink     chan bool
+	needsRender   chan bool // Signal that a render is needed (for blinking)
 }
 
 // NewMultiLineEditor creates a new multi-line editor with optional default text
@@ -51,6 +52,7 @@ func NewMultiLineEditor(defaultValue string, cursorStyle CursorStyle) *MultiLine
 func (e *MultiLineEditor) StartBlinking() {
 	if e.cursorStyle == CursorBlockBlink || e.cursorStyle == CursorUnderlineBlink {
 		e.stopBlink = make(chan bool)
+		e.needsRender = make(chan bool, 1) // Buffered to avoid blocking
 		go func() {
 			ticker := time.NewTicker(500 * time.Millisecond)
 			defer ticker.Stop()
@@ -60,6 +62,11 @@ func (e *MultiLineEditor) StartBlinking() {
 					e.cursorMutex.Lock()
 					e.cursorVisible = !e.cursorVisible
 					e.cursorMutex.Unlock()
+					// Signal that a render is needed
+					select {
+					case e.needsRender <- true:
+					default: // Don't block if channel is full
+					}
 				case <-e.stopBlink:
 					return
 				}
@@ -347,18 +354,42 @@ func editMultiLine(prompt string, defaultValue string, cursorStyle CursorStyle) 
 	// Render the initial state
 	linesRendered, cursorLineAfterRender = renderMultiLine(editor, 0, 0)
 
+	// Channel to receive input bytes
+	inputChan := make(chan byte)
+	go func() {
+		inputBuf := make([]byte, 1)
+		for {
+			n, err := os.Stdin.Read(inputBuf)
+			if err != nil || n == 0 {
+				continue
+			}
+			inputChan <- inputBuf[0]
+		}
+	}()
+
 	// Read input byte by byte
-	inputBuf := make([]byte, 1)
 	escapeSeq := make([]byte, 0, 10)
 	inEscape := false
 
 	for {
-		n, err := os.Stdin.Read(inputBuf)
-		if err != nil || n == 0 {
-			continue
-		}
+		var b byte
 
-		b := inputBuf[0]
+		// Wait for either input or blink render request
+		if editor.needsRender != nil {
+			select {
+			case b = <-inputChan:
+				// Got input from stdin
+			case <-editor.needsRender:
+				// Cursor blink triggered a render
+				editor.cursorMutex.Lock()
+				linesRendered, cursorLineAfterRender = renderMultiLine(editor, linesRendered, cursorLineAfterRender)
+				editor.cursorMutex.Unlock()
+				continue
+			}
+		} else {
+			// No blinking, just wait for input
+			b = <-inputChan
+		}
 
 		// Reset cursor visibility on any keypress
 		editor.cursorMutex.Lock()
