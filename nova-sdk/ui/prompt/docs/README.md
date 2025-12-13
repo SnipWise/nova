@@ -30,7 +30,15 @@ The prompt package provides a comprehensive set of tools for building interactiv
    - Raw terminal mode
    - Keyboard shortcuts (Home, End, Ctrl+K, etc.)
 
-4. **[tool-confirmation.go](./tool-confirmation.md)** - Tool Execution Confirmation
+4. **[edit.multi.line.go](./edit.multi.line.md)** - Multi-Line Text Editor
+   - Full multi-line text editing
+   - Cursor navigation across lines (up, down, left, right)
+   - Line insertion and deletion
+   - Multi-line default values
+   - Submit with Ctrl+D
+   - Complete text editor experience in the terminal
+
+5. **[tool-confirmation.go](./tool-confirmation.md)** - Tool Execution Confirmation
    - Human-in-the-loop for AI agents
    - Confirm/Deny/Quit workflow
    - Integration with Nova SDK agents
@@ -55,20 +63,22 @@ import "github.com/snipwise/nova/nova-sdk/ui/prompt"
 
 ## Feature Matrix
 
-| Feature | Basic Prompt | Colored Prompt | With Editing |
-|---------|-------------|----------------|--------------|
-| Text Input | ✅ | ✅ | ✅ |
-| Confirmation | ✅ | ✅ | N/A |
-| Selection | ✅ | ✅ | N/A |
-| Multi-Selection | ✅ | ✅ | N/A |
-| Colors | ❌ | ✅ | ✅ |
-| Custom Symbols | ❌ | ✅ | ✅ |
-| Validation | ✅ | ✅ | ✅ |
-| Default Values | ✅ | ✅ | ✅ |
-| Arrow Keys | ❌ | ❌ | ✅ |
-| Line Editing | ❌ | ❌ | ✅ |
-| Cursor Styles | ❌ | ❌ | ✅ |
-| Ctrl Shortcuts | ❌ | ❌ | ✅ |
+| Feature | Basic Prompt | Colored Prompt | With Editing | Multi-Line |
+|---------|-------------|----------------|--------------|------------|
+| Text Input | ✅ | ✅ | ✅ | ✅ |
+| Confirmation | ✅ | ✅ | N/A | N/A |
+| Selection | ✅ | ✅ | N/A | N/A |
+| Multi-Selection | ✅ | ✅ | N/A | N/A |
+| Colors | ❌ | ✅ | ✅ | ✅ |
+| Custom Symbols | ❌ | ✅ | ✅ | ✅ |
+| Validation | ✅ | ✅ | ✅ | ✅ |
+| Default Values | ✅ | ✅ | ✅ | ✅ |
+| Arrow Keys | ❌ | ❌ | ✅ (←→) | ✅ (←→↑↓) |
+| Line Editing | ❌ | ❌ | ✅ | ✅ |
+| Multiple Lines | ❌ | ❌ | ❌ | ✅ |
+| Cursor Styles | ❌ | ❌ | ✅ | ✅ |
+| Ctrl Shortcuts | ❌ | ❌ | ✅ | ✅ |
+| Submit Key | Enter | Enter | Enter | Ctrl+D |
 
 ---
 
@@ -95,6 +105,20 @@ path, err := input.RunWithEdit()
 ```
 
 **Documentation**: [edit.md](./edit.md#runwithedit-string-error)
+
+---
+
+### 2b. Multi-Line Editable Input
+
+```go
+template := "Dear [Name],\n\nBest regards"
+input := prompt.NewWithColor("Edit email template").
+    SetDefault(template).
+    SetCursorStyle(prompt.CursorBlockBlink)
+text, err := input.RunWithMultiLineEdit()
+```
+
+**Documentation**: [edit.multi.line.md](./edit.multi.line.md#runwithmultilineedit-string-error)
 
 ---
 
@@ -178,10 +202,18 @@ case tools.Quit:
 - Need to highlight important information
 
 ### Use RunWithEdit (`edit.go`) when:
-- Users need to edit long inputs
+- Users need to edit single-line inputs
 - Providing default values to be modified
-- Want professional editing experience
+- Want professional editing experience (single line)
 - Building configuration tools
+- Terminal supports raw mode (Linux/macOS)
+
+### Use RunWithMultiLineEdit (`edit.multi.line.go`) when:
+- Users need to enter or edit multi-line text
+- Editing code snippets, templates, or messages
+- Need full cursor navigation (up/down/left/right)
+- Building text editors or note-taking tools
+- Want to edit multi-line default values
 - Terminal supports raw mode (Linux/macOS)
 
 ### Use Tool Confirmation (`tool-confirmation.go`) when:
@@ -229,26 +261,53 @@ CursorUnderlineBlink // Blinking underline
 
 ---
 
-## Keyboard Shortcuts (with RunWithEdit)
+## Keyboard Shortcuts
 
-### Navigation
+### Single-Line Editing (RunWithEdit)
+
+**Navigation:**
 - `←` / `Ctrl+B` - Move left
 - `→` / `Ctrl+F` - Move right
 - `Home` / `Ctrl+A` - Beginning
 - `End` / `Ctrl+E` - End
 
-### Editing
+**Editing:**
 - `Backspace` - Delete before cursor
 - `Delete` - Delete at cursor
 - `Ctrl+K` - Delete to end
 - `Ctrl+U` - Delete to beginning
 
-### Control
+**Control:**
 - `Enter` - Submit
 - `Ctrl+C` - Cancel
 - `Ctrl+D` - EOF
 
 **Full list**: [edit.md](./edit.md#keyboard-shortcuts)
+
+---
+
+### Multi-Line Editing (RunWithMultiLineEdit)
+
+**Navigation:**
+- `←` / `Ctrl+B` - Move left
+- `→` / `Ctrl+F` - Move right
+- `↑` / `Ctrl+P` - Move up
+- `↓` / `Ctrl+N` - Move down
+- `Home` / `Ctrl+A` - Beginning of line
+- `End` / `Ctrl+E` - End of line
+
+**Editing:**
+- `Enter` - Insert new line
+- `Backspace` - Delete before cursor
+- `Delete` - Delete at cursor
+- `Ctrl+K` - Delete to end of line
+- `Ctrl+U` - Delete to beginning of line
+
+**Control:**
+- `Ctrl+D` - Submit
+- `Ctrl+C` - Cancel
+
+**Full list**: [edit.multi.line.md](./edit.multi.line.md#keyboard-controls)
 
 ---
 
@@ -265,10 +324,12 @@ CursorUnderlineBlink // Blinking underline
 - [Keyboard shortcuts selection](./color-prompt.md#colorselectkey)
 
 ### Advanced
-- [Editable input](./edit.md#edit-default-value)
+- [Editable input (single-line)](./edit.md#edit-default-value)
+- [Editable input (multi-line)](./edit.multi.line.md#with-default-multi-line-value)
 - [Cursor customization](./edit.md#cursor-styles)
 - [Global cursor style](./edit.md#global-cursor-style)
 - [Colored + editable](./edit.md#colored-input-with-editing)
+- [Multi-line with validation](./edit.multi.line.md#with-validation)
 
 ### Validation
 - [Custom validation](./prompt.md#input-with-default-and-validation)
@@ -284,13 +345,13 @@ CursorUnderlineBlink // Blinking underline
 
 ## Platform Support
 
-| Platform | Basic | Colored | Editing |
-|----------|-------|---------|---------|
-| Linux | ✅ | ✅ | ✅ |
-| macOS | ✅ | ✅ | ✅ |
-| Windows | ✅ | ✅ | ⚠️ Limited |
+| Platform | Basic | Colored | Editing | Multi-Line |
+|----------|-------|---------|---------|------------|
+| Linux | ✅ | ✅ | ✅ | ✅ |
+| macOS | ✅ | ✅ | ✅ | ✅ |
+| Windows | ✅ | ✅ | ⚠️ Limited | ⚠️ Limited |
 
-**Note**: `RunWithEdit()` has limited support on Windows due to raw terminal mode requirements. Use `Run()` as fallback.
+**Note**: `RunWithEdit()` and `RunWithMultiLineEdit()` have limited support on Windows due to raw terminal mode requirements. Use `Run()` as fallback.
 
 ---
 
@@ -375,8 +436,11 @@ input := prompt.NewWithColor("Enter name")
 // Before
 name, err := input.Run()
 
-// After
+// After (single-line)
 name, err := input.RunWithEdit()
+
+// After (multi-line)
+name, err := input.RunWithMultiLineEdit()
 ```
 
 ### Adding Cursor Style
@@ -384,7 +448,12 @@ name, err := input.RunWithEdit()
 ```go
 input := prompt.NewWithColor("Enter name").
     SetCursorStyle(prompt.CursorBlockBlink) // Add this line
+
+// Single-line
 name, err := input.RunWithEdit()
+
+// Multi-line
+name, err := input.RunWithMultiLineEdit()
 ```
 
 ---
@@ -399,7 +468,8 @@ name, err := input.RunWithEdit()
 ### Edit mode not working
 - Ensure platform is Linux or macOS
 - Check if `stty` command is available
-- On Windows, use `Run()` instead of `RunWithEdit()`
+- On Windows, use `Run()` instead of `RunWithEdit()` or `RunWithMultiLineEdit()`
+- Verify terminal supports raw mode
 
 ### Cursor not visible
 - System cursor is hidden in edit mode
@@ -488,4 +558,6 @@ Part of the Nova SDK by SnipWise.
 For issues, questions, or contributions:
 - GitHub Issues: [Nova SDK Issues](https://github.com/snipwise/nova/issues)
 - Documentation: This directory
-- Examples: `/samples/38-input-with-edit/`
+- Examples:
+  - Single-line editing: `/samples/38-input-with-edit/`
+  - Multi-line editing: `/samples/39-input-with-multiline-edit/`
