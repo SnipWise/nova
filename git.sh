@@ -14,6 +14,18 @@ case $1 in
     emoji="🐛"
     ;;
 
+  # 🤓: geek
+  human|human-fixed)
+    message="Human Fixed"
+    emoji="🤓"
+    ;;
+
+ # 🤖: robot
+  ai|ai-generated)
+    message="AI generated"
+    emoji="🤖"
+    ;;
+
   # ✨: sparkles
   sparkles|feature)
     message="Introduce new feature(s)"

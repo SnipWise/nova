@@ -400,7 +400,10 @@ func (i *ColorInput) RunWithEdit() (string, error) {
 				continue
 			}
 		}
-
+		// BEGIN: human-fixed
+		fmt.Print("\r")
+		fmt.Print("\x1b[0m")
+		// END: human-fixed
 		return input, nil
 	}
 }
