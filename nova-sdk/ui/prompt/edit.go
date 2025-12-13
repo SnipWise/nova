@@ -27,6 +27,8 @@ const (
 	hideCursor     = "\033[?25l"
 	showCursor     = "\033[?25h"
 	carriageReturn = "\r"
+
+	ANSIReset = "\033[0m" // Reset all attributes 
 )
 
 // CursorStyle defines how the cursor should be displayed
@@ -401,8 +403,8 @@ func (i *ColorInput) RunWithEdit() (string, error) {
 			}
 		}
 		// BEGIN: human-fixed
-		fmt.Print("\r")
-		fmt.Print("\x1b[0m")
+		fmt.Print(carriageReturn)
+		fmt.Print(ANSIReset)
 		// END: human-fixed
 		return input, nil
 	}
