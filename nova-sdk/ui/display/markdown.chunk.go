@@ -79,29 +79,6 @@ func MarkdownChunk(parser *MarkdownChunkParser, chunk string) {
 	}
 }
 
-/* func MarkdownChunk(parser *MarkdownChunkParser, chunk string) {
-	if parser == nil {
-		return
-	}
-
-	for _, ch := range chunk {
-		parser.buffer.WriteRune(ch)
-		parser.lineBuffer += string(ch)
-
-		if ch == '\n' {
-			// Process complete line
-			parser.processLine()
-			parser.lineBuffer = ""
-			parser.lastWasNewline = true
-		} else {
-			parser.lastWasNewline = false
-
-			// Try to process inline markdown as we type
-			parser.tryProcessInline()
-		}
-	}
-}
-*/
 // processLine processes a complete line of markdown
 func (p *MarkdownChunkParser) processLine() {
 	line := p.lineBuffer
