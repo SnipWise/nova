@@ -25,12 +25,38 @@ func InitializeConnection(ctx context.Context, agentConfig Config, modelConfig m
 		option.WithAPIKey(agentConfig.APIKey),
 	)
 
-	_, err = client.Models.Get(ctx, modelConfig.Name)
-	if err != nil {
-		log.Error("Model not available:", err)
+	// Check if the model is available on the specified engine URL
+	// Use client.Models.ListAutoPaging instead of client.Models.Get(ctx, modelConfig.Name)
+	// because Ollma does not support the Get model endpoint with model ID containig slashes
+	modelsList := client.Models.ListAutoPaging(ctx)
+	modelFound := false
+	for modelsList.Next() {
+		m := modelsList.Current()
+		//log.Debug("Available model:", m.ID)
+		if m.ID == modelConfig.Name {
+			modelFound = true
+		}
+	}
+	if err := modelsList.Err(); err != nil {
+		log.Error("Error listing models:", err)
+		return openai.Client{}, nil, err
+	}
+
+	if !modelFound {
+		log.Error("Model not available:", modelConfig.Name)
 		return openai.Client{}, nil, errors.New("model not available on the specified engine URL")
 	}
+
 	log.Info("Model %s is available on %s", modelConfig.Name, agentConfig.EngineURL)
+
+	// _, err = client.Models.Get(ctx, modelConfig.Name)
+
+	// if err != nil {
+	// 	log.Error("Model not available:", err)
+	// 	return openai.Client{}, nil, errors.New("model not available on the specified engine URL")
+	// }
+
+	// log.Info("Model %s is available on %s", modelConfig.Name, agentConfig.EngineURL)
 
 	return client, log, nil
 
