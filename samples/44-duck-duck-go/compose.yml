@@ -1,0 +1,28 @@
+services:
+
+  mcp-gateway:
+    # mcp-gateway secures your MCP servers
+    image: docker/mcp-gateway:latest
+    ports:
+      - 9011:9011
+    use_api_socket: true
+
+    command:
+      - --port=9011
+      - --transport=streaming
+      - --verbose
+      - --servers=duckduckgo
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9011/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+# models:
+#   tools:
+#     model: hf.co/menlo/jan-nano-gguf:q4_k_m
+#     model: hf.co/menlo/lucy-128k-gguf:q4_k_m

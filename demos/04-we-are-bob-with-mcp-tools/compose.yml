@@ -1,0 +1,166 @@
+#docker compose up -d
+#docker compose attach bob-agents
+
+services:
+  mcp-gateway:
+    image: docker/mcp-gateway:latest
+    ports:
+      - 9011:9011
+    use_api_socket: true
+
+    command:
+      - --port=9011
+      - --transport=streaming
+      - --verbose
+      - --servers=duckduckgo
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9011/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  bob-agents:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    tty: true # Enable TTY
+    stdin_open: true # Keep stdin open
+
+    volumes:
+      - ./data:/app/data
+
+    environment:
+      DISPLAY_REASONING_STEPS: true
+
+      MCP_GATEWAY_URL: http://mcp-gateway:9011
+
+      CODER_AGENT_MODEL_TEMPERATURE: 0.8
+      CODER_AGENT_SYSTEM_INSTRUCTIONS: |
+        You are an expert programming assistant. You write clean, efficient, and well-documented code. Always:
+        - Provide complete, working code
+        - Include error handling
+        - Add helpful comments
+        - Follow best practices for the language
+        - Explain your approach briefly
+
+      THINKER_MODEL_TEMPERATURE: 0.8
+      THINKER_AGENT_SYSTEM_INSTRUCTIONS: |
+        You are a thoughtful conversational assistant. 
+        - Listen carefully to the user
+        - Think before responding
+        - Ask clarifying questions when needed
+        - Discuss topics with curiosity and respect
+        - Admit when you don't know something
+        Keep responses natural and conversational.
+
+      GENERIC_MODEL_TEMPERATURE: 0.8
+      GENERICT_MODEL_SYSTEM_INSTRUCTIONS: |
+        You respond appropriately to different types of questions.
+        For factual questions: Give direct answers with key facts
+        For how-to questions: Provide step-by-step guidance
+        For opinion questions: Present balanced perspectives
+        For complex topics: Break into digestible parts
+
+        Always start with the most important information.
+
+      TRANSLATOR_MODEL_TEMPERATURE: 0.8
+      TRANSLATOR_AGENT_SYSTEM_INSTRUCTIONS: |
+        You are a skilled multilingual translator.
+        - Translate text accurately while preserving meaning and tone
+        - Adapt translations to cultural contexts
+        - Handle idioms and expressions appropriately
+        - Provide translations in the target language only, without extra commentary.
+
+      ORCHESTRATOR_AGENT_SYSTEM_INSTRUCTIONS: |
+        You are good at identifying the topic of a conversation.
+        Given a user's input, identify the main topic of discussion in only one word.
+        The possible topics are: Technology, Health, Sports, Entertainment, Politics, Science, Mathematics,
+        Travel, Food, Education, Finance, Environment, Fashion, History, Literature, Art,
+        Music, Psychology, Relationships, Philosophy, Religion, Automotive, Gaming, Translation.
+        Respond in JSON format with the field `topic_discussion`.
+
+      #TOOLS_DETECTION: true
+      TOOLS_AGENT_SYSTEM_INSTRUCTIONS: |
+        You are an assistant that decides which tool to use based on user input.
+        - Analyze the user's request carefully
+        - Choose the most appropriate tool from the available options
+        - Provide clear reasoning for your choice
+      
+
+      CONTEXT_COMPRESSING_THRESHOLD: 20000
+
+      TERM: xterm-256color
+
+    models:
+      coder-agent-model:
+        endpoint_var: ENGINE_URL
+        model_var: CODER_AGENT_MODEL
+
+      thinker-model:
+        endpoint_var: ENGINE_URL
+        model_var: THINKER_MODEL
+
+      generic-model:
+        endpoint_var: ENGINE_URL
+        model_var: GENERIC_MODEL
+
+      translator-model:
+        endpoint_var: ENGINE_URL
+        model_var: TRANSLATOR_MODEL
+
+      orchestrator-model:
+        endpoint_var: ENGINE_URL
+        model_var: ORCHESTRATOR_MODEL
+
+      tools-agent-model:
+        endpoint_var: ENGINE_URL
+        model_var: TOOLS_AGENT_MODEL
+
+      compressor-model:
+        endpoint_var: ENGINE_URL
+        model_var: COMPRESSOR_MODEL
+
+      rag-model:
+        endpoint_var: ENGINE_URL
+        model_var: RAG_MODEL
+
+    depends_on:
+      mcp-gateway:
+        condition: service_started
+
+models:
+  coder-agent-model:
+    model: hf.co/quantfactory/deepseek-coder-7b-instruct-v1.5-gguf:q4_k_m
+    context_size: 8192
+
+  thinker-model:
+    model: hf.co/menlo/lucy-gguf:q4_k_m
+    context_size: 8192
+
+  generic-model:
+    model: hf.co/menlo/jan-nano-gguf:q4_k_m
+    context_size: 8192
+
+  translator-model:
+    model: hf.co/menlo/lucy-gguf:q4_k_m
+    context_size: 8192
+
+  orchestrator-model:
+    model: hf.co/menlo/lucy-gguf:q4_k_m
+    context_size: 8192
+
+  tools-agent-model:
+    model: hf.co/menlo/jan-nano-gguf:q4_k_m
+    context_size: 8192
+
+  compressor-model:
+    model: hf.co/menlo/jan-nano-gguf:q4_k_m
+    context_size: 8192
+
+  rag-model:
+    model: ai/mxbai-embed-large

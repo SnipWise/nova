@@ -1,0 +1,112 @@
+services:
+
+  mcp-gateway:
+    # mcp-gateway secures your MCP servers
+    image: docker/mcp-gateway:latest
+    ports:
+      - 9011:9011
+    use_api_socket: true
+    command:
+      - --port=9011
+      - --transport=streaming
+      - --verbose
+      - --catalog=/mcp/catalog.yaml
+      - --servers=mcp-dnd
+      #- --tools=mcp-fancy-names:generate_project_name
+      #- --tools=mcp-dnd:*
+      #- --tools=mcp-hello-world:*
+
+    configs:
+      - source: catalog.yaml
+        target:
+          /mcp/catalog.yaml
+    depends_on:
+      mcp-fancy-names:
+        condition: service_healthy
+      mcp-hello-world:
+        condition: service_healthy
+      mcp-dnd:
+        condition: service_healthy
+
+
+  mcp-fancy-names:
+    build:
+      #context: mcp-servers/fancy-names
+      context: fancy-names
+      dockerfile: Dockerfile    
+    environment:
+      MCP_HTTP_PORT: 6060
+    
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6060/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mcp-hello-world:
+    build:
+      #context: mcp-servers/hello-world
+      context: hello-world
+      dockerfile: Dockerfile
+    environment:
+      MCP_HTTP_PORT: 6060
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6060/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mcp-dnd:
+    build:
+      #context: mcp-servers/dnd
+      context: dnd
+      dockerfile: Dockerfile
+    environment:
+      MCP_HTTP_PORT: 6060
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6060/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Transport Type: Streamable HTTP
+  # URL: http://mcp-gateway:9011/mcp
+  # Connection Type: Via Proxy
+  # Use the provided URL in the logs to connect to the MCP Inspector
+  mcp-inspector:
+    image: ghcr.io/modelcontextprotocol/inspector:latest
+    command: ["--config", "/app/mcp.json"]
+    ports:
+      - 6274:6274
+      - 6277:6277
+    environment:
+      HOST: 0.0.0.0
+      ALLOWED_ORIGINS: "http://0.0.0.0:6274,http://localhost:6274"
+      MCP_AUTO_OPEN_ENABLED: false
+    depends_on:
+      - mcp-gateway
+      
+configs:
+  catalog.yaml:
+    content: |
+      registry:
+
+        mcp-fancy-names:
+          remote:
+            url: "http://mcp-fancy-names:6060/mcp"
+            transport_type: http
+
+        mcp-hello-world:
+          remote:
+            url: "http://mcp-hello-world:6060/mcp"
+            transport_type: http
+
+        mcp-dnd:
+          remote:
+            url: "http://mcp-dnd:6060/mcp"
+            transport_type: http

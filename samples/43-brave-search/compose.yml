@@ -1,0 +1,47 @@
+services:
+  # budgie-agent:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     MCP_HOST: http://mcp-gateway:9011/mcp    
+  #     SYSTEM_INSTRUCTION: |
+  #       Your job is to understand the user prompt and decide if you need to use tools to run external commands.
+  #       Ignore all things not related to the usage of a tool
+  #     USER_MESSAGE: |
+  #       Search for good Sri Lankan restaurants in Lyon, France.        
+  #   depends_on:
+  #     mcp-gateway:
+  #       condition: service_healthy
+  #   models:
+  #     tools:
+  #       endpoint_var: MODEL_RUNNER_BASE_URL
+  #       model_var: MODEL_RUNNER_TOOLS_MODEL
+
+  mcp-gateway:
+    # mcp-gateway secures your MCP servers
+    image: docker/mcp-gateway:latest
+    ports:
+      - 9011:9011
+    use_api_socket: true
+
+    command:
+      - --port=9011
+      - --transport=streaming
+      - --verbose
+      - --servers=brave
+      - --tools=brave_web_search
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9011/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+# models:
+#   tools:
+#     model: hf.co/menlo/jan-nano-gguf:q4_k_m
+#     model: hf.co/menlo/lucy-128k-gguf:q4_k_m

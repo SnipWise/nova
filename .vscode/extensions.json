@@ -1,0 +1,15 @@
+{
+    "recommendations": [
+      "ms-azuretools.vscode-docker",
+      "pkief.material-icon-theme",
+      "pkief.material-product-icons",
+      "aaron-bond.better-comments",
+      "hediet.vscode-drawio",
+      "anseki.vscode-color",
+      "jeronimoekerdt.color-picker-universal",
+      "wayou.vscode-todo-highlight",
+      "bierner.markdown-mermaid",
+      "marp-team.marp-vscode",
+      "prettier.prettier-vscode",
+    ]
+}

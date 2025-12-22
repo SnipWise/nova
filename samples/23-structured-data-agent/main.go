@@ -1,0 +1,63 @@
+package main
+
+import (
+	"context"
+	"strings"
+
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/structured"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/conversion"
+	"github.com/snipwise/nova/nova-sdk/ui/display"
+)
+
+type Country struct {
+	Name       string   `json:"name"`
+	Capital    string   `json:"capital"`
+	Population int      `json:"population"`
+	Languages  []string `json:"languages"`
+}
+
+func main() {
+	ctx := context.Background()
+	agent, err := structured.NewAgent[Country](
+		ctx,
+		agents.Config{
+			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: `
+			Your name is Bob. 
+			You are an assistant that answers questions about countries around the world.
+			`,
+		},
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature: models.Float64(0.0),
+		},
+		// models.NewConfig("hf.co/menlo/jan-nano-gguf:q4_k_m").
+		// 	WithTemperature(0.0),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	response, finishReason, err := agent.GenerateStructuredData([]messages.Message{
+		{Role: roles.User, Content: "Tell me about Canada."},
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	display.NewLine()
+	display.Separator()
+	display.Title("Response")
+	display.KeyValue("Name", response.Name)
+	display.KeyValue("Capital", response.Capital)
+	display.KeyValue("Population", conversion.IntToString(response.Population))
+	display.KeyValue("Languages", strings.Join(response.Languages, ", "))
+	display.NewLine()
+	display.Separator()
+	display.KeyValue("Finish reason", finishReason)
+}

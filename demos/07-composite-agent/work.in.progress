@@ -1,0 +1,10 @@
+package main
+
+import "fmt"
+
+func main() {
+    a := 45
+    b := 78
+    sum := a + b
+    fmt.Println("The sum of", a, "and", b, "is", sum)
+}
