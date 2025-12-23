@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/shared/constant"
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/base"
 )
@@ -70,87 +69,20 @@ func (agent *BaseAgent) DetectParallelToolCalls(messages []openai.ChatCompletion
 		detectedToolCalls := completion.Choices[0].Message.ToolCalls
 
 		if len(detectedToolCalls) > 0 {
-
-			toolCallParams := make([]openai.ChatCompletionMessageToolCallUnionParam, len(detectedToolCalls))
-			for i, toolCall := range detectedToolCalls {
-				toolCallParams[i] = openai.ChatCompletionMessageToolCallUnionParam{
-					OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-						ID:   toolCall.ID,
-						Type: constant.Function("function"),
-						Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-							Name:      toolCall.Function.Name,
-							Arguments: toolCall.Function.Arguments,
-						},
-					},
-				}
+			var stopped bool
+			messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallBack, nil)
+			if stopped {
+				return finishReason, results, lastAssistantMessage, nil
 			}
-
-			// Create assistant message with tool calls using proper union type
-			assistantMessage := openai.ChatCompletionMessageParamUnion{
-				OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-					ToolCalls: toolCallParams,
-				},
-			}
-
-			// Add the assistant message with tool calls to the conversation history
-			messages = append(messages, assistantMessage)
-
-			// TOOL: Process each detected tool call
-			agent.Log.Info("🚀 Processing tool calls...")
-
-			for _, toolCall := range detectedToolCalls {
-				functionName := toolCall.Function.Name
-				functionArgs := toolCall.Function.Arguments
-				callID := toolCall.ID
-
-				// TOOL: Execute the function with the provided arguments
-				agent.Log.Info(fmt.Sprintf("▶️ Executing function: %s with args: %s\n", functionName, functionArgs))
-
-				resultContent, errExec := toolCallBack(functionName, functionArgs)
-
-				if errExec != nil {
-					agent.Log.Error(fmt.Sprintf("🔴 Error executing function %s: %s\n", functionName, errExec.Error()))
-					//stopped = true
-					finishReason = "exit_loop"
-					resultContent = fmt.Sprintf(`{"error": "Function execution failed: %s"}`, errExec.Error())
-				}
-				if resultContent == "" {
-					resultContent = `{"error": "Function execution returned empty result"}`
-				}
-				results = append(results, resultContent)
-
-				//fmt.Printf("Function result: %s with CallID: %s\n\n", resultContent, callID)
-				//agent.Log.Info(fmt.Sprintf("✅ Function %s executed successfully.\n", functionName))
-				agent.Log.Info(fmt.Sprintf("✅ Function result: %s with CallID: %s\n\n", resultContent, callID))
-
-				// Add the tool call result to the conversation history
-				messages = append(
-					messages,
-					openai.ToolMessage(
-						resultContent,
-						toolCall.ID,
-					),
-				)
-			}
-
 		} else {
-			// TODO: Handle case where no tool calls were detected
 			agent.Log.Warn("😢 No tool calls found in response")
 		}
 
 	case "stop":
-		agent.Log.Info("✋ Stopping due to 'stop' finish reason.")
-		//stopped = true
-		lastAssistantMessage = completion.Choices[0].Message.Content
-
-		agent.Log.Info(fmt.Sprintf("🤖 %s\n", lastAssistantMessage))
-
-		// Add final assistant message to conversation history
-		messages = append(messages, openai.AssistantMessage(lastAssistantMessage))
+		messages, lastAssistantMessage = agent.handleStopReason(messages, completion.Choices[0].Message.Content)
 
 	default:
 		agent.Log.Error(fmt.Sprintf("🔴 Unexpected response: %s\n", finishReason))
-		//stopped = true
 	}
 
 	return finishReason, results, lastAssistantMessage, nil
@@ -182,116 +114,20 @@ func (agent *BaseAgent) DetectParallelToolCallsWitConfirmation(
 		detectedToolCalls := completion.Choices[0].Message.ToolCalls
 
 		if len(detectedToolCalls) > 0 {
-
-			toolCallParams := make([]openai.ChatCompletionMessageToolCallUnionParam, len(detectedToolCalls))
-			for i, toolCall := range detectedToolCalls {
-				toolCallParams[i] = openai.ChatCompletionMessageToolCallUnionParam{
-					OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-						ID:   toolCall.ID,
-						Type: constant.Function("function"),
-						Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-							Name:      toolCall.Function.Name,
-							Arguments: toolCall.Function.Arguments,
-						},
-					},
-				}
+			var stopped bool
+			messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallBack, confirmationCallBack)
+			if stopped {
+				return finishReason, results, lastAssistantMessage, nil
 			}
-
-			// Create assistant message with tool calls using proper union type
-			assistantMessage := openai.ChatCompletionMessageParamUnion{
-				OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-					ToolCalls: toolCallParams,
-				},
-			}
-
-			// Add the assistant message with tool calls to the conversation history
-			messages = append(messages, assistantMessage)
-
-			// TOOL: Process each detected tool call
-			agent.Log.Info("🚀 Processing tool calls...")
-
-			for _, toolCall := range detectedToolCalls {
-				functionName := toolCall.Function.Name
-				functionArgs := toolCall.Function.Arguments
-				callID := toolCall.ID
-
-				// --> NOTE: HERE
-
-				// Ask for confirmation before executing the tool
-				agent.Log.Info(fmt.Sprintf("⁉️ Requesting confirmation for function: %s with args: %s\n", functionName, functionArgs))
-				confirmation := confirmationCallBack(functionName, functionArgs)
-
-				switch confirmation {
-				case Confirmed:
-					// TOOL: Execute the function with the provided arguments
-					agent.Log.Info(fmt.Sprintf("▶️ Executing function: %s with args: %s\n", functionName, functionArgs))
-
-					resultContent, errExec := toolCallBack(functionName, functionArgs)
-
-					if errExec != nil {
-						agent.Log.Error(fmt.Sprintf("🔴 Error executing function %s: %s\n", functionName, errExec.Error()))
-						//stopped = true
-						finishReason = "exit_loop"
-						resultContent = fmt.Sprintf(`{"error": "Function execution failed: %s"}`, errExec.Error())
-					}
-					if resultContent == "" {
-						resultContent = `{"error": "Function execution returned empty result"}`
-					}
-					results = append(results, resultContent)
-
-					agent.Log.Info(fmt.Sprintf("✅ Function result: %s with CallID: %s\n\n", resultContent, callID))
-
-					// Add the tool call result to the conversation history
-					messages = append(
-						messages,
-						openai.ToolMessage(
-							resultContent,
-							toolCall.ID,
-						),
-					)
-
-				case Denied:
-					// Skip execution but add a message indicating the tool was denied
-					agent.Log.Warn(fmt.Sprintf("⛔ Tool execution denied for function: %s\n", functionName))
-					resultContent := `{"status": "denied", "message": "Tool execution was denied by user"}`
-					results = append(results, resultContent)
-
-					// Add the tool call result to the conversation history
-					messages = append(
-						messages,
-						openai.ToolMessage(
-							resultContent,
-							toolCall.ID,
-						),
-					)
-
-				case Quit:
-					// Exit the function immediately
-					agent.Log.Warn(fmt.Sprintf("🛑 Quit requested for function: %s\n", functionName))
-					//stopped = true
-					finishReason = "user_quit"
-					return finishReason, results, lastAssistantMessage, nil
-				}
-			}
-
 		} else {
-			// TODO: Handle case where no tool calls were detected
 			agent.Log.Warn("😢 No tool calls found in response")
 		}
 
 	case "stop":
-		agent.Log.Info("✋ Stopping due to 'stop' finish reason.")
-		//stopped = true
-		lastAssistantMessage = completion.Choices[0].Message.Content
-
-		agent.Log.Info(fmt.Sprintf("🤖 %s\n", lastAssistantMessage))
-
-		// Add final assistant message to conversation history
-		messages = append(messages, openai.AssistantMessage(lastAssistantMessage))
+		messages, lastAssistantMessage = agent.handleStopReason(messages, completion.Choices[0].Message.Content)
 
 	default:
 		agent.Log.Error(fmt.Sprintf("🔴 Unexpected response: %s\n", finishReason))
-		//stopped = true
 	}
 
 	return finishReason, results, lastAssistantMessage, nil
@@ -305,7 +141,6 @@ func (agent *BaseAgent) DetectToolCallsLoop(messages []openai.ChatCompletionMess
 	finishReason := ""
 
 	for !stopped {
-		// TOOL: Make a function call request
 		agent.Log.Info("⏳ [DetectToolCallsLoop] Making function call request...")
 
 		agent.ChatCompletionParams.Messages = messages
@@ -318,97 +153,24 @@ func (agent *BaseAgent) DetectToolCallsLoop(messages []openai.ChatCompletionMess
 
 		finishReason = completion.Choices[0].FinishReason
 
-		// Extract reasoning_content from RawJSON
-		// completion.Choices[0].Message.RawJSON()
-
 		switch finishReason {
 		case "tool_calls":
 			detectedToolCalls := completion.Choices[0].Message.ToolCalls
 
 			if len(detectedToolCalls) > 0 {
-
-				toolCallParams := make([]openai.ChatCompletionMessageToolCallUnionParam, len(detectedToolCalls))
-				for i, toolCall := range detectedToolCalls {
-					toolCallParams[i] = openai.ChatCompletionMessageToolCallUnionParam{
-						OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-							ID:   toolCall.ID,
-							Type: constant.Function("function"),
-							Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-								Name:      toolCall.Function.Name,
-								Arguments: toolCall.Function.Arguments,
-							},
-						},
-					}
-				}
-
-				// Create assistant message with tool calls using proper union type
-				assistantMessage := openai.ChatCompletionMessageParamUnion{
-					OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-						ToolCalls: toolCallParams,
-					},
-				}
-
-				// Add the assistant message with tool calls to the conversation history
-				messages = append(messages, assistantMessage)
-
-				// TOOL: Process each detected tool call
-				agent.Log.Info("🚀 Processing tool calls...")
-
-				for _, toolCall := range detectedToolCalls {
-					functionName := toolCall.Function.Name
-					functionArgs := toolCall.Function.Arguments
-					callID := toolCall.ID
-
-					// TOOL: Execute the function with the provided arguments
-					agent.Log.Info(fmt.Sprintf("▶️ Executing function: %s with args: %s\n", functionName, functionArgs))
-
-					resultContent, errExec := toolCallBack(functionName, functionArgs)
-
-					if errExec != nil {
-						agent.Log.Error(fmt.Sprintf("🔴 Error executing function %s: %s\n", functionName, errExec.Error()))
-						stopped = true
-						finishReason = "exit_loop"
-						resultContent = fmt.Sprintf(`{"error": "Function execution failed: %s"}`, errExec.Error())
-					}
-					if resultContent == "" {
-						resultContent = `{"error": "Function execution returned empty result"}`
-					}
-					results = append(results, resultContent)
-
-					//fmt.Printf("Function result: %s with CallID: %s\n\n", resultContent, callID)
-					//agent.Log.Info(fmt.Sprintf("✅ Function %s executed successfully.\n", functionName))
-					agent.Log.Info(fmt.Sprintf("✅ Function result: %s with CallID: %s\n\n", resultContent, callID))
-
-					// Add the tool call result to the conversation history
-					messages = append(
-						messages,
-						openai.ToolMessage(
-							resultContent,
-							toolCall.ID,
-						),
-					)
-				}
-
+				messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallBack, nil)
 			} else {
-				// TODO: Handle case where no tool calls were detected
 				agent.Log.Warn("😢 No tool calls found in response")
 			}
 
 		case "stop":
-			agent.Log.Info("✋ Stopping due to 'stop' finish reason.")
 			stopped = true
-			lastAssistantMessage = completion.Choices[0].Message.Content
-
-			agent.Log.Info(fmt.Sprintf("🤖 %s\n", lastAssistantMessage))
-
-			// Add final assistant message to conversation history
-			messages = append(messages, openai.AssistantMessage(lastAssistantMessage))
+			messages, lastAssistantMessage = agent.handleStopReason(messages, completion.Choices[0].Message.Content)
 
 		default:
 			agent.Log.Error(fmt.Sprintf("🔴 Unexpected response: %s\n", finishReason))
 			stopped = true
 		}
-
 	}
 	return finishReason, results, lastAssistantMessage, nil
 }
@@ -424,7 +186,6 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmation(
 	finishReason := ""
 
 	for !stopped {
-		// TOOL: Make a function call request
 		agent.Log.Info("⏳ [LOOP][DetectToolCallsLoopWithConfirmation] Making function call request...")
 
 		agent.ChatCompletionParams.Messages = messages
@@ -442,116 +203,22 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmation(
 			detectedToolCalls := completion.Choices[0].Message.ToolCalls
 
 			if len(detectedToolCalls) > 0 {
-
-				toolCallParams := make([]openai.ChatCompletionMessageToolCallUnionParam, len(detectedToolCalls))
-				for i, toolCall := range detectedToolCalls {
-
-					toolCallParams[i] = openai.ChatCompletionMessageToolCallUnionParam{
-						OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-							ID:   toolCall.ID,
-							Type: constant.Function("function"),
-							Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-								Name:      toolCall.Function.Name,
-								Arguments: toolCall.Function.Arguments,
-							},
-						},
-					}
+				messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallBack, confirmationCallBack)
+				if stopped && finishReason == "user_quit" {
+					return finishReason, results, lastAssistantMessage, nil
 				}
-
-				// Create assistant message with tool calls using proper union type
-				assistantMessage := openai.ChatCompletionMessageParamUnion{
-					OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-						ToolCalls: toolCallParams,
-					},
-				}
-				// Add the assistant message with tool calls to the conversation history
-				messages = append(messages, assistantMessage)
-
-				// TOOL: Process each detected tool call
-				agent.Log.Info("🚀 Processing tool calls...")
-
-				for _, toolCall := range detectedToolCalls {
-					functionName := toolCall.Function.Name
-					functionArgs := toolCall.Function.Arguments
-					callID := toolCall.ID
-
-					// Ask for confirmation before executing the tool
-					agent.Log.Info(fmt.Sprintf("⁉️ Requesting confirmation for function: %s with args: %s\n", functionName, functionArgs))
-					confirmation := confirmationCallBack(functionName, functionArgs)
-
-					switch confirmation {
-					case Confirmed:
-						// TOOL: Execute the function with the provided arguments
-						agent.Log.Info(fmt.Sprintf("▶️ Executing function: %s with args: %s\n", functionName, functionArgs))
-
-						resultContent, errExec := toolCallBack(functionName, functionArgs)
-
-						if errExec != nil {
-							agent.Log.Error(fmt.Sprintf("🔴 Error executing function %s: %s\n", functionName, errExec.Error()))
-							stopped = true
-							finishReason = "exit_loop"
-							resultContent = fmt.Sprintf(`{"error": "Function execution failed: %s"}`, errExec.Error())
-						}
-						if resultContent == "" {
-							resultContent = `{"error": "Function execution returned empty result"}`
-						}
-						results = append(results, resultContent)
-
-						agent.Log.Info(fmt.Sprintf("✅ Function result: %s with CallID: %s\n\n", resultContent, callID))
-
-						// Add the tool call result to the conversation history
-						messages = append(
-							messages,
-							openai.ToolMessage(
-								resultContent,
-								toolCall.ID,
-							),
-						)
-
-					case Denied:
-						// Skip execution but add a message indicating the tool was denied
-						agent.Log.Warn(fmt.Sprintf("⛔ Tool execution denied for function: %s\n", functionName))
-						resultContent := `{"status": "denied", "message": "Tool execution was denied by user"}`
-						results = append(results, resultContent)
-
-						// Add the tool call result to the conversation history
-						messages = append(
-							messages,
-							openai.ToolMessage(
-								resultContent,
-								toolCall.ID,
-							),
-						)
-
-					case Quit:
-						// Exit the function immediately
-						agent.Log.Warn(fmt.Sprintf("🛑 Quit requested for function: %s\n", functionName))
-						stopped = true
-						finishReason = "user_quit"
-						return finishReason, results, lastAssistantMessage, nil
-					}
-				}
-
 			} else {
-				// TODO: Handle case where no tool calls were detected
 				agent.Log.Warn("😢 No tool calls found in response")
 			}
 
 		case "stop":
-			agent.Log.Info("✋ Stopping due to 'stop' finish reason.")
 			stopped = true
-			lastAssistantMessage = completion.Choices[0].Message.Content
-
-			agent.Log.Info(fmt.Sprintf("🤖 %s\n", lastAssistantMessage))
-
-			// Add final assistant message to conversation history
-			messages = append(messages, openai.AssistantMessage(lastAssistantMessage))
+			messages, lastAssistantMessage = agent.handleStopReason(messages, completion.Choices[0].Message.Content)
 
 		default:
 			agent.Log.Error(fmt.Sprintf("🔴 Unexpected response: %s\n", finishReason))
 			stopped = true
 		}
-
 	}
 	return finishReason, results, lastAssistantMessage, nil
 }
@@ -563,7 +230,6 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 	finishReason := ""
 
 	for !stopped {
-		// TOOL: Make a function call request
 		agent.Log.Info("⏳ [LOOP][DetectToolCallsLoopStream] Making function call request...")
 
 		agent.ChatCompletionParams.Messages = messages
@@ -574,7 +240,6 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 
 		for stream.Next() {
 			chunk := stream.Current()
-			// Stream each chunk as it arrives
 			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
 				cbkRes = streamCallback(chunk.Choices[0].Delta.Content)
 				response += chunk.Choices[0].Delta.Content
@@ -596,7 +261,7 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 			return "", results, "", err
 		}
 
-		// Make a non-streaming call to get tool calls (streaming doesn't provide tool calls properly)
+		// Make a non-streaming call to get tool calls
 		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
 		if err != nil {
 			return "", results, "", err
@@ -609,73 +274,15 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 			detectedToolCalls := completion.Choices[0].Message.ToolCalls
 
 			if len(detectedToolCalls) > 0 {
-				toolCallParams := make([]openai.ChatCompletionMessageToolCallUnionParam, len(detectedToolCalls))
-				for i, toolCall := range detectedToolCalls {
-					toolCallParams[i] = openai.ChatCompletionMessageToolCallUnionParam{
-						OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-							ID:   toolCall.ID,
-							Type: constant.Function("function"),
-							Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-								Name:      toolCall.Function.Name,
-								Arguments: toolCall.Function.Arguments,
-							},
-						},
-					}
-				}
-
-				// Create assistant message with tool calls
-				assistantMessage := openai.ChatCompletionMessageParamUnion{
-					OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-						ToolCalls: toolCallParams,
-					},
-				}
-
-				messages = append(messages, assistantMessage)
-
-				// Execute each tool call
-				for _, toolCall := range detectedToolCalls {
-					functionName := toolCall.Function.Name
-					functionArgs := toolCall.Function.Arguments
-					callID := toolCall.ID
-
-					resultContent, errExec := toolCallback(functionName, functionArgs)
-
-					if errExec != nil {
-						agent.Log.Error(fmt.Sprintf("🔴 Error executing function %s: %s\n", functionName, errExec.Error()))
-						stopped = true
-						finishReason = "exit_loop"
-						resultContent = fmt.Sprintf(`{"error": "Function execution failed: %s"}`, errExec.Error())
-					}
-
-					if resultContent == "" {
-						resultContent = `{"error": "Function execution returned empty result"}`
-					}
-					results = append(results, resultContent)
-					agent.Log.Info(fmt.Sprintf("✅ Function result: %s with CallID: %s\n\n", resultContent, callID))
-
-					// Add the tool call result to the conversation history
-					messages = append(
-						messages,
-						openai.ToolMessage(
-							resultContent,
-							toolCall.ID,
-						),
-					)
-				}
-
+				messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallback, nil)
 			} else {
-				fmt.Println("😢 No tool calls found in response")
+				agent.Log.Warn("😢 No tool calls found in response")
 			}
 
 		case "stop":
-			agent.Log.Info("✋ Stopping due to 'stop' finish reason.")
 			stopped = true
+			messages, _ = agent.handleStopReason(messages, response)
 			lastAssistantMessage = response
-
-			agent.Log.Info(fmt.Sprintf("🤖 %s\n", lastAssistantMessage))
-
-			// Add final assistant message to conversation history
-			messages = append(messages, openai.AssistantMessage(lastAssistantMessage))
 
 		default:
 			agent.Log.Error(fmt.Sprintf("🔴 Unexpected response: %s\n", finishReason))
@@ -697,7 +304,6 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 	finishReason := ""
 
 	for !stopped {
-		// TOOL: Make a function call request
 		agent.Log.Info("⏳ [LOOP][DetectToolCallsLoopWithConfirmationStream] Making function call request...")
 
 		agent.ChatCompletionParams.Messages = messages
@@ -708,7 +314,6 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 
 		for stream.Next() {
 			chunk := stream.Current()
-			// Stream each chunk as it arrives
 			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
 				cbkRes = streamCallback(chunk.Choices[0].Delta.Content)
 				response += chunk.Choices[0].Delta.Content
@@ -730,7 +335,7 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 			return "", results, "", err
 		}
 
-		// Make a non-streaming call to get tool calls (streaming doesn't provide tool calls properly)
+		// Make a non-streaming call to get tool calls
 		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
 		if err != nil {
 			return "", results, "", err
@@ -743,105 +348,18 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 			detectedToolCalls := completion.Choices[0].Message.ToolCalls
 
 			if len(detectedToolCalls) > 0 {
-				toolCallParams := make([]openai.ChatCompletionMessageToolCallUnionParam, len(detectedToolCalls))
-				for i, toolCall := range detectedToolCalls {
-					toolCallParams[i] = openai.ChatCompletionMessageToolCallUnionParam{
-						OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-							ID:   toolCall.ID,
-							Type: constant.Function("function"),
-							Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-								Name:      toolCall.Function.Name,
-								Arguments: toolCall.Function.Arguments,
-							},
-						},
-					}
+				messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallback, confirmationCallBack)
+				if stopped && finishReason == "user_quit" {
+					return finishReason, results, lastAssistantMessage, nil
 				}
-
-				// Create assistant message with tool calls
-				assistantMessage := openai.ChatCompletionMessageParamUnion{
-					OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-						ToolCalls: toolCallParams,
-					},
-				}
-
-				messages = append(messages, assistantMessage)
-
-				// Execute each tool call
-				for _, toolCall := range detectedToolCalls {
-					functionName := toolCall.Function.Name
-					functionArgs := toolCall.Function.Arguments
-					callID := toolCall.ID
-
-					// Ask for confirmation before executing the tool
-					agent.Log.Info(fmt.Sprintf("⁉️ Requesting confirmation for function: %s with args: %s\n", functionName, functionArgs))
-					confirmation := confirmationCallBack(functionName, functionArgs)
-
-					switch confirmation {
-					case Confirmed:
-						// TOOL: Execute the function with the provided arguments
-						agent.Log.Info(fmt.Sprintf("▶️ Executing function: %s with args: %s\n", functionName, functionArgs))
-
-						resultContent, errExec := toolCallback(functionName, functionArgs)
-
-						if errExec != nil {
-							agent.Log.Error(fmt.Sprintf("🔴 Error executing function %s: %s\n", functionName, errExec.Error()))
-							stopped = true
-							finishReason = "exit_loop"
-							resultContent = fmt.Sprintf(`{"error": "Function execution failed: %s"}`, errExec.Error())
-						}
-
-						if resultContent == "" {
-							resultContent = `{"error": "Function execution returned empty result"}`
-						}
-						results = append(results, resultContent)
-						agent.Log.Info(fmt.Sprintf("✅ Function result: %s with CallID: %s\n\n", resultContent, callID))
-
-						// Add the tool call result to the conversation history
-						messages = append(
-							messages,
-							openai.ToolMessage(
-								resultContent,
-								toolCall.ID,
-							),
-						)
-
-					case Denied:
-						// Skip execution but add a message indicating the tool was denied
-						agent.Log.Warn(fmt.Sprintf("⛔ Tool execution denied for function: %s\n", functionName))
-						resultContent := `{"status": "denied", "message": "Tool execution was denied by user"}`
-						results = append(results, resultContent)
-
-						// Add the tool call result to the conversation history
-						messages = append(
-							messages,
-							openai.ToolMessage(
-								resultContent,
-								toolCall.ID,
-							),
-						)
-
-					case Quit:
-						// Exit the function immediately
-						agent.Log.Warn(fmt.Sprintf("🛑 Quit requested for function: %s\n", functionName))
-						stopped = true
-						finishReason = "user_quit"
-						return finishReason, results, lastAssistantMessage, nil
-					}
-				}
-
 			} else {
-				fmt.Println("😢 No tool calls found in response")
+				agent.Log.Warn("😢 No tool calls found in response")
 			}
 
 		case "stop":
-			agent.Log.Info("✋ Stopping due to 'stop' finish reason.")
 			stopped = true
+			messages, _ = agent.handleStopReason(messages, response)
 			lastAssistantMessage = response
-
-			agent.Log.Info(fmt.Sprintf("🤖 %s\n", lastAssistantMessage))
-
-			// Add final assistant message to conversation history
-			messages = append(messages, openai.AssistantMessage(lastAssistantMessage))
 
 		default:
 			agent.Log.Error(fmt.Sprintf("🔴 Unexpected response: %s\n", finishReason))

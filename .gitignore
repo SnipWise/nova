@@ -20,5 +20,5 @@ Thumbs.db
 # Temporary files
 tmp/
 .prompts/
-wip/
+#wip/
 
