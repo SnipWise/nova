@@ -107,6 +107,62 @@ func (agent *BaseAgent) ResetMessages() {
 	}
 }
 
+// RemoveLastNMessages removes the last N messages from the agent's message history
+// It will not remove the system message (first message) if it exists
+func (agent *BaseAgent) RemoveLastNMessages(n int) {
+	if n <= 0 {
+		return
+	}
+
+	totalMessages := len(agent.chatCompletionParams.Messages)
+	if totalMessages == 0 {
+		return
+	}
+
+	// Check if first message is a system message
+	hasSystemMessage := false
+	if totalMessages > 0 && agent.chatCompletionParams.Messages[0].OfSystem != nil {
+		hasSystemMessage = true
+	}
+
+	// Calculate how many messages can be removed (excluding system message)
+	removableMessages := totalMessages
+	if hasSystemMessage {
+		removableMessages = totalMessages - 1
+	}
+
+	// Don't remove more than available
+	if n > removableMessages {
+		n = removableMessages
+	}
+
+	// Calculate the new length after removal
+	newLength := totalMessages - n
+
+	// Keep messages up to newLength
+	agent.chatCompletionParams.Messages = agent.chatCompletionParams.Messages[:newLength]
+}
+
+// SetSystemInstructions updates the system instructions for the agent
+// If a system message already exists as the first message, it will be replaced
+// Otherwise, a new system message will be prepended to the message list
+func (agent *BaseAgent) SetSystemInstructions(instructions string) {
+	// Update the config
+	agent.config.SystemInstructions = instructions
+
+	// Check if first message is a system message
+	if len(agent.chatCompletionParams.Messages) > 0 && agent.chatCompletionParams.Messages[0].OfSystem != nil {
+		// Replace existing system message
+		agent.chatCompletionParams.Messages[0] = openai.SystemMessage(instructions)
+	} else {
+		// Prepend new system message
+		agent.chatCompletionParams.Messages = append(
+			[]openai.ChatCompletionMessageParamUnion{openai.SystemMessage(instructions)},
+			agent.chatCompletionParams.Messages...,
+		)
+	}
+}
+
 func (agent *BaseAgent) GenerateCompletion(messages []openai.ChatCompletionMessageParamUnion) (response string, finishReason string, err error) {
 	// Preserve existing system messages from agent.Params
 	// Combine existing system messages with new messages

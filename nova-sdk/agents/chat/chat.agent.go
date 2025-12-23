@@ -103,6 +103,18 @@ func (agent *Agent) ResetMessages() {
 	agent.internalAgent.ResetMessages()
 }
 
+// RemoveLastNMessages removes the last N messages from the conversation history
+// It will not remove the system message
+func (agent *Agent) RemoveLastNMessages(n int) {
+	agent.internalAgent.RemoveLastNMessages(n)
+}
+
+// SetSystemInstructions updates the system instructions for the agent
+func (agent *Agent) SetSystemInstructions(instructions string) {
+	agent.config.SystemInstructions = instructions
+	agent.internalAgent.SetSystemInstructions(instructions)
+}
+
 // AddMessage adds a message to the conversation history
 func (agent *Agent) AddMessage(role roles.Role, content string) {
 
