@@ -21,7 +21,7 @@ func main() {
 			SystemInstructions: "You are Bob, a helpful AI assistant.",
 		},
 		openai.ChatCompletionNewParams{
-			Model:       "hf.co/Menlo/lucy-gguf:Q4_K_M",
+			Model:       "hf.co/menlo/lucy-gguf:q4_k_m",
 			Temperature: openai.Opt(0.0),
 		},
 	)

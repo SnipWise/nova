@@ -1,25 +1,21 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
-	"strings"
+	"testing"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 	"github.com/snipwise/nova/nova-sdk/models"
-	"github.com/snipwise/nova/nova-sdk/ui/display"
-	"github.com/snipwise/nova/nova-sdk/ui/prompt"
 )
 
-func main() {
+func TestParallelToolCallsAgent(t *testing.T) {
 	ctx := context.Background()
+
 	agent, err := tools.NewAgent(
 		ctx,
 		agents.Config{
@@ -32,12 +28,13 @@ func main() {
 			ParallelToolCalls: models.Bool(true), // IMPORTANT: Enable parallel tool calls
 		},
 
-		tools.WithTools(GetToolsIndex()),
+		tools.WithTools(getParallelToolsIndex()),
 	)
+
 	if err != nil {
-		panic(err)
+		t.Fatalf("Failed to create agent: %v", err)
 	}
-	// Say "Exit" to stop the process
+
 	messages := []messages.Message{
 		{
 			Content: `
@@ -50,54 +47,25 @@ func main() {
 		},
 	}
 
-	result, err := agent.DetectParallelToolCallsWithConfirmation(
-		messages,
-		executeFunction,
-		confirmationPromptWithHumanInteraction,
-		//confirmationPrompt,
-	)
-
+	result, err := agent.DetectParallelToolCalls(messages, executeParallelFunction)
 	if err != nil {
-		panic(err)
+		t.Fatalf("DetectParallelToolCalls failed: %v", err)
 	}
 
-	display.KeyValue("Finish Reason", result.FinishReason)
+	// Display results
+	fmt.Println("Finish Reason:", result.FinishReason)
 	for _, value := range result.Results {
-		display.KeyValue("Result for tool", value)
+		fmt.Println("Result for tool:", value)
 	}
-	display.KeyValue("Assistant Message", result.LastAssistantMessage)
+	fmt.Println("Assistant Message:", result.LastAssistantMessage)
 
-}
-
-func confirmationPrompt(functionName string, arguments string) tools.ConfirmationResponse {
-	display.Colorf(display.ColorGreen, "🟢 Detected function: %s with arguments: %s\n", functionName, arguments)
-
-	choice := prompt.HumanConfirmation(fmt.Sprintf("Execute %s with %v?", functionName, arguments))
-	return choice
-}
-
-func confirmationPromptWithHumanInteraction(functionName string, arguments string) tools.ConfirmationResponse {
-	fmt.Printf("🟢 Detected function: %s with arguments: %s\n", functionName, arguments)
-	fmt.Printf("Execute %s? (y/n/q): ", functionName)
-
-	reader := bufio.NewReader(os.Stdin)
-	input, _ := reader.ReadString('\n')
-	input = strings.ToLower(strings.TrimSpace(input))
-
-	switch input {
-	case "y", "yes":
-		return tools.Confirmed
-	case "n", "no":
-		return tools.Denied
-	case "q", "quit":
-		return tools.Quit
-	default:
-		return tools.Denied
+	// Verify we got some results
+	if len(result.Results) == 0 {
+		t.Error("Expected at least one tool result")
 	}
 }
 
-func GetToolsIndex() []*tools.Tool {
-
+func getParallelToolsIndex() []*tools.Tool {
 	calculateSumTool := tools.NewTool("calculate_sum").
 		SetDescription("Calculate the sum of two numbers").
 		AddParameter("a", "number", "The first number", true).
@@ -107,21 +75,14 @@ func GetToolsIndex() []*tools.Tool {
 		SetDescription("Say hello to the given name").
 		AddParameter("name", "string", "The name to greet", true)
 
-	sayExit := tools.NewTool("say_exit").
-		SetDescription("Say exit")
-
 	return []*tools.Tool{
 		calculateSumTool,
 		sayHelloTool,
-		sayExit,
 	}
 }
 
-func executeFunction(functionName string, arguments string) (string, error) {
-
-	display.Colorf(display.ColorGreen, "🟠 Executing function: %s with arguments: %s\n", functionName, arguments)
-
-	// here human check
+func executeParallelFunction(functionName string, arguments string) (string, error) {
+	fmt.Printf("🟢 Executing function: %s with arguments: %s\n", functionName, arguments)
 
 	switch functionName {
 	case "say_hello":
@@ -145,12 +106,9 @@ func executeFunction(functionName string, arguments string) (string, error) {
 		sum := args.A + args.B
 		return fmt.Sprintf(`{"result": %g}`, sum), nil
 
-	case "say_exit":
-
-		// NOTE: Returning a message and an ExitToolCallsLoopError to stop further processing
-		return fmt.Sprintf(`{"message": "%s"}`, "❌ EXIT"), errors.New("exit_loop")
-
 	default:
 		return `{"error": "Unknown function"}`, fmt.Errorf("unknown function: %s", functionName)
 	}
 }
+
+// go test -v -run TestParallelToolCallsAgent ./getting-started/tests

@@ -372,3 +372,298 @@ func executeFunction(functionName string, arguments string) (string, error) {
 	}
 }
 ```
+
+### Tools agent with parallel tool calls
+> Agent with parallel tool calling capabilities
+
+**Create an agent that can execute multiple tools in parallel to complete tasks more efficiently.**:
+
+`go test -v -run TestParallelToolCallsAgent ./getting-started/tests`
+```golang
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"testing"
+
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/tools"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/models"
+)
+
+func TestParallelToolCallsAgent(t *testing.T) {
+	ctx := context.Background()
+
+	agent, err := tools.NewAgent(
+		ctx,
+		agents.Config{
+			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: "You are Bob, a helpful AI assistant.",
+		},
+		models.Config{
+			Name:              "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature:       models.Float64(0.0),
+			ParallelToolCalls: models.Bool(true), // IMPORTANT: Enable parallel tool calls
+		},
+
+		tools.WithTools(getParallelToolsIndex()),
+	)
+
+	if err != nil {
+		t.Fatalf("Failed to create agent: %v", err)
+	}
+
+	messages := []messages.Message{
+		{
+			Content: `
+			Make the sum of 40 and 2,
+			then say hello to Bob and to Sam,
+			make the sum of 5 and 37
+			Say hello to Alice
+			`,
+			Role: roles.User,
+		},
+	}
+
+	result, err := agent.DetectParallelToolCalls(messages, executeParallelFunction)
+	if err != nil {
+		t.Fatalf("DetectParallelToolCalls failed: %v", err)
+	}
+
+	// Display results
+	fmt.Println("Finish Reason:", result.FinishReason)
+	for _, value := range result.Results {
+		fmt.Println("Result for tool:", value)
+	}
+	fmt.Println("Assistant Message:", result.LastAssistantMessage)
+
+	// Verify we got some results
+	if len(result.Results) == 0 {
+		t.Error("Expected at least one tool result")
+	}
+}
+
+func getParallelToolsIndex() []*tools.Tool {
+	calculateSumTool := tools.NewTool("calculate_sum").
+		SetDescription("Calculate the sum of two numbers").
+		AddParameter("a", "number", "The first number", true).
+		AddParameter("b", "number", "The second number", true)
+
+	sayHelloTool := tools.NewTool("say_hello").
+		SetDescription("Say hello to the given name").
+		AddParameter("name", "string", "The name to greet", true)
+
+	return []*tools.Tool{
+		calculateSumTool,
+		sayHelloTool,
+	}
+}
+
+func executeParallelFunction(functionName string, arguments string) (string, error) {
+	fmt.Printf("🟢 Executing function: %s with arguments: %s\n", functionName, arguments)
+
+	switch functionName {
+	case "say_hello":
+		var args struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			return `{"error": "Invalid arguments for say_hello"}`, nil
+		}
+		hello := fmt.Sprintf("👋 Hello, %s!🙂", args.Name)
+		return fmt.Sprintf(`{"message": "%s"}`, hello), nil
+
+	case "calculate_sum":
+		var args struct {
+			A float64 `json:"a"`
+			B float64 `json:"b"`
+		}
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			return `{"error": "Invalid arguments for calculate_sum"}`, nil
+		}
+		sum := args.A + args.B
+		return fmt.Sprintf(`{"result": %g}`, sum), nil
+
+	default:
+		return `{"error": "Unknown function"}`, fmt.Errorf("unknown function: %s", functionName)
+	}
+}
+```
+
+### Tools agent with parallel tool calls and confirmation
+> Agent with parallel tool calling capabilities and human-in-the-loop confirmation
+
+**Create an agent that can execute multiple tools in parallel with confirmation before execution.**:
+
+`go test -v -run TestParallelToolCallsWithConfirmationAgent ./getting-started/tests`
+```golang
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"testing"
+
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/tools"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/models"
+)
+
+func TestParallelToolCallsWithConfirmationAgent(t *testing.T) {
+	ctx := context.Background()
+
+	agent, err := tools.NewAgent(
+		ctx,
+		agents.Config{
+			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: "You are Bob, a helpful AI assistant.",
+		},
+		models.Config{
+			Name:              "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature:       models.Float64(0.0),
+			ParallelToolCalls: models.Bool(true), // IMPORTANT: Enable parallel tool calls
+		},
+
+		tools.WithTools(getConfirmationToolsIndex()),
+	)
+
+	if err != nil {
+		t.Fatalf("Failed to create agent: %v", err)
+	}
+
+	messages := []messages.Message{
+		{
+			Content: `
+			Make the sum of 40 and 2,
+			then say hello to Bob and to Sam,
+			make the sum of 5 and 37
+			Say hello to Alice
+			`,
+			Role: roles.User,
+		},
+	}
+
+	result, err := agent.DetectParallelToolCallsWithConfirmation(
+		messages,
+		executeFunction,
+		confirmationPrompt)
+
+	if err != nil {
+		t.Fatalf("DetectParallelToolCallsWithConfirmation failed: %v", err)
+	}
+
+	// Display results
+	fmt.Println("Finish Reason:", result.FinishReason)
+	for _, value := range result.Results {
+		fmt.Println("Result for tool:", value)
+	}
+	fmt.Println("Assistant Message:", result.LastAssistantMessage)
+
+	// Verify we got some results
+	if len(result.Results) == 0 {
+		t.Error("Expected at least one tool result")
+	}
+}
+
+func confirmationPrompt(functionName string, arguments string) tools.ConfirmationResponse {
+	fmt.Printf("🟢 Detected function: %s with arguments: %s\n", functionName, arguments)
+
+	// For automated testing, we auto-approve all tool calls
+	// In a real application, you would use prompt.HumanConfirmation here
+	fmt.Printf("Auto-approving execution of %s with %s\n", functionName, arguments)
+	return tools.Confirmed
+}
+
+func getConfirmationToolsIndex() []*tools.Tool {
+	calculateSumTool := tools.NewTool("calculate_sum").
+		SetDescription("Calculate the sum of two numbers").
+		AddParameter("a", "number", "The first number", true).
+		AddParameter("b", "number", "The second number", true)
+
+	sayHelloTool := tools.NewTool("say_hello").
+		SetDescription("Say hello to the given name").
+		AddParameter("name", "string", "The name to greet", true)
+
+	return []*tools.Tool{
+		calculateSumTool,
+		sayHelloTool,
+	}
+}
+
+func executeFunction(functionName string, arguments string) (string, error) {
+	fmt.Printf("🟢 Executing function: %s with arguments: %s\n", functionName, arguments)
+
+	switch functionName {
+	case "say_hello":
+		var args struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			return `{"error": "Invalid arguments for say_hello"}`, nil
+		}
+		hello := fmt.Sprintf("👋 Hello, %s!🙂", args.Name)
+		return fmt.Sprintf(`{"message": "%s"}`, hello), nil
+
+	case "calculate_sum":
+		var args struct {
+			A float64 `json:"a"`
+			B float64 `json:"b"`
+		}
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			return `{"error": "Invalid arguments for calculate_sum"}`, nil
+		}
+		sum := args.A + args.B
+		return fmt.Sprintf(`{"result": %g}`, sum), nil
+
+	default:
+		return `{"error": "Unknown function"}`, fmt.Errorf("unknown function: %s", functionName)
+	}
+}
+```
+
+#### Real-world confirmation example
+
+In a production environment, you can implement human confirmation using Go's standard packages:
+
+```golang
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/snipwise/nova/nova-sdk/agents/tools"
+)
+
+func confirmationPromptWithHumanInteraction(functionName string, arguments string) tools.ConfirmationResponse {
+	fmt.Printf("🟢 Detected function: %s with arguments: %s\n", functionName, arguments)
+	fmt.Printf("Execute %s? (y/n/q): ", functionName)
+
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	input = strings.ToLower(strings.TrimSpace(input))
+
+	switch input {
+	case "y", "yes":
+		return tools.Confirmed
+	case "n", "no":
+		return tools.Denied
+	case "q", "quit":
+		return tools.Quit
+	default:
+		return tools.Denied
+	}
+}
+```
+
+The confirmation function allows the user to:
+- Enter `y` or `yes` to **confirm** the tool execution (returns `tools.Confirmed`)
+- Enter `n` or `no` to **deny** the tool execution (returns `tools.Denied`)
+- Enter `q` or `quit` to **quit** the entire tool execution loop (returns `tools.Quit`)

@@ -32,7 +32,7 @@ func InitializeConnection(ctx context.Context, agentConfig Config, modelConfig m
 	modelFound := false
 	for modelsList.Next() {
 		m := modelsList.Current()
-		//log.Debug("Available model:", m.ID)
+		log.Debug("Available model:", m.ID)
 		if m.ID == modelConfig.Name {
 			modelFound = true
 		}
