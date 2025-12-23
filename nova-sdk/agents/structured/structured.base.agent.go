@@ -9,18 +9,12 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
-	"github.com/snipwise/nova/nova-sdk/messages"
-	"github.com/snipwise/nova/nova-sdk/models"
-	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
+	"github.com/snipwise/nova/nova-sdk/agents/base"
 )
 
+// BaseAgent wraps the shared base.Agent for structured output functionality
 type BaseAgent[Output any] struct {
-	ctx    context.Context
-	config agents.Config
-
-	chatCompletionParams openai.ChatCompletionNewParams
-	openaiClient         openai.Client
-	log                  logger.Logger
+	*base.Agent
 }
 
 type AgentOption[Output any] func(*BaseAgent[Output])
@@ -32,24 +26,9 @@ func NewBaseAgent[Output any](
 	options ...AgentOption[Output],
 ) (structuredAgent *BaseAgent[Output], err error) {
 
-	client, log, err := agents.InitializeConnection(ctx, agentConfig, models.Config{
-		Name: modelConfig.Model,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
+	// Prepare the response format schema for structured output
 	something := reflect.TypeOf((*Output)(nil)).Elem()
 	schema := StructToJSONSchema(something)
-
-	// schema to json string
-	// jsonSchemaBytes, err := json.MarshalIndent(schema, "", "  ")
-	// if err != nil {
-	// 	log.Error("Error marshaling schema to JSON:", err)
-	// 	return nil, err
-	// }
-	// log.Info(string(jsonSchemaBytes))
 
 	// Get schema name - handle slices/arrays
 	schemaName := something.Name()
@@ -76,18 +55,17 @@ func NewBaseAgent[Output any](
 		},
 	}
 
-	structuredAgent = &BaseAgent[Output]{
-		ctx:                  ctx,
-		config:               agentConfig,
-		chatCompletionParams: modelConfig,
-		openaiClient:         client,
-		log:                  log,
+	// Create the shared base agent
+	baseAgent, err := base.NewAgent(ctx, agentConfig, modelConfig)
+	if err != nil {
+		return nil, err
 	}
 
-	structuredAgent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{}
+	structuredAgent = &BaseAgent[Output]{
+		Agent: baseAgent,
+	}
 
-	structuredAgent.chatCompletionParams.Messages = append(structuredAgent.chatCompletionParams.Messages, openai.SystemMessage(agentConfig.SystemInstructions))
-
+	// Apply structured-specific options
 	for _, option := range options {
 		option(structuredAgent)
 	}
@@ -99,41 +77,11 @@ func (agent *BaseAgent[Output]) Kind() (kind agents.Kind) {
 	return agents.Structured
 }
 
-func (agent *BaseAgent[Output]) GetMessages() (messages []openai.ChatCompletionMessageParamUnion) {
-	return agent.chatCompletionParams.Messages
-}
-
-// AddMessage adds a new message to the agent's message history
-func (agent *BaseAgent[Output]) AddMessage(message openai.ChatCompletionMessageParamUnion) {
-	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, message)
-}
-
-// GetStringMessages converts all messages to a slice of StringMessage with role and content as strings
-func (agent *BaseAgent[Output]) GetStringMessages() (stringMessages []messages.Message) {
-
-	stringMessages = messages.ConvertFromOpenAIMessages(agent.chatCompletionParams.Messages)
-
-	return stringMessages
-}
-
-// ResetMessages clears the agent's message history except for the initial system message
-func (agent *BaseAgent[Output]) ResetMessages() {
-	// Remove existing messages except the first system message if it's a system message
-	if len(agent.chatCompletionParams.Messages) > 0 {
-		firstMsg := agent.chatCompletionParams.Messages[0]
-		if firstMsg.OfSystem != nil {
-			agent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{firstMsg}
-		} else {
-			agent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{}
-		}
-	}
-}
-
 func (agent *BaseAgent[Output]) GenerateStructuredData(messages []openai.ChatCompletionMessageParamUnion) (response *Output, finishReason string, err error) {
 	// Preserve existing system messages from agent.Params
 	// Combine existing system messages with new messages
-	agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, messages...)
-	completion, err := agent.openaiClient.Chat.Completions.New(agent.ctx, agent.chatCompletionParams)
+	agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
 
 	if err != nil {
 		return nil, "", err
@@ -141,14 +89,14 @@ func (agent *BaseAgent[Output]) GenerateStructuredData(messages []openai.ChatCom
 
 	if len(completion.Choices) > 0 {
 		// Append the full response as an assistant message to the agent's messages
-		agent.chatCompletionParams.Messages = append(agent.chatCompletionParams.Messages, openai.AssistantMessage(completion.Choices[0].Message.Content))
+		agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, openai.AssistantMessage(completion.Choices[0].Message.Content))
 
 		responseStr := completion.Choices[0].Message.Content
 
 		var structuredResponse Output
 		err = json.Unmarshal([]byte(responseStr), &structuredResponse)
 		if err != nil {
-			agent.log.Error("Error unmarshaling structured response:", err)
+			agent.Log.Error("Error unmarshaling structured response:", err)
 			return nil, "", err
 		}
 
