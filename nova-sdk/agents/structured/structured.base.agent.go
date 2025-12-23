@@ -6,6 +6,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
@@ -81,11 +82,20 @@ func (agent *BaseAgent[Output]) GenerateStructuredData(messages []openai.ChatCom
 	// Preserve existing system messages from agent.Params
 	// Combine existing system messages with new messages
 	agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+
+	// Capture request for telemetry
+	agent.CaptureRequest(agent.ChatCompletionParams)
+	startTime := time.Now()
+
 	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
 
 	if err != nil {
+		agent.CaptureError(err, "GenerateStructuredData")
 		return nil, "", err
 	}
+
+	// Capture response for telemetry
+	agent.CaptureResponse(completion, startTime)
 
 	if len(completion.Choices) > 0 {
 		// Append the full response as an assistant message to the agent's messages

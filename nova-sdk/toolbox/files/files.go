@@ -110,6 +110,69 @@ func GetContentFiles(dirPath string, ext string) ([]string, error) {
 	return content, nil
 }
 
+// FileContent represents a file with its name and content.
+type FileContent struct {
+	FileName string
+	Content  string
+}
+
+// GetContentFilesWithNames searches for files with a specific extension in the given directory and its subdirectories.
+//
+// Parameters:
+// - dirPath: The directory path to start the search from.
+// - ext: The file extension to search for.
+//
+// Returns:
+// - []FileContent: A slice of FileContent structs containing file names and their contents.
+// - error: An error if the search encounters any issues.
+func GetContentFilesWithNames(dirPath string, ext string) ([]FileContent, error) {
+	content := []FileContent{}
+	_, err := ForEachFile(dirPath, ext, func(path string) error {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		content = append(content, FileContent{
+			FileName: path,
+			Content:  string(data),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return content, nil
+}
+
+// GetContentFilesAsMap searches for files with a specific extension in the given directory and its subdirectories.
+//
+// Parameters:
+// - dirPath: The directory path to start the search from.
+// - ext: The file extension to search for.
+//
+// Returns:
+// - map[string]string: A map where keys are file paths and values are file contents.
+// - error: An error if the search encounters any issues.
+func GetContentFilesAsMap(dirPath string, ext string) (map[string]string, error) {
+	content := make(map[string]string)
+	_, err := ForEachFile(dirPath, ext, func(path string) error {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		content[path] = string(data)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return content, nil
+}
+
 
 
 // ReadTextFile reads the contents of a text file at the given path and returns the contents as a string.
