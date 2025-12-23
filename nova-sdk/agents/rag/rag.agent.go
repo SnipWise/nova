@@ -172,3 +172,24 @@ func (agent *Agent) SearchTopN(content string, limit float64, n int) ([]VectorRe
 
 	return publicResults, nil
 }
+
+// GetLastEmbeddingRequestJSON returns the last embedding request as JSON string
+func (agent *Agent) GetLastEmbeddingRequestJSON() (string, error) {
+	return agent.internalAgent.GetLastEmbeddingRequestJSON()
+}
+
+// GetLastEmbeddingResponseJSON returns the last embedding response as JSON string
+func (agent *Agent) GetLastEmbeddingResponseJSON() (string, error) {
+	return agent.internalAgent.GetLastEmbeddingResponseJSON()
+}
+
+// GetLastEmbeddingRequestMetadata returns metadata about the last embedding request
+func (agent *Agent) GetLastEmbeddingRequestMetadata() EmbeddingRequestMetadata {
+	return agent.internalAgent.GetLastEmbeddingRequestMetadata()
+}
+
+// GetLastEmbeddingResponseMetadata returns metadata about the last embedding response
+func (agent *Agent) GetLastEmbeddingResponseMetadata() EmbeddingResponseMetadata {
+	return agent.internalAgent.GetLastEmbeddingResponseMetadata()
+}
+

@@ -2,6 +2,7 @@ package rag
 
 import (
 	"context"
+	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
@@ -19,6 +20,13 @@ type BaseAgent struct {
 	log             logger.Logger
 
 	store stores.MemoryVectorStore
+
+	// Telemetry fields for tracking embedding requests and responses
+	lastEmbeddingRequest          *openai.EmbeddingNewParams
+	lastEmbeddingRequestTime      time.Time
+	lastEmbeddingResponse         *openai.Embedding
+	lastEmbeddingResponseTime     time.Time
+	lastEmbeddingResponseDuration time.Duration
 }
 
 type AgentOption func(*BaseAgent)
@@ -62,10 +70,20 @@ func (agent *BaseAgent) GenerateEmbeddingVector(content string) (embeddingVector
 	agent.EmbeddingParams.Input = openai.EmbeddingNewParamsInputUnion{
 		OfString: openai.String(content),
 	}
+
+	// Capture request for telemetry
+	agent.captureEmbeddingRequest(agent.EmbeddingParams)
+	startTime := time.Now()
+
 	// Use the client to create embeddings
 	embeddingResponse, err := agent.openaiClient.Embeddings.New(agent.ctx, agent.EmbeddingParams)
 	if err != nil {
 		return nil, err
+	}
+
+	// Capture response for telemetry
+	if len(embeddingResponse.Data) > 0 {
+		agent.captureEmbeddingResponse(&embeddingResponse.Data[0], startTime)
 	}
 
 	return embeddingResponse.Data[0].Embedding, nil

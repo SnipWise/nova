@@ -9,6 +9,7 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/base"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 	"github.com/snipwise/nova/nova-sdk/models"
@@ -152,4 +153,51 @@ func (agent *Agent[Output]) GenerateStructuredData(userMessages []messages.Messa
 	)
 
 	return response, finishReason, nil
+}
+
+// === Telemetry Methods ===
+
+// GetLastRequestJSON returns the last request sent to the LLM as JSON
+func (agent *Agent[Output]) GetLastRequestJSON() (string, error) {
+	return agent.internalAgent.GetLastRequestJSON()
+}
+
+// GetLastRequestContextLength returns the context length of the last request
+func (agent *Agent[Output]) GetLastRequestContextLength() int {
+	return agent.internalAgent.GetLastRequestContextLength()
+}
+
+// GetLastRequestMetadata returns metadata about the last request
+func (agent *Agent[Output]) GetLastRequestMetadata() base.RequestMetadata {
+	return agent.internalAgent.GetLastRequestMetadata()
+}
+
+// GetLastResponseJSON returns the last response received from the LLM as JSON
+func (agent *Agent[Output]) GetLastResponseJSON() (string, error) {
+	return agent.internalAgent.GetLastResponseJSON()
+}
+
+// GetLastResponseMetadata returns metadata about the last response
+func (agent *Agent[Output]) GetLastResponseMetadata() base.ResponseMetadata {
+	return agent.internalAgent.GetLastResponseMetadata()
+}
+
+// GetConversationHistoryJSON returns the entire conversation history as JSON
+func (agent *Agent[Output]) GetConversationHistoryJSON() (string, error) {
+	return agent.internalAgent.GetConversationHistoryJSON()
+}
+
+// GetTotalTokensUsed returns the total number of tokens used since the agent was created
+func (agent *Agent[Output]) GetTotalTokensUsed() int {
+	return agent.internalAgent.GetTotalTokensUsed()
+}
+
+// ResetTelemetry resets all telemetry counters and stored data
+func (agent *Agent[Output]) ResetTelemetry() {
+	agent.internalAgent.ResetTelemetry()
+}
+
+// SetTelemetryCallback sets a callback for receiving telemetry events in real-time
+func (agent *Agent[Output]) SetTelemetryCallback(callback base.TelemetryCallback) {
+	agent.internalAgent.SetTelemetryCallback(callback)
 }

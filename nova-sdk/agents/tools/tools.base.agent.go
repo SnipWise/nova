@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
@@ -56,11 +57,19 @@ func (agent *BaseAgent) DetectParallelToolCalls(messages []openai.ChatCompletion
 	agent.Log.Info("⏳ [DetectParallelToolCalls] Making function call request...")
 	agent.ChatCompletionParams.Messages = messages
 
+	// Capture request for telemetry
+	agent.CaptureRequest(agent.ChatCompletionParams)
+	startTime := time.Now()
+
 	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
 	if err != nil {
 		agent.Log.Error("Error making function call request:", err)
+		agent.CaptureError(err, "DetectParallelToolCalls")
 		return "", results, "", err
 	}
+
+	// Capture response for telemetry
+	agent.CaptureResponse(completion, startTime)
 
 	finishReason = completion.Choices[0].FinishReason
 
