@@ -7,6 +7,7 @@
 > Nova SDK has been tested with:
 > - [Docker Model Runner](https://docs.docker.com/ai/model-runner/)
 > - [Ollama](https://ollama.com/)
+> - [LLM Strudio](https://lmstudio.ai/)
 
 > This `README.md` file is a work in progress and will be expanded with more examples soon.
 
