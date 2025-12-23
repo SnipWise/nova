@@ -16,13 +16,13 @@ import (
 
 func (agent *CrewServerAgent) handleCompletionStop(w http.ResponseWriter, r *http.Request) {
 	select {
-	case agent.stopStreamChan <- true:
+	case agent.StopStreamChan <- true:
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(map[string]string{
 			"status":  "ok",
 			"message": "Stream stopped",
 		}); err != nil {
-			agent.log.Error("Failed to encode completion stop response: %v", err)
+			agent.Log.Error("Failed to encode completion stop response: %v", err)
 		}
 	default:
 		w.Header().Set("Content-Type", "application/json")
@@ -30,7 +30,7 @@ func (agent *CrewServerAgent) handleCompletionStop(w http.ResponseWriter, r *htt
 			"status":  "ok",
 			"message": "No stream to stop",
 		}); err != nil {
-			agent.log.Error("Failed to encode completion stop response: %v", err)
+			agent.Log.Error("Failed to encode completion stop response: %v", err)
 		}
 	}
 }
@@ -42,9 +42,9 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 	// ------------------------------------------------------------
 	newSize, err := agent.CompressChatAgentContextIfOverLimit()
 	if err != nil {
-		agent.log.Error("Error during context compression: %v", err)
+		agent.Log.Error("Error during context compression: %v", err)
 	} else if newSize > 0 {
-		agent.log.Info("🗜️  Chat agent context compressed to %d bytes", newSize)
+		agent.Log.Info("🗜️  Chat agent context compressed to %d bytes", newSize)
 	}
 
 	var req CompletionRequest
@@ -71,9 +71,9 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 	notificationChan := make(chan ToolCallNotification, 10)
 
 	// Define the current notification channel
-	agent.notificationChanMutex.Lock()
-	agent.currentNotificationChan = notificationChan
-	agent.notificationChanMutex.Unlock()
+	agent.NotificationChanMutex.Lock()
+	agent.CurrentNotificationChan = notificationChan
+	agent.NotificationChanMutex.Unlock()
 
 	// Goroutine to listen for notifications and stream them to the client
 	notificationDone := make(chan bool)
@@ -94,7 +94,7 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 				}
 				jsonData, _ := json.Marshal(notifData)
 				if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-					agent.log.Error("Failed to write notification: %v", err)
+					agent.Log.Error("Failed to write notification: %v", err)
 					return
 				}
 				flusher.Flush()
@@ -108,26 +108,26 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 	// NOTE: Tool calls detection and execution if toolsAgent is set
 	// ------------------------------------------------------------
 	// Tool calls detection and execution if toolsAgent is set
-	if agent.toolsAgent != nil {
-		toolCallsResult, err := agent.toolsAgent.DetectParallelToolCallsWithConfirmation(
+	if agent.ToolsAgent != nil {
+		toolCallsResult, err := agent.ToolsAgent.DetectParallelToolCallsWithConfirmation(
 			[]messages.Message{
 				{Role: roles.User, Content: question},
 			},
-			agent.executeFn,
+			agent.ExecuteFn,
 			agent.webConfirmationPrompt,
 		)
 
 		// Closing notification channel and cleanup
 		close(notificationChan)
-		agent.notificationChanMutex.Lock()
-		if agent.currentNotificationChan == notificationChan {
-			agent.currentNotificationChan = nil
+		agent.NotificationChanMutex.Lock()
+		if agent.CurrentNotificationChan == notificationChan {
+			agent.CurrentNotificationChan = nil
 		}
-		agent.notificationChanMutex.Unlock()
+		agent.NotificationChanMutex.Unlock()
 
 		if err != nil {
 			if _, writeErr := fmt.Fprintf(w, "data: %s\n\n", jsonEscape(fmt.Sprintf("Error: %v", err))); writeErr != nil {
-				agent.log.Error("Failed to write error response: %v", writeErr)
+				agent.Log.Error("Failed to write error response: %v", writeErr)
 			}
 			flusher.Flush()
 			return
@@ -136,46 +136,46 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 		// Add tool results to chat agent context
 		if len(toolCallsResult.Results) > 0 {
 			agent.currentChatAgent.AddMessage(roles.System, toolCallsResult.LastAssistantMessage)
-			agent.toolsAgent.ResetMessages()
+			agent.ToolsAgent.ResetMessages()
 
 			data := map[string]string{"message": "<hr>"}
 			jsonData, _ := json.Marshal(data)
 			if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-				agent.log.Error("Failed to write separator: %v", err)
+				agent.Log.Error("Failed to write separator: %v", err)
 			}
 			flusher.Flush()
 		}
 	} else {
 		// Close notification channel and cleanup
 		close(notificationChan)
-		agent.notificationChanMutex.Lock()
-		if agent.currentNotificationChan == notificationChan {
-			agent.currentNotificationChan = nil
+		agent.NotificationChanMutex.Lock()
+		if agent.CurrentNotificationChan == notificationChan {
+			agent.CurrentNotificationChan = nil
 		}
-		agent.notificationChanMutex.Unlock()
+		agent.NotificationChanMutex.Unlock()
 	}
 
 	// ------------------------------------------------------------
 	// NOTE: Similarity search and add to context if RAG agent is set
 	// ------------------------------------------------------------
-	if agent.ragAgent != nil {
+	if agent.RagAgent != nil {
 		relevantContext := ""
-		similarities, err := agent.ragAgent.SearchTopN(question, agent.similarityLimit, agent.maxSimilarities)
+		similarities, err := agent.RagAgent.SearchTopN(question, agent.SimilarityLimit, agent.MaxSimilarities)
 		if err == nil && len(similarities) > 0 {
 			for _, sim := range similarities {
-				agent.log.Debug("Adding relevant context with similarity: %s", sim.Prompt)
+				agent.Log.Debug("Adding relevant context with similarity: %s", sim.Prompt)
 				relevantContext += sim.Prompt + "\n---\n"
 			}
-			agent.log.Info("Added %d similar contexts from RAG agent", len(similarities))
+			agent.Log.Info("Added %d similar contexts from RAG agent", len(similarities))
 			agent.currentChatAgent.AddMessage(
 				roles.System,
 				"Relevant information to help you answer the question:\n"+relevantContext,
 			)
 		} else {
 			if err != nil {
-				agent.log.Error("Error during similarity search: %v", err)
+				agent.Log.Error("Error during similarity search: %v", err)
 			} else {
-				agent.log.Info("No relevant contexts found for the query")
+				agent.Log.Info("No relevant contexts found for the query")
 			}
 		}
 
@@ -187,9 +187,9 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 	if agent.orchestratorAgent != nil {
 		detectedAgentId, err := agent.DetectTopicThenGetAgentId(question)
 		if err != nil {
-			agent.log.Error("Error during topic detection: %v", err)
+			agent.Log.Error("Error during topic detection: %v", err)
 		} else if detectedAgentId != "" && agent.chatAgents[detectedAgentId] != agent.currentChatAgent {
-			agent.log.Info("💡 Switching to detected agent ID: %s", detectedAgentId)
+			agent.Log.Info("💡 Switching to detected agent ID: %s", detectedAgentId)
 			agent.currentChatAgent = agent.chatAgents[detectedAgentId]
 		}
 	}
@@ -197,7 +197,7 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 	// NOTE: Generate streaming completion
 	// ------------------------------------------------------------
 
-	agent.log.Info("🚀 Generating streaming completion for question: %s", question)
+	agent.Log.Info("🚀 Generating streaming completion for question: %s", question)
 	stopped := false
 	_, errCompletion := agent.currentChatAgent.GenerateStreamCompletion(
 		[]messages.Message{
@@ -206,7 +206,7 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 		func(chunk string, finishReason string) error {
 			// Check if stop signal received
 			select {
-			case <-agent.stopStreamChan:
+			case <-agent.StopStreamChan:
 				stopped = true
 				return errors.New("stream stopped by user")
 			default:
@@ -216,7 +216,7 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 				data := map[string]string{"message": chunk}
 				jsonData, _ := json.Marshal(data)
 				if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-					agent.log.Error("Failed to write chunk: %v", err)
+					agent.Log.Error("Failed to write chunk: %v", err)
 				}
 				flusher.Flush()
 			}
@@ -225,7 +225,7 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 				data := map[string]string{"message": "", "finish_reason": "stop"}
 				jsonData, _ := json.Marshal(data)
 				if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-					agent.log.Error("Failed to write finish reason: %v", err)
+					agent.Log.Error("Failed to write finish reason: %v", err)
 				}
 				flusher.Flush()
 			}
@@ -238,7 +238,7 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 		data := map[string]string{"error": err.Error()}
 		jsonData, _ := json.Marshal(data)
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-			agent.log.Error("Failed to write error: %v", err)
+			agent.Log.Error("Failed to write error: %v", err)
 		}
 		flusher.Flush()
 	}

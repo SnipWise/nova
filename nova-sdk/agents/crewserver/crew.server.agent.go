@@ -2,96 +2,45 @@ package crewserver
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
-	"github.com/snipwise/nova/nova-sdk/agents/compressor"
-	"github.com/snipwise/nova/nova-sdk/agents/rag"
+	"github.com/snipwise/nova/nova-sdk/agents/serverbase"
 	"github.com/snipwise/nova/nova-sdk/agents/structured"
-	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
-	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
-
+// CrewServerAgent wraps BaseServerAgent with crew-specific functionality
 type CrewServerAgent struct {
+	*serverbase.BaseServerAgent
 
 	// Multiple chat agents for different purposes
 	// The crewserver can route between them based on the task
 	chatAgents map[string]*chat.Agent
 
 	currentChatAgent *chat.Agent
-	toolsAgent       *tools.Agent
-
-	ragAgent *rag.Agent
-
-	similarityLimit float64
-	maxSimilarities int
-
-	contextSizeLimit int
-	compressorAgent  *compressor.Agent
 
 	// Routing / Orchestration agent
 	orchestratorAgent *structured.Agent[agents.Intent]
 
 	// Retrieval function: from a topic determine which agent to use
 	matchAgentIdToTopicFn func(string) string
-
-	port string
-	ctx  context.Context
-	log  logger.Logger
-
-	// Pending operations management
-	pendingOperations       map[string]*PendingOperation
-	operationsMutex         sync.RWMutex
-	stopStreamChan          chan bool
-	currentNotificationChan chan ToolCallNotification
-	notificationChanMutex   sync.Mutex
-
-	// Custom function executor
-	executeFn func(string, string) (string, error)
 }
 
-type ToolCallNotification struct {
-	OperationID  string
-	FunctionName string
-	Arguments    string
-	Message      string
-}
+// Re-export types from serverbase for backward compatibility
+type (
+	ToolCallNotification = serverbase.ToolCallNotification
+	PendingOperation     = serverbase.PendingOperation
+	CompletionRequest    = serverbase.CompletionRequest
+	OperationRequest     = serverbase.OperationRequest
+	MemoryResponse       = serverbase.MemoryResponse
+	TokensResponse       = serverbase.TokensResponse
+)
 
-type PendingOperation struct {
-	ID           string
-	FunctionName string
-	Arguments    string
-	Response     chan tools.ConfirmationResponse
-}
-
-type CompletionRequest struct {
-	Data struct {
-		Message string `json:"message"`
-	} `json:"data"`
-}
-
-type OperationRequest struct {
-	OperationID string `json:"operation_id"`
-}
-
-type MemoryResponse struct {
-	Messages []messages.Message `json:"messages"`
-}
-
-type TokensResponse struct {
-	Count  int `json:"count"`
-	Tokens int `json:"tokens"`
-	Limit  int `json:"limit"`
-}
-
-// NewAgent creates a new server agent
+// NewAgent creates a new crew server agent
 func NewAgent(
 	ctx context.Context,
 	agentCrew map[string]*chat.Agent,
@@ -106,23 +55,13 @@ func NewAgent(
 		return nil, fmt.Errorf("selected agent ID %s does not exist in the provided crew", selectedAgentId)
 	}
 
-	agent := &CrewServerAgent{
-		chatAgents:        agentCrew,
-		currentChatAgent:  firstSelectedAgent,
-		toolsAgent:        nil,
-		ragAgent:          nil,
-		similarityLimit:   0.6,
-		maxSimilarities:   3,
-		contextSizeLimit:  8000,
-		compressorAgent:   nil,
-		port:              port,
-		ctx:               ctx,
-		log:               logger.GetLoggerFromEnv(),
-		pendingOperations: make(map[string]*PendingOperation),
-		stopStreamChan:    make(chan bool, 1),
-	}
+	baseAgent := serverbase.NewBaseServerAgent(ctx, port, firstSelectedAgent, executeFn)
 
-	agent.log.Info("👥 CrewServerAgent initialized with chat agents, starting with agent ID: %s", selectedAgentId)
+	agent := &CrewServerAgent{
+		BaseServerAgent:  baseAgent,
+		chatAgents:       agentCrew,
+		currentChatAgent: firstSelectedAgent,
+	}
 
 	// Set matchAgentIdToTopicFn
 	if matchAgentIdToTopicFn != nil {
@@ -139,25 +78,24 @@ func NewAgent(
 		}
 	}
 
-	// Set executeFunction (use provided or default)
-	if executeFn != nil {
-		agent.executeFn = executeFn
-	} else {
-		// executeFunction is a placeholder that should be overridden by the user
-		agent.executeFn = agent.executeFunction
+	// Set executeFunction to default if not provided
+	if executeFn == nil {
+		agent.ExecuteFn = agent.executeFunction
 	}
+
+	agent.Log.Info("👥 CrewServerAgent initialized with chat agents, starting with agent ID: %s", selectedAgentId)
 
 	return agent, nil
 }
 
 // SetPort sets the HTTP port
 func (agent *CrewServerAgent) SetPort(port string) {
-	agent.port = port
+	agent.Port = port
 }
 
 // GetPort returns the HTTP port
 func (agent *CrewServerAgent) GetPort() string {
-	return agent.port
+	return agent.Port
 }
 
 // GetChatAgents returns the map of chat agents
@@ -277,26 +215,25 @@ func (agent *CrewServerAgent) ExportMessagesToJSON() (string, error) {
 func (agent *CrewServerAgent) StartServer() error {
 	mux := http.NewServeMux()
 
-	// Routes
+	// Routes using base handlers
 	mux.HandleFunc("POST /completion", agent.handleCompletion)
 	mux.HandleFunc("POST /completion/stop", agent.handleCompletionStop)
-	mux.HandleFunc("POST /memory/reset", agent.handleMemoryReset)
-	mux.HandleFunc("GET /memory/messages/list", agent.handleMessagesList)
-	mux.HandleFunc("GET /memory/messages/tokens", agent.handleTokensCount)
-	mux.HandleFunc("POST /operation/validate", agent.handleOperationValidate)
-	mux.HandleFunc("POST /operation/cancel", agent.handleOperationCancel)
-	mux.HandleFunc("POST /operation/reset", agent.handleOperationReset)
-	mux.HandleFunc("GET /models", agent.handleModelsInformation)
-	mux.HandleFunc("GET /health", agent.handleHealth)
+	mux.HandleFunc("POST /memory/reset", agent.HandleMemoryReset)
+	mux.HandleFunc("GET /memory/messages/list", agent.HandleMessagesList)
+	mux.HandleFunc("GET /memory/messages/tokens", agent.HandleTokensCount)
+	mux.HandleFunc("POST /operation/validate", agent.HandleOperationValidate)
+	mux.HandleFunc("POST /operation/cancel", agent.HandleOperationCancel)
+	mux.HandleFunc("POST /operation/reset", agent.HandleOperationReset)
+	mux.HandleFunc("GET /models", agent.HandleModelsInformation)
+	mux.HandleFunc("GET /health", agent.HandleHealth)
 
-	agent.log.Info("🚀 Server started on http://localhost%s", agent.port)
-	return http.ListenAndServe(agent.port, mux)
+	agent.Log.Info("🚀 Server started on http://localhost%s", agent.Port)
+	return http.ListenAndServe(agent.Port, mux)
 }
 
 // Helper functions
 
 // jsonEscape escapes a string for safe JSON embedding
 func jsonEscape(s string) string {
-	b, _ := json.Marshal(s)
-	return string(b)
+	return serverbase.JSONEscape(s)
 }

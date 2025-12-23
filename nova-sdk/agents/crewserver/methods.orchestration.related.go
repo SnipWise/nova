@@ -23,8 +23,8 @@ func (agent *CrewServerAgent) GetOrchestratorAgent() *structured.Agent[agents.In
 // query -> user message
 func (ca *CrewServerAgent) DetectTopicThenGetAgentId(query string) (string, error) {
 
-	ca.log.Info("🔍 Detecting topic for routing...")
-	ca.log.Info("📝 Query: " + query)
+	ca.Log.Info("🔍 Detecting topic for routing...")
+	ca.Log.Info("📝 Query: " + query)
 	// Topic detection via orchestrator agent
 	response, _, err := ca.orchestratorAgent.GenerateStructuredData([]messages.Message{
 		{
@@ -36,7 +36,7 @@ func (ca *CrewServerAgent) DetectTopicThenGetAgentId(query string) (string, erro
 		return "", err
 	}
 
-	ca.log.Info("✅ Topic detected: " + response.TopicDiscussion)
+	ca.Log.Info("✅ Topic detected: " + response.TopicDiscussion)
 
 	// --------------------------------------------------------
 	// Get agent ID based on detected topic
@@ -47,7 +47,7 @@ func (ca *CrewServerAgent) DetectTopicThenGetAgentId(query string) (string, erro
 		return "", fmt.Errorf("no chat agent found with ID: %s", agentId)
 	}
 
-	ca.log.Info("🔀 You should route to agent ID: " + agentId)
+	ca.Log.Info("🔀 You should route to agent ID: " + agentId)
 
 	return agentId, nil
 }

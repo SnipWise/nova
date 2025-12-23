@@ -2,81 +2,31 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
-	"sync"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
-	"github.com/snipwise/nova/nova-sdk/agents/compressor"
-	"github.com/snipwise/nova/nova-sdk/agents/rag"
-	"github.com/snipwise/nova/nova-sdk/agents/tools"
+	"github.com/snipwise/nova/nova-sdk/agents/serverbase"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 	"github.com/snipwise/nova/nova-sdk/models"
-	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
+// ServerAgent wraps BaseServerAgent with chat-specific functionality
 type ServerAgent struct {
-	chatAgent  *chat.Agent
-	toolsAgent *tools.Agent
-
-	ragAgent *rag.Agent
-
-	similarityLimit float64
-	maxSimilarities int
-
-	contextSizeLimit int
-	compressorAgent  *compressor.Agent
-
-	port string
-	ctx  context.Context
-	log  logger.Logger
-
-	// Pending operations management
-	pendingOperations       map[string]*PendingOperation
-	operationsMutex         sync.RWMutex
-	stopStreamChan          chan bool
-	currentNotificationChan chan ToolCallNotification
-	notificationChanMutex   sync.Mutex
-
-	// Custom function executor
-	executeFn func(string, string) (string, error)
+	*serverbase.BaseServerAgent
+	chatAgent *chat.Agent
 }
 
-type ToolCallNotification struct {
-	OperationID  string
-	FunctionName string
-	Arguments    string
-	Message      string
-}
-
-type PendingOperation struct {
-	ID           string
-	FunctionName string
-	Arguments    string
-	Response     chan tools.ConfirmationResponse
-}
-
-type CompletionRequest struct {
-	Data struct {
-		Message string `json:"message"`
-	} `json:"data"`
-}
-
-type OperationRequest struct {
-	OperationID string `json:"operation_id"`
-}
-
-type MemoryResponse struct {
-	Messages []messages.Message `json:"messages"`
-}
-
-type TokensResponse struct {
-	Count  int `json:"count"`
-	Tokens int `json:"tokens"`
-	Limit  int `json:"limit"`
-}
+// Re-export types from serverbase for backward compatibility
+type (
+	ToolCallNotification = serverbase.ToolCallNotification
+	PendingOperation     = serverbase.PendingOperation
+	CompletionRequest    = serverbase.CompletionRequest
+	OperationRequest     = serverbase.OperationRequest
+	MemoryResponse       = serverbase.MemoryResponse
+	TokensResponse       = serverbase.TokensResponse
+)
 
 // NewAgent creates a new server agent
 func NewAgent(
@@ -91,26 +41,16 @@ func NewAgent(
 		return nil, err
 	}
 
+	baseAgent := serverbase.NewBaseServerAgent(ctx, port, chatAgent, executeFn)
+
 	agent := &ServerAgent{
-		chatAgent:         chatAgent,
-		toolsAgent:        nil,
-		ragAgent:          nil,
-		similarityLimit:   0.6,
-		maxSimilarities:   3,
-		contextSizeLimit:  8000,
-		compressorAgent:   nil,
-		port:              port,
-		ctx:               ctx,
-		log:               logger.GetLoggerFromEnv(),
-		pendingOperations: make(map[string]*PendingOperation),
-		stopStreamChan:    make(chan bool, 1),
+		BaseServerAgent: baseAgent,
+		chatAgent:       chatAgent,
 	}
 
-	// Set executeFunction (use provided or default)
-	if executeFn != nil {
-		agent.executeFn = executeFn
-	} else {
-		agent.executeFn = agent.executeFunction
+	// Set executeFunction to default if not provided
+	if executeFn == nil {
+		agent.ExecuteFn = agent.executeFunction
 	}
 
 	return agent, nil
@@ -118,12 +58,12 @@ func NewAgent(
 
 // SetPort sets the HTTP port
 func (agent *ServerAgent) SetPort(port string) {
-	agent.port = port
+	agent.Port = port
 }
 
 // GetPort returns the HTTP port
 func (agent *ServerAgent) GetPort() string {
-	return agent.port
+	return agent.Port
 }
 
 // Kind returns the agent type
@@ -198,30 +138,32 @@ func (agent *ServerAgent) ExportMessagesToJSON() (string, error) {
 	return agent.chatAgent.ExportMessagesToJSON()
 }
 
+// Note: SetToolsAgent, GetToolsAgent, SetRagAgent, GetRagAgent, etc.
+// are defined in methods.*.related.go files
+
 // StartServer starts the HTTP server with all routes
 func (agent *ServerAgent) StartServer() error {
 	mux := http.NewServeMux()
 
-	// Routes
+	// Routes using base handlers
 	mux.HandleFunc("POST /completion", agent.handleCompletion)
 	mux.HandleFunc("POST /completion/stop", agent.handleCompletionStop)
-	mux.HandleFunc("POST /memory/reset", agent.handleMemoryReset)
-	mux.HandleFunc("GET /memory/messages/list", agent.handleMessagesList)
-	mux.HandleFunc("GET /memory/messages/tokens", agent.handleTokensCount)
-	mux.HandleFunc("POST /operation/validate", agent.handleOperationValidate)
-	mux.HandleFunc("POST /operation/cancel", agent.handleOperationCancel)
-	mux.HandleFunc("POST /operation/reset", agent.handleOperationReset)
-	mux.HandleFunc("GET /models", agent.handleModelsInformation)
-	mux.HandleFunc("GET /health", agent.handleHealth)
+	mux.HandleFunc("POST /memory/reset", agent.HandleMemoryReset)
+	mux.HandleFunc("GET /memory/messages/list", agent.HandleMessagesList)
+	mux.HandleFunc("GET /memory/messages/tokens", agent.HandleTokensCount)
+	mux.HandleFunc("POST /operation/validate", agent.HandleOperationValidate)
+	mux.HandleFunc("POST /operation/cancel", agent.HandleOperationCancel)
+	mux.HandleFunc("POST /operation/reset", agent.HandleOperationReset)
+	mux.HandleFunc("GET /models", agent.HandleModelsInformation)
+	mux.HandleFunc("GET /health", agent.HandleHealth)
 
-	agent.log.Info("🚀 Server started on http://localhost%s", agent.port)
-	return http.ListenAndServe(agent.port, mux)
+	agent.Log.Info("🚀 Server started on http://localhost%s", agent.Port)
+	return http.ListenAndServe(agent.Port, mux)
 }
 
 // Helper functions
 
 // jsonEscape escapes a string for safe JSON embedding
 func jsonEscape(s string) string {
-	b, _ := json.Marshal(s)
-	return string(b)
+	return serverbase.JSONEscape(s)
 }

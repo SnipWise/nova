@@ -8,52 +8,52 @@ import (
 
 // SetToolsAgent sets the tools agent
 func (agent *CrewServerAgent) SetToolsAgent(toolsAgent *tools.Agent) {
-	agent.toolsAgent = toolsAgent
+	agent.ToolsAgent = toolsAgent
 }
 
 // GetToolsAgent returns the tools agent
 func (agent *CrewServerAgent) GetToolsAgent() *tools.Agent {
-	return agent.toolsAgent
+	return agent.ToolsAgent
 }
 
 // webConfirmationPrompt sends a confirmation prompt via web interface and waits for user response
 func (agent *CrewServerAgent) webConfirmationPrompt(functionName string, arguments string) tools.ConfirmationResponse {
 	operationID := fmt.Sprintf("op_%p", &arguments)
 
-	agent.log.Info("🟡 Tool call detected: %s with args: %s (ID: %s)", functionName, arguments, operationID)
+	agent.Log.Info("🟡 Tool call detected: %s with args: %s (ID: %s)", functionName, arguments, operationID)
 
 	// Create a response channel
 	responseChan := make(chan tools.ConfirmationResponse)
 
 	// Register the pending operation
-	agent.operationsMutex.Lock()
-	agent.pendingOperations[operationID] = &PendingOperation{
+	agent.OperationsMutex.Lock()
+	agent.PendingOperations[operationID] = &PendingOperation{
 		ID:           operationID,
 		FunctionName: functionName,
 		Arguments:    arguments,
 		Response:     responseChan,
 	}
-	agent.operationsMutex.Unlock()
+	agent.OperationsMutex.Unlock()
 
 	// Send notification via web interface
 	message := fmt.Sprintf("Tool call detected: %s", functionName)
-	agent.notificationChanMutex.Lock()
-	if agent.currentNotificationChan != nil {
-		agent.currentNotificationChan <- ToolCallNotification{
+	agent.NotificationChanMutex.Lock()
+	if agent.CurrentNotificationChan != nil {
+		agent.CurrentNotificationChan <- ToolCallNotification{
 			OperationID:  operationID,
 			FunctionName: functionName,
 			Arguments:    arguments,
 			Message:      message,
 		}
 	}
-	agent.notificationChanMutex.Unlock()
+	agent.NotificationChanMutex.Unlock()
 
-	agent.log.Info("⏳ Waiting for validation of operation %s", operationID)
+	agent.Log.Info("⏳ Waiting for validation of operation %s", operationID)
 
 	// Wait for user response
 	response := <-responseChan
 
-	agent.log.Info("✅ Operation %s resolved with response: %v", operationID, response)
+	agent.Log.Info("✅ Operation %s resolved with response: %v", operationID, response)
 
 	return response
 }
@@ -66,5 +66,5 @@ func (agent *CrewServerAgent) executeFunction(functionName string, arguments str
 
 // SetExecuteFunction allows the user to set a custom execute function
 func (agent *CrewServerAgent) SetExecuteFunction(fn func(string, string) (string, error)) {
-	agent.executeFn = fn
+	agent.ExecuteFn = fn
 }

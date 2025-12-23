@@ -8,19 +8,13 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/base"
 	"github.com/snipwise/nova/nova-sdk/messages"
-	"github.com/snipwise/nova/nova-sdk/models"
-	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
+// BaseAgent wraps the shared base.Agent and adds compression-specific functionality
 type BaseAgent struct {
-	ctx    context.Context
-	config agents.Config
-
-	chatCompletionParams openai.ChatCompletionNewParams
-	openaiClient         openai.Client
-	log                  logger.Logger
-
+	*base.Agent
 	compressionPrompt string
 }
 
@@ -33,7 +27,7 @@ func WithCompressionPrompt(prompt string) AgentOption {
 	}
 }
 
-// NewBaseAgent creates a new CompressorAgent instance
+// NewBaseAgent creates a new CompressorAgent instance using the shared base agent
 func NewBaseAgent(
 	ctx context.Context,
 	agentConfig agents.Config,
@@ -41,46 +35,28 @@ func NewBaseAgent(
 	options ...AgentOption,
 ) (compressorAgent *BaseAgent, err error) {
 
-	client, log, err := agents.InitializeConnection(ctx, agentConfig, models.Config{
-		Name: modelConfig.Model,
-	})
-
+	// Create the shared base agent
+	baseAgent, err := base.NewAgent(ctx, agentConfig, modelConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	compressorAgent = &BaseAgent{
-		ctx:                  ctx,
-		config:               agentConfig,
-		chatCompletionParams: modelConfig,
-		openaiClient:         client,
-		log:                  log,
+		Agent:             baseAgent,
+		compressionPrompt: Prompts.Minimalist,
 	}
 
-	compressorAgent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{}
-	compressorAgent.chatCompletionParams.Messages = append(compressorAgent.chatCompletionParams.Messages, openai.SystemMessage(agentConfig.SystemInstructions))
-
+	// Apply compressor-specific options
 	for _, option := range options {
 		option(compressorAgent)
-	}
-	if compressorAgent.compressionPrompt == "" {
-		compressorAgent.compressionPrompt = Prompts.Minimalist
 	}
 
 	return compressorAgent, nil
 }
 
-// ResetMessages clears the agent's message history except for the initial system message
+// resetMessages uses the base ResetMessages method
 func (agent *BaseAgent) resetMessages() {
-	// Remove existing messages except the first system message if it's a system message
-	if len(agent.chatCompletionParams.Messages) > 0 {
-		firstMsg := agent.chatCompletionParams.Messages[0]
-		if firstMsg.OfSystem != nil {
-			agent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{firstMsg}
-		} else {
-			agent.chatCompletionParams.Messages = []openai.ChatCompletionMessageParamUnion{}
-		}
-	}
+	agent.ResetMessages()
 }
 
 func (agent *BaseAgent) SetCompressionPrompt(prompt string) {
@@ -93,8 +69,8 @@ func (agent *BaseAgent) CompressContext(messagesList []openai.ChatCompletionMess
 	agent.resetMessages()
 
 	// Add compression prompt as user message
-	agent.chatCompletionParams.Messages = append(
-		agent.chatCompletionParams.Messages,
+	agent.ChatCompletionParams.Messages = append(
+		agent.ChatCompletionParams.Messages,
 		openai.UserMessage(agent.compressionPrompt),
 	)
 
@@ -110,12 +86,12 @@ func (agent *BaseAgent) CompressContext(messagesList []openai.ChatCompletionMess
 
 	text := textBuilder.String()
 
-	agent.chatCompletionParams.Messages = append(
-		agent.chatCompletionParams.Messages,
+	agent.ChatCompletionParams.Messages = append(
+		agent.ChatCompletionParams.Messages,
 		openai.UserMessage("CONVERSATION:\n"+text),
 	)
 
-	completion, err := agent.openaiClient.Chat.Completions.New(agent.ctx, agent.chatCompletionParams)
+	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
 
 	if err != nil {
 		return "", "", err
@@ -138,8 +114,8 @@ func (agent *BaseAgent) CompressContextStream(
 	agent.resetMessages()
 
 	// Add compression prompt as user message
-	agent.chatCompletionParams.Messages = append(
-		agent.chatCompletionParams.Messages,
+	agent.ChatCompletionParams.Messages = append(
+		agent.ChatCompletionParams.Messages,
 		openai.UserMessage(agent.compressionPrompt),
 	)
 
@@ -155,12 +131,12 @@ func (agent *BaseAgent) CompressContextStream(
 
 	text := textBuilder.String()
 
-	agent.chatCompletionParams.Messages = append(
-		agent.chatCompletionParams.Messages,
+	agent.ChatCompletionParams.Messages = append(
+		agent.ChatCompletionParams.Messages,
 		openai.UserMessage("CONVERSATION:\n"+text),
 	)
 
-	stream := agent.openaiClient.Chat.Completions.NewStreaming(agent.ctx, agent.chatCompletionParams)
+	stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, agent.ChatCompletionParams)
 
 	var callBackError error
 	finalFinishReason := ""
