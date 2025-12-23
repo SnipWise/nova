@@ -127,6 +127,12 @@ func (agent *Agent) AddMessage(role roles.Role, content string) {
 	)
 }
 
+// AddMessages adds multiple messages to the conversation history
+func (agent *Agent) AddMessages(msgs []messages.Message) {
+	openaiMessages := messages.ConvertToOpenAIMessages(msgs)
+	agent.internalAgent.AddMessages(openaiMessages)
+}
+
 // GenerateCompletion sends messages and returns the completion result
 func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*CompletionResult, error) {
 	if len(userMessages) == 0 {

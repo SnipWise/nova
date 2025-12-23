@@ -259,6 +259,14 @@ func (agent *Agent) AddMessage(role roles.Role, content string) {
 	agent.log.Debug("AddMessage called but not implemented for remote agent")
 }
 
+// AddMessages adds multiple messages to the conversation history
+// Note: This is a no-op for remote agent as messages are managed server-side
+func (agent *Agent) AddMessages(msgs []messages.Message) {
+	// Remote agent doesn't maintain local message history
+	// Messages are managed by the server
+	agent.log.Debug("AddMessages called but not implemented for remote agent")
+}
+
 // GenerateCompletion sends messages and returns the completion result
 func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*CompletionResult, error) {
 	if len(userMessages) == 0 {

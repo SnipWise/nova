@@ -145,6 +145,12 @@ func (agent *Agent) AddMessage(role roles.Role, content string) {
 	)
 }
 
+// AddMessages adds multiple messages to the conversation history
+func (agent *Agent) AddMessages(msgs []messages.Message) {
+	openaiMessages := messages.ConvertToOpenAIMessages(msgs)
+	agent.internalAgent.AddMessages(openaiMessages)
+}
+
 // NOTE: IMPORTANT: Not all LLMs with tool support support parallel tool calls.
 func (agent *Agent) DetectParallelToolCalls(
 	userMessages []messages.Message,

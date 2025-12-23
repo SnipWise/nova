@@ -91,6 +91,11 @@ func (agent *Agent) AddMessage(message openai.ChatCompletionMessageParamUnion) {
 	agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, message)
 }
 
+// AddMessages adds multiple messages to the agent's message history
+func (agent *Agent) AddMessages(messages []openai.ChatCompletionMessageParamUnion) {
+	agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+}
+
 // GetStringMessages converts all messages to a slice of Message with role and content as strings
 func (agent *Agent) GetStringMessages() []messages.Message {
 	return messages.ConvertFromOpenAIMessages(agent.ChatCompletionParams.Messages)

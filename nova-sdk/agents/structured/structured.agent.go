@@ -122,6 +122,12 @@ func (agent *Agent[Output]) AddMessage(role roles.Role, content string) {
 	)
 }
 
+// AddMessages adds multiple messages to the conversation history
+func (agent *Agent[Output]) AddMessages(msgs []messages.Message) {
+	openaiMessages := messages.ConvertToOpenAIMessages(msgs)
+	agent.internalAgent.AddMessages(openaiMessages)
+}
+
 // ResetMessages clears all messages except the system instruction
 func (agent *Agent[Output]) ResetMessages() {
 	agent.internalAgent.ResetMessages()
