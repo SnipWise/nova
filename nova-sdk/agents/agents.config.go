@@ -16,4 +16,6 @@ type Config struct {
 
 	// APIKey
 	APIKey string
+
+	KeepConversationHistory bool
 }

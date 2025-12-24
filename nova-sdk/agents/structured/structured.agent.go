@@ -39,6 +39,11 @@ func NewAgent[Output any](
 ) (*Agent[Output], error) {
 	log := logger.GetLoggerFromEnv()
 
+	// Set KeepConversationHistory to true by default if not explicitly set
+	if !agentConfig.KeepConversationHistory {
+		agentConfig.KeepConversationHistory = true
+	}
+
 	// Create internal OpenAI-based agent with converted parameters
 	openaiModelConfig := models.ConvertToOpenAIModelConfig(modelConfig)
 
@@ -148,15 +153,18 @@ func (agent *Agent[Output]) GenerateStructuredData(userMessages []messages.Messa
 		return nil, finishReason, err
 	}
 
-	// Add assistant response to history (as JSON string)
-	jsonData, err := json.Marshal(response)
-	if err != nil {
-		return nil, finishReason, err
-	}
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		// Add assistant response to history (as JSON string)
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			return nil, finishReason, err
+		}
 
-	agent.internalAgent.AddMessage(
-		openai.AssistantMessage(string(jsonData)),
-	)
+		agent.internalAgent.AddMessage(
+			openai.AssistantMessage(string(jsonData)),
+		)
+	}
 
 	return response, finishReason, nil
 }

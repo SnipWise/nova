@@ -72,6 +72,11 @@ func NewAgent(
 ) (*Agent, error) {
 	log := logger.GetLoggerFromEnv()
 
+	// Set KeepConversationHistory to true by default if not explicitly set
+	if !agentConfig.KeepConversationHistory {
+		agentConfig.KeepConversationHistory = true
+	}
+
 	// Create internal OpenAI-based agent with converted parameters
 	openaiModelConfig := models.ConvertToOpenAIModelConfig(modelConfig)
 
@@ -169,11 +174,14 @@ func (agent *Agent) DetectParallelToolCalls(
 		return nil, err
 	}
 
-	// Add assistant response to history if present
-	if lastAssistantMessage != "" {
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(lastAssistantMessage),
-		)
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		// Add assistant response to history if present
+		if lastAssistantMessage != "" {
+			agent.internalAgent.AddMessage(
+				openai.AssistantMessage(lastAssistantMessage),
+			)
+		}
 	}
 
 	return &ToolCallResult{
@@ -206,11 +214,14 @@ func (agent *Agent) DetectParallelToolCallsWithConfirmation(
 		return nil, err
 	}
 
-	// Add assistant response to history if present
-	if lastAssistantMessage != "" {
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(lastAssistantMessage),
-		)
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		// Add assistant response to history if present
+		if lastAssistantMessage != "" {
+			agent.internalAgent.AddMessage(
+				openai.AssistantMessage(lastAssistantMessage),
+			)
+		}
 	}
 
 	return &ToolCallResult{
@@ -239,11 +250,14 @@ func (agent *Agent) DetectToolCallsLoop(
 		return nil, err
 	}
 
-	// Add assistant response to history if present
-	if lastAssistantMessage != "" {
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(lastAssistantMessage),
-		)
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		// Add assistant response to history if present
+		if lastAssistantMessage != "" {
+			agent.internalAgent.AddMessage(
+				openai.AssistantMessage(lastAssistantMessage),
+			)
+		}
 	}
 
 	return &ToolCallResult{
@@ -276,11 +290,14 @@ func (agent *Agent) DetectToolCallsLoopWithConfirmation(
 		return nil, err
 	}
 
-	// Add assistant response to history if present
-	if lastAssistantMessage != "" {
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(lastAssistantMessage),
-		)
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		// Add assistant response to history if present
+		if lastAssistantMessage != "" {
+			agent.internalAgent.AddMessage(
+				openai.AssistantMessage(lastAssistantMessage),
+			)
+		}
 	}
 
 	return &ToolCallResult{
@@ -313,11 +330,14 @@ func (agent *Agent) DetectToolCallsLoopStream(
 		return nil, err
 	}
 
-	// Add assistant response to history if present
-	if lastAssistantMessage != "" {
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(lastAssistantMessage),
-		)
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		// Add assistant response to history if present
+		if lastAssistantMessage != "" {
+			agent.internalAgent.AddMessage(
+				openai.AssistantMessage(lastAssistantMessage),
+			)
+		}
 	}
 
 	return &ToolCallResult{
@@ -352,11 +372,14 @@ func (agent *Agent) DetectToolCallsLoopWithConfirmationStream(
 		return nil, err
 	}
 
-	// Add assistant response to history if present
-	if lastAssistantMessage != "" {
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(lastAssistantMessage),
-		)
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		// Add assistant response to history if present
+		if lastAssistantMessage != "" {
+			agent.internalAgent.AddMessage(
+				openai.AssistantMessage(lastAssistantMessage),
+			)
+		}
 	}
 
 	return &ToolCallResult{

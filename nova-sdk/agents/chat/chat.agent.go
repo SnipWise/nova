@@ -47,6 +47,11 @@ func NewAgent(
 ) (*Agent, error) {
 	log := logger.GetLoggerFromEnv()
 
+	// Set KeepConversationHistory to true by default if not explicitly set
+	if !agentConfig.KeepConversationHistory {
+		agentConfig.KeepConversationHistory = true
+	}
+
 	// Create internal OpenAI-based agent with converted parameters
 	openaiModelConfig := models.ConvertToOpenAIModelConfig(modelConfig)
 
@@ -148,10 +153,12 @@ func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*Comple
 		return nil, err
 	}
 
-	// Add assistant response to history
-	agent.internalAgent.AddMessage(
-		openai.AssistantMessage(response),
-	)
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		agent.internalAgent.AddMessage(
+			openai.AssistantMessage(response),
+		)
+	}
 
 	return &CompletionResult{
 		Response:     response,
@@ -174,10 +181,12 @@ func (agent *Agent) GenerateCompletionWithReasoning(userMessages []messages.Mess
 		return nil, err
 	}
 
-	// Add assistant response to history
-	agent.internalAgent.AddMessage(
-		openai.AssistantMessage(response),
-	)
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		agent.internalAgent.AddMessage(
+			openai.AssistantMessage(response),
+		)
+	}
 
 	return &ReasoningResult{
 		Response:     response,
@@ -204,10 +213,12 @@ func (agent *Agent) GenerateStreamCompletion(
 		return nil, err
 	}
 
-	// Add assistant response to history
-	agent.internalAgent.AddMessage(
-		openai.AssistantMessage(response),
-	)
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		agent.internalAgent.AddMessage(
+			openai.AssistantMessage(response),
+		)
+	}
 
 	return &CompletionResult{
 		Response:     response,
@@ -241,10 +252,12 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 		return nil, err
 	}
 
-	// Add assistant response to history
-	agent.internalAgent.AddMessage(
-		openai.AssistantMessage(response),
-	)
+	// Add assistant response to history only if KeepConversationHistory is true
+	if agent.config.KeepConversationHistory {
+		agent.internalAgent.AddMessage(
+			openai.AssistantMessage(response),
+		)
+	}
 
 	return &ReasoningResult{
 		Response:     response,
