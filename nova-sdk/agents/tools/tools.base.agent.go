@@ -54,14 +54,20 @@ func (agent *BaseAgent) DetectParallelToolCalls(messages []openai.ChatCompletion
 	lastAssistantMessage := ""
 	finishReason := ""
 
+	// Prepare messages: combine system message with user messages
+	workingMessages := append(agent.ChatCompletionParams.Messages, messages...)
+
 	agent.Log.Info("⏳ [DetectParallelToolCalls] Making function call request...")
-	agent.ChatCompletionParams.Messages = messages
+
+	// Create params for this call
+	paramsForCall := agent.ChatCompletionParams
+	paramsForCall.Messages = workingMessages
 
 	// Capture request for telemetry
-	agent.CaptureRequest(agent.ChatCompletionParams)
+	agent.CaptureRequest(paramsForCall)
 	startTime := time.Now()
 
-	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
+	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 	if err != nil {
 		agent.Log.Error("Error making function call request:", err)
 		agent.CaptureError(err, "DetectParallelToolCalls")
@@ -79,8 +85,12 @@ func (agent *BaseAgent) DetectParallelToolCalls(messages []openai.ChatCompletion
 
 		if len(detectedToolCalls) > 0 {
 			var stopped bool
-			messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallBack, nil)
+			workingMessages, stopped, finishReason = agent.processToolCalls(workingMessages, detectedToolCalls, &results, toolCallBack, nil)
 			if stopped {
+				// Only update if keeping history
+				if agent.Config.KeepConversationHistory {
+					agent.ChatCompletionParams.Messages = workingMessages
+				}
 				return finishReason, results, lastAssistantMessage, nil
 			}
 		} else {
@@ -88,10 +98,15 @@ func (agent *BaseAgent) DetectParallelToolCalls(messages []openai.ChatCompletion
 		}
 
 	case "stop":
-		messages, lastAssistantMessage = agent.handleStopReason(messages, completion.Choices[0].Message.Content)
+		workingMessages, lastAssistantMessage = agent.handleStopReason(workingMessages, completion.Choices[0].Message.Content)
 
 	default:
 		agent.Log.Error(fmt.Sprintf("🔴 Unexpected response: %s\n", finishReason))
+	}
+
+	// Only update agent's conversation history if KeepConversationHistory is true
+	if agent.Config.KeepConversationHistory {
+		agent.ChatCompletionParams.Messages = workingMessages
 	}
 
 	return finishReason, results, lastAssistantMessage, nil
@@ -107,10 +122,16 @@ func (agent *BaseAgent) DetectParallelToolCallsWitConfirmation(
 	lastAssistantMessage := ""
 	finishReason := ""
 
-	agent.Log.Info("⏳ [DetectParallelToolCallsWitConfirmation] Making function call request...")
-	agent.ChatCompletionParams.Messages = messages
+	// Prepare messages: combine system message with user messages
+	workingMessages := append(agent.ChatCompletionParams.Messages, messages...)
 
-	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
+	agent.Log.Info("⏳ [DetectParallelToolCallsWitConfirmation] Making function call request...")
+
+	// Create params for this call
+	paramsForCall := agent.ChatCompletionParams
+	paramsForCall.Messages = workingMessages
+
+	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 	if err != nil {
 		agent.Log.Error("Error making function call request:", err)
 		return "", results, "", err
@@ -124,8 +145,12 @@ func (agent *BaseAgent) DetectParallelToolCallsWitConfirmation(
 
 		if len(detectedToolCalls) > 0 {
 			var stopped bool
-			messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallBack, confirmationCallBack)
+			workingMessages, stopped, finishReason = agent.processToolCalls(workingMessages, detectedToolCalls, &results, toolCallBack, confirmationCallBack)
 			if stopped {
+				// Only update if keeping history
+				if agent.Config.KeepConversationHistory {
+					agent.ChatCompletionParams.Messages = workingMessages
+				}
 				return finishReason, results, lastAssistantMessage, nil
 			}
 		} else {
@@ -133,10 +158,15 @@ func (agent *BaseAgent) DetectParallelToolCallsWitConfirmation(
 		}
 
 	case "stop":
-		messages, lastAssistantMessage = agent.handleStopReason(messages, completion.Choices[0].Message.Content)
+		workingMessages, lastAssistantMessage = agent.handleStopReason(workingMessages, completion.Choices[0].Message.Content)
 
 	default:
 		agent.Log.Error(fmt.Sprintf("🔴 Unexpected response: %s\n", finishReason))
+	}
+
+	// Only update agent's conversation history if KeepConversationHistory is true
+	if agent.Config.KeepConversationHistory {
+		agent.ChatCompletionParams.Messages = workingMessages
 	}
 
 	return finishReason, results, lastAssistantMessage, nil
@@ -149,12 +179,18 @@ func (agent *BaseAgent) DetectToolCallsLoop(messages []openai.ChatCompletionMess
 	lastAssistantMessage := ""
 	finishReason := ""
 
+	// Prepare messages: combine system message with user messages
+	// Build on top of existing messages (which include system message)
+	workingMessages := append(agent.ChatCompletionParams.Messages, messages...)
+
 	for !stopped {
 		agent.Log.Info("⏳ [DetectToolCallsLoop] Making function call request...")
 
-		agent.ChatCompletionParams.Messages = messages
+		// Create params for this call with current working messages
+		paramsForCall := agent.ChatCompletionParams
+		paramsForCall.Messages = workingMessages
 
-		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
+		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 		if err != nil {
 			agent.Log.Error("Error making function call request:", err)
 			return "", results, "", err
@@ -167,20 +203,26 @@ func (agent *BaseAgent) DetectToolCallsLoop(messages []openai.ChatCompletionMess
 			detectedToolCalls := completion.Choices[0].Message.ToolCalls
 
 			if len(detectedToolCalls) > 0 {
-				messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallBack, nil)
+				workingMessages, stopped, finishReason = agent.processToolCalls(workingMessages, detectedToolCalls, &results, toolCallBack, nil)
 			} else {
 				agent.Log.Warn("😢 No tool calls found in response")
 			}
 
 		case "stop":
 			stopped = true
-			messages, lastAssistantMessage = agent.handleStopReason(messages, completion.Choices[0].Message.Content)
+			workingMessages, lastAssistantMessage = agent.handleStopReason(workingMessages, completion.Choices[0].Message.Content)
 
 		default:
 			agent.Log.Error(fmt.Sprintf("🔴 Unexpected response: %s\n", finishReason))
 			stopped = true
 		}
 	}
+
+	// Only update agent's conversation history if KeepConversationHistory is true
+	if agent.Config.KeepConversationHistory {
+		agent.ChatCompletionParams.Messages = workingMessages
+	}
+
 	return finishReason, results, lastAssistantMessage, nil
 }
 
@@ -194,12 +236,17 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmation(
 	lastAssistantMessage := ""
 	finishReason := ""
 
+	// Prepare messages: combine system message with user messages
+	workingMessages := append(agent.ChatCompletionParams.Messages, messages...)
+
 	for !stopped {
 		agent.Log.Info("⏳ [LOOP][DetectToolCallsLoopWithConfirmation] Making function call request...")
 
-		agent.ChatCompletionParams.Messages = messages
+		// Create params for this call with current working messages
+		paramsForCall := agent.ChatCompletionParams
+		paramsForCall.Messages = workingMessages
 
-		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
+		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 		if err != nil {
 			agent.Log.Error("Error making function call request:", err)
 			return "", results, "", err
@@ -212,8 +259,12 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmation(
 			detectedToolCalls := completion.Choices[0].Message.ToolCalls
 
 			if len(detectedToolCalls) > 0 {
-				messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallBack, confirmationCallBack)
+				workingMessages, stopped, finishReason = agent.processToolCalls(workingMessages, detectedToolCalls, &results, toolCallBack, confirmationCallBack)
 				if stopped && finishReason == "user_quit" {
+					// Only update if keeping history
+					if agent.Config.KeepConversationHistory {
+						agent.ChatCompletionParams.Messages = workingMessages
+					}
 					return finishReason, results, lastAssistantMessage, nil
 				}
 			} else {
@@ -222,13 +273,19 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmation(
 
 		case "stop":
 			stopped = true
-			messages, lastAssistantMessage = agent.handleStopReason(messages, completion.Choices[0].Message.Content)
+			workingMessages, lastAssistantMessage = agent.handleStopReason(workingMessages, completion.Choices[0].Message.Content)
 
 		default:
 			agent.Log.Error(fmt.Sprintf("🔴 Unexpected response: %s\n", finishReason))
 			stopped = true
 		}
 	}
+
+	// Only update agent's conversation history if KeepConversationHistory is true
+	if agent.Config.KeepConversationHistory {
+		agent.ChatCompletionParams.Messages = workingMessages
+	}
+
 	return finishReason, results, lastAssistantMessage, nil
 }
 
@@ -238,12 +295,17 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 	lastAssistantMessage := ""
 	finishReason := ""
 
+	// Prepare messages: combine system message with user messages
+	workingMessages := append(agent.ChatCompletionParams.Messages, messages...)
+
 	for !stopped {
 		agent.Log.Info("⏳ [LOOP][DetectToolCallsLoopStream] Making function call request...")
 
-		agent.ChatCompletionParams.Messages = messages
+		// Create params for this call with current working messages
+		paramsForCall := agent.ChatCompletionParams
+		paramsForCall.Messages = workingMessages
 
-		stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, agent.ChatCompletionParams)
+		stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, paramsForCall)
 		var response string
 		var cbkRes error
 
@@ -271,7 +333,7 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 		}
 
 		// Make a non-streaming call to get tool calls
-		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
+		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 		if err != nil {
 			return "", results, "", err
 		}
@@ -283,14 +345,14 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 			detectedToolCalls := completion.Choices[0].Message.ToolCalls
 
 			if len(detectedToolCalls) > 0 {
-				messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallback, nil)
+				workingMessages, stopped, finishReason = agent.processToolCalls(workingMessages, detectedToolCalls, &results, toolCallback, nil)
 			} else {
 				agent.Log.Warn("😢 No tool calls found in response")
 			}
 
 		case "stop":
 			stopped = true
-			messages, _ = agent.handleStopReason(messages, response)
+			workingMessages, _ = agent.handleStopReason(workingMessages, response)
 			lastAssistantMessage = response
 
 		default:
@@ -298,6 +360,12 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 			stopped = true
 		}
 	}
+
+	// Only update agent's conversation history if KeepConversationHistory is true
+	if agent.Config.KeepConversationHistory {
+		agent.ChatCompletionParams.Messages = workingMessages
+	}
+
 	return finishReason, results, lastAssistantMessage, nil
 }
 
@@ -312,12 +380,17 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 	lastAssistantMessage := ""
 	finishReason := ""
 
+	// Prepare messages: combine system message with user messages
+	workingMessages := append(agent.ChatCompletionParams.Messages, messages...)
+
 	for !stopped {
 		agent.Log.Info("⏳ [LOOP][DetectToolCallsLoopWithConfirmationStream] Making function call request...")
 
-		agent.ChatCompletionParams.Messages = messages
+		// Create params for this call with current working messages
+		paramsForCall := agent.ChatCompletionParams
+		paramsForCall.Messages = workingMessages
 
-		stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, agent.ChatCompletionParams)
+		stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, paramsForCall)
 		var response string
 		var cbkRes error
 
@@ -345,7 +418,7 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 		}
 
 		// Make a non-streaming call to get tool calls
-		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
+		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 		if err != nil {
 			return "", results, "", err
 		}
@@ -357,8 +430,12 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 			detectedToolCalls := completion.Choices[0].Message.ToolCalls
 
 			if len(detectedToolCalls) > 0 {
-				messages, stopped, finishReason = agent.processToolCalls(messages, detectedToolCalls, &results, toolCallback, confirmationCallBack)
+				workingMessages, stopped, finishReason = agent.processToolCalls(workingMessages, detectedToolCalls, &results, toolCallback, confirmationCallBack)
 				if stopped && finishReason == "user_quit" {
+					// Only update if keeping history
+					if agent.Config.KeepConversationHistory {
+						agent.ChatCompletionParams.Messages = workingMessages
+					}
 					return finishReason, results, lastAssistantMessage, nil
 				}
 			} else {
@@ -367,7 +444,7 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 
 		case "stop":
 			stopped = true
-			messages, _ = agent.handleStopReason(messages, response)
+			workingMessages, _ = agent.handleStopReason(workingMessages, response)
 			lastAssistantMessage = response
 
 		default:
@@ -375,5 +452,11 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 			stopped = true
 		}
 	}
+
+	// Only update agent's conversation history if KeepConversationHistory is true
+	if agent.Config.KeepConversationHistory {
+		agent.ChatCompletionParams.Messages = workingMessages
+	}
+
 	return finishReason, results, lastAssistantMessage, nil
 }

@@ -2,7 +2,6 @@ package structured
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -38,11 +37,6 @@ func NewAgent[Output any](
 	modelConfig models.Config,
 ) (*Agent[Output], error) {
 	log := logger.GetLoggerFromEnv()
-
-	// Set KeepConversationHistory to true by default if not explicitly set
-	if !agentConfig.KeepConversationHistory {
-		agentConfig.KeepConversationHistory = true
-	}
 
 	// Create internal OpenAI-based agent with converted parameters
 	openaiModelConfig := models.ConvertToOpenAIModelConfig(modelConfig)
@@ -89,10 +83,8 @@ func NewAgent[Output any](
 		log:           log,
 	}
 
-	// Add system instruction as first message
-	agent.internalAgent.AddMessage(
-		openai.SystemMessage(agentConfig.SystemInstructions),
-	)
+	// System message is already added by the BaseAgent constructor
+	// No need to add it again here
 
 	return agent, nil
 }
@@ -147,23 +139,10 @@ func (agent *Agent[Output]) GenerateStructuredData(userMessages []messages.Messa
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
-	// Call internal agent
+	// Call internal agent - it handles the conversation history based on KeepConversationHistory
 	response, finishReason, err = agent.internalAgent.GenerateStructuredData(openaiMessages)
 	if err != nil {
 		return nil, finishReason, err
-	}
-
-	// Add assistant response to history only if KeepConversationHistory is true
-	if agent.config.KeepConversationHistory {
-		// Add assistant response to history (as JSON string)
-		jsonData, err := json.Marshal(response)
-		if err != nil {
-			return nil, finishReason, err
-		}
-
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(string(jsonData)),
-		)
 	}
 
 	return response, finishReason, nil

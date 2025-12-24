@@ -47,11 +47,6 @@ func NewAgent(
 ) (*Agent, error) {
 	log := logger.GetLoggerFromEnv()
 
-	// Set KeepConversationHistory to true by default if not explicitly set
-	if !agentConfig.KeepConversationHistory {
-		agentConfig.KeepConversationHistory = true
-	}
-
 	// Create internal OpenAI-based agent with converted parameters
 	openaiModelConfig := models.ConvertToOpenAIModelConfig(modelConfig)
 
@@ -68,9 +63,9 @@ func NewAgent(
 		log:           log,
 	}
 
-	agent.internalAgent.AddMessage(
-		openai.SystemMessage(agentConfig.SystemInstructions),
-	)
+	// System message is already added by the BaseAgent constructor
+	// No need to add it again here
+
 	return agent, nil
 }
 
@@ -147,17 +142,10 @@ func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*Comple
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
-	// Call internal agent
+	// Call internal agent - it handles the conversation history based on KeepConversationHistory
 	response, finishReason, err := agent.internalAgent.GenerateCompletion(openaiMessages)
 	if err != nil {
 		return nil, err
-	}
-
-	// Add assistant response to history only if KeepConversationHistory is true
-	if agent.config.KeepConversationHistory {
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(response),
-		)
 	}
 
 	return &CompletionResult{
@@ -175,17 +163,10 @@ func (agent *Agent) GenerateCompletionWithReasoning(userMessages []messages.Mess
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
-	// Call internal agent
+	// Call internal agent - it handles the conversation history based on KeepConversationHistory
 	response, reasoning, finishReason, err := agent.internalAgent.GenerateCompletionWithReasoning(openaiMessages)
 	if err != nil {
 		return nil, err
-	}
-
-	// Add assistant response to history only if KeepConversationHistory is true
-	if agent.config.KeepConversationHistory {
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(response),
-		)
 	}
 
 	return &ReasoningResult{

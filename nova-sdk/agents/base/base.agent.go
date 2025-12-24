@@ -188,14 +188,29 @@ func (agent *Agent) SetSystemInstructions(instructions string) {
 // GenerateCompletion executes a chat completion with the provided messages
 // and returns the response, finish reason, and any error
 func (agent *Agent) GenerateCompletion(messages []openai.ChatCompletionMessageParamUnion) (response string, finishReason string, err error) {
-	// Combine existing messages with new messages
-	agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+	// Prepare messages for the API call
+	// If KeepConversationHistory is true, add to history permanently
+	// Otherwise, create a temporary message list for this call only
+	var messagesToSend []openai.ChatCompletionMessageParamUnion
+
+	if agent.Config.KeepConversationHistory {
+		// Add new messages to history permanently
+		agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+		messagesToSend = agent.ChatCompletionParams.Messages
+	} else {
+		// Create temporary message list with system + current user messages only
+		messagesToSend = append(agent.ChatCompletionParams.Messages, messages...)
+	}
+
+	// Update params with messages for this call
+	paramsForCall := agent.ChatCompletionParams
+	paramsForCall.Messages = messagesToSend
 
 	// Capture request for telemetry
-	agent.captureRequest(agent.ChatCompletionParams)
+	agent.captureRequest(paramsForCall)
 	startTime := time.Now()
 
-	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
+	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 
 	if err != nil {
 		agent.captureError(err, "GenerateCompletion")
@@ -206,14 +221,16 @@ func (agent *Agent) GenerateCompletion(messages []openai.ChatCompletionMessagePa
 	agent.captureResponse(completion, startTime)
 
 	if len(completion.Choices) > 0 {
-		// Append the full response as an assistant message to the agent's messages
-		agent.ChatCompletionParams.Messages = append(
-			agent.ChatCompletionParams.Messages,
-			openai.AssistantMessage(completion.Choices[0].Message.Content),
-		)
-
 		response = completion.Choices[0].Message.Content
 		finishReason = completion.Choices[0].FinishReason
+
+		// Only add assistant response to history if KeepConversationHistory is true
+		if agent.Config.KeepConversationHistory {
+			agent.ChatCompletionParams.Messages = append(
+				agent.ChatCompletionParams.Messages,
+				openai.AssistantMessage(response),
+			)
+		}
 
 		return response, finishReason, nil
 	}
@@ -224,14 +241,29 @@ func (agent *Agent) GenerateCompletion(messages []openai.ChatCompletionMessagePa
 // GenerateCompletionWithReasoning executes a chat completion with the provided messages
 // and returns both the response and reasoning content
 func (agent *Agent) GenerateCompletionWithReasoning(messages []openai.ChatCompletionMessageParamUnion) (response string, reasoning string, finishReason string, err error) {
-	// Combine existing messages with new messages
-	agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+	// Prepare messages for the API call
+	// If KeepConversationHistory is true, add to history permanently
+	// Otherwise, create a temporary message list for this call only
+	var messagesToSend []openai.ChatCompletionMessageParamUnion
+
+	if agent.Config.KeepConversationHistory {
+		// Add new messages to history permanently
+		agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+		messagesToSend = agent.ChatCompletionParams.Messages
+	} else {
+		// Create temporary message list with system + current user messages only
+		messagesToSend = append(agent.ChatCompletionParams.Messages, messages...)
+	}
+
+	// Update params with messages for this call
+	paramsForCall := agent.ChatCompletionParams
+	paramsForCall.Messages = messagesToSend
 
 	// Capture request for telemetry
-	agent.captureRequest(agent.ChatCompletionParams)
+	agent.captureRequest(paramsForCall)
 	startTime := time.Now()
 
-	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
+	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 
 	if err != nil {
 		agent.captureError(err, "GenerateCompletionWithReasoning")
@@ -261,11 +293,13 @@ func (agent *Agent) GenerateCompletionWithReasoning(messages []openai.ChatComple
 	reasoning = reasoningContent.ReasoningContent
 	response = completion.Choices[0].Message.Content
 
-	// Append the full response as an assistant message to the agent's messages
-	agent.ChatCompletionParams.Messages = append(
-		agent.ChatCompletionParams.Messages,
-		openai.AssistantMessage(response),
-	)
+	// Only add assistant response to history if KeepConversationHistory is true
+	if agent.Config.KeepConversationHistory {
+		agent.ChatCompletionParams.Messages = append(
+			agent.ChatCompletionParams.Messages,
+			openai.AssistantMessage(response),
+		)
+	}
 
 	return response, reasoning, finishReason, nil
 }

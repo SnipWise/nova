@@ -79,15 +79,29 @@ func (agent *BaseAgent[Output]) Kind() (kind agents.Kind) {
 }
 
 func (agent *BaseAgent[Output]) GenerateStructuredData(messages []openai.ChatCompletionMessageParamUnion) (response *Output, finishReason string, err error) {
-	// Preserve existing system messages from agent.Params
-	// Combine existing system messages with new messages
-	agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+	// Prepare messages for the API call
+	// If KeepConversationHistory is true, add to history permanently
+	// Otherwise, create a temporary message list for this call only
+	var messagesToSend []openai.ChatCompletionMessageParamUnion
+
+	if agent.Config.KeepConversationHistory {
+		// Add new messages to history permanently
+		agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+		messagesToSend = agent.ChatCompletionParams.Messages
+	} else {
+		// Create temporary message list with system + current user messages only
+		messagesToSend = append(agent.ChatCompletionParams.Messages, messages...)
+	}
+
+	// Update params with messages for this call
+	paramsForCall := agent.ChatCompletionParams
+	paramsForCall.Messages = messagesToSend
 
 	// Capture request for telemetry
-	agent.CaptureRequest(agent.ChatCompletionParams)
+	agent.CaptureRequest(paramsForCall)
 	startTime := time.Now()
 
-	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
+	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 
 	if err != nil {
 		agent.CaptureError(err, "GenerateStructuredData")
@@ -98,10 +112,12 @@ func (agent *BaseAgent[Output]) GenerateStructuredData(messages []openai.ChatCom
 	agent.CaptureResponse(completion, startTime)
 
 	if len(completion.Choices) > 0 {
-		// Append the full response as an assistant message to the agent's messages
-		agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, openai.AssistantMessage(completion.Choices[0].Message.Content))
-
 		responseStr := completion.Choices[0].Message.Content
+
+		// Only add assistant response to history if KeepConversationHistory is true
+		if agent.Config.KeepConversationHistory {
+			agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, openai.AssistantMessage(responseStr))
+		}
 
 		var structuredResponse Output
 		err = json.Unmarshal([]byte(responseStr), &structuredResponse)
