@@ -47,7 +47,8 @@ func main() {
 		}
 		for idx, content := range filesContent {
 
-			contentPieces := chunks.ChunkText(content.Content, 512, 64)
+			//contentPieces := chunks.ChunkText(content.Content, 512, 64)
+			contentPieces := chunks.SplitMarkdownBySections(content.Content)
 
 			for _, piece := range contentPieces {
 				err = agent.SaveEmbedding(piece)
@@ -59,11 +60,11 @@ func main() {
 			}
 		}
 		// Save the RAG store to file
-		err = agent.PersistStore(dataPath)
+		err = agent.PersistStore(storePathFile)
 		if err != nil {
-			fmt.Printf("failed to persist RAG store to %s: %v\n", dataPath, err)
+			fmt.Printf("failed to persist RAG store to %s: %v\n", storePathFile, err)
 		}
-		fmt.Printf("Successfully saved RAG Reports store to %s\n", dataPath)
+		fmt.Printf("Successfully saved RAG Reports store to %s\n", storePathFile)
 
 	}
 
