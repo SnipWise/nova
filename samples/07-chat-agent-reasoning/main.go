@@ -23,9 +23,11 @@ func main() {
 			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
 			SystemInstructions: "You are a helpful AI assistant that thinks step by step.",
 		},
-		models.NewConfig("hf.co/menlo/lucy-gguf:q4_k_m").
-			WithTemperature(0.7).
-			WithTopP(0.9),
+		models.Config{
+			Name: "ai/qwen2.5:1.5B-F16",
+			Temperature:        models.Float64(0.7),
+			TopP:               models.Float64(0.9),
+		},			
 	)
 	if err != nil {
 		panic(err)

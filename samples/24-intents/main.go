@@ -49,8 +49,10 @@ func main() {
 			known: true			
 			`,
 		},
-		models.NewConfig("hf.co/menlo/jan-nano-gguf:q4_k_m").
-			WithTemperature(0.0),
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature: models.Float64(0.0),
+		},
 	)
 	if err != nil {
 		panic(err)

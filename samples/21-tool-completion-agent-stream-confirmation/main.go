@@ -23,9 +23,11 @@ func main() {
 			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
 			SystemInstructions: "You are Bob, a helpful AI assistant.",
 		},
-		models.NewConfig("hf.co/menlo/jan-nano-gguf:q4_k_m").
-			WithTemperature(0.0).
-			WithParallelToolCalls(false),
+		models.Config{
+			Name: "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature:        models.Float64(0.0),
+			ParallelToolCalls:  models.Bool(false),	
+		},
 
 		tools.WithTools(GetToolsIndex()),
 	)

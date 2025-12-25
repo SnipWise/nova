@@ -25,8 +25,10 @@ func main() {
 			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
 			SystemInstructions: compressor.Instructions.Expert,
 		},
-		models.NewConfig("ai/qwen2.5:1.5B-F16").
-			WithTemperature(0.0),
+		models.Config{
+			Name: "ai/qwen2.5:1.5B-F16",
+			Temperature: models.Float64(0.0),
+		},
 		compressor.WithCompressionPrompt(compressor.Prompts.Minimalist),
 	)
 	if err != nil {

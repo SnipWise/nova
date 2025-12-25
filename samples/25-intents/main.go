@@ -58,8 +58,11 @@ func main() {
 			- The user wants to speak to someone who is NOT in the list of known NPCs
 			`,
 		},
-		models.NewConfig("hf.co/menlo/jan-nano-gguf:q4_k_m").
-			WithTemperature(0.7).WithTopP(0.9),
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature: models.Float64(0.7),
+			TopP:        models.Float64(0.9),
+		},		
 	)
 	if err != nil {
 		panic(err)

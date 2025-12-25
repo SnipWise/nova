@@ -16,9 +16,10 @@ func main() {
 		ctx,
 		agents.Config{
 			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are Bob, a helpful AI assistant.",
 		},
-		models.NewConfig("ai/mxbai-embed-large"),
+		models.Config{
+			Name: "ai/mxbai-embed-large",
+		},
 	)
 	if err != nil {
 		panic(err)

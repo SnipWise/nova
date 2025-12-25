@@ -27,10 +27,6 @@ func main() {
 			Temperature:       models.Float64(0.0),
 			ParallelToolCalls: models.Bool(true), // IMPORTANT: Enable parallel tool calls
 		},
-		//
-		// models.NewConfig("hf.co/menlo/jan-nano-gguf:q4_k_m").
-		// 	WithTemperature(0.0).
-		// 	WithParallelToolCalls(true),
 
 		tools.WithTools(GetToolsIndex()),
 	)
