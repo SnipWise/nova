@@ -193,3 +193,28 @@ func (agent *Agent) GetLastEmbeddingResponseMetadata() EmbeddingResponseMetadata
 	return agent.internalAgent.GetLastEmbeddingResponseMetadata()
 }
 
+// === Config Getters and Setters ===
+
+// GetConfig returns the agent configuration
+func (agent *Agent) GetConfig() agents.Config {
+	return agent.config
+}
+
+// SetConfig updates the agent configuration
+func (agent *Agent) SetConfig(config agents.Config) {
+	agent.config = config
+	agent.internalAgent.SetConfig(config)
+}
+
+// GetModelConfig returns the model configuration
+func (agent *Agent) GetModelConfig() models.Config {
+	return agent.modelConfig
+}
+
+// SetModelConfig updates the model configuration
+// Note: For RAG agents, changing the model config requires recreating the agent
+// as the embedding parameters are set during initialization
+func (agent *Agent) SetModelConfig(config models.Config) {
+	agent.modelConfig = config
+}
+

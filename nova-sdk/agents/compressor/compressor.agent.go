@@ -165,3 +165,30 @@ func (agent *Agent) ResetTelemetry() {
 func (agent *Agent) SetTelemetryCallback(callback base.TelemetryCallback) {
 	agent.internalAgent.SetTelemetryCallback(callback)
 }
+
+// === Config Getters and Setters ===
+
+// GetConfig returns the agent configuration
+func (agent *Agent) GetConfig() agents.Config {
+	return agent.config
+}
+
+// SetConfig updates the agent configuration
+func (agent *Agent) SetConfig(config agents.Config) {
+	agent.config = config
+	agent.internalAgent.Config = config
+}
+
+// GetModelConfig returns the model configuration
+func (agent *Agent) GetModelConfig() models.Config {
+	return agent.modelConfig
+}
+
+// SetModelConfig updates the model configuration
+// Note: This updates the stored config but doesn't regenerate the internal OpenAI params
+// For most parameters to take effect, create a new agent with the new config
+func (agent *Agent) SetModelConfig(config models.Config) {
+	agent.modelConfig = config
+	// Update the internal OpenAI params with the new config
+	agent.internalAgent.ChatCompletionParams = models.ConvertToOpenAIModelConfig(config)
+}

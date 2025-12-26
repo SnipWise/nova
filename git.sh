@@ -105,6 +105,12 @@ case $1 in
     emoji="🧪"
     ;;
 
+  # ✅: check mark
+  test|tests|testing)
+    message="Add or update tests"
+    emoji="✅"
+    ;;
+
   # 💾: floppy-disk
   save)
     message="Saved"
