@@ -1,0 +1,22 @@
+# Binaries
+structured-actions
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+*.out
+*.json
+*.csv
+*.md
+
+# Go workspace file
+go.work
+
+# Keep README.md
+!README.md

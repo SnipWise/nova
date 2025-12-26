@@ -1,0 +1,16 @@
+# Binaries
+orchestrator-cooking
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+*.out
+
+# Go workspace file
+go.work
