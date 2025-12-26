@@ -27,6 +27,7 @@ func main() {
 			Name: "ai/qwen2.5:1.5B-F16",
 			Temperature:        models.Float64(0.7),
 			TopP:               models.Float64(0.9),
+			ReasoningEffort: models.String(models.ReasoningEffortMedium),
 		},			
 	)
 	if err != nil {

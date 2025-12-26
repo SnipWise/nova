@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/shared"
 )
 
 // Config represents model configuration parameters
@@ -21,6 +22,7 @@ type Config struct {
 	ToolChoice        *openai.ChatCompletionToolChoiceOptionUnionParam
 	ParallelToolCalls *bool
 	Tools             []openai.ChatCompletionToolUnionParam
+	ReasoningEffort   *string
 }
 
 // Helper functions to create pointers for optional parameters
@@ -159,6 +161,68 @@ func (mc Config) WithTools(tools []openai.ChatCompletionToolUnionParam) Config {
 	return mc
 }
 
+// WithReasoningEffort sets the reasoning effort parameter
+// Supported values are: none, minimal, low, medium, high, and xhigh
+func (mc Config) WithReasoningEffort(effort string) Config {
+	mc.ReasoningEffort = String(effort)
+	return mc
+}
+
+// Reasoning effort constants
+/*
+The reasoning_effort parameter allows you to control the depth of reasoning the model applies when generating responses. Higher levels of reasoning effort can lead to more thoughtful and accurate answers, especially for complex queries.
+From the OpenAI documentation:
+Constrains effort on reasoning for
+[reasoning models](https://platform.openai.com/docs/guides/reasoning). Currently
+supported values are `none`, `minimal`, `low`, `medium`, `high`, and `xhigh`.
+Reducing reasoning effort can result in faster responses and fewer tokens used
+on reasoning in a response.
+*/
+const (
+	ReasoningEffortNone    = "none"
+	ReasoningEffortMinimal = "minimal"
+	ReasoningEffortLow     = "low"
+	ReasoningEffortMedium  = "medium"
+	ReasoningEffortHigh    = "high"
+	ReasoningEffortXHigh   = "xhigh"
+)
+
+// WithReasoningEffortNone sets reasoning effort to none
+func (mc Config) WithReasoningEffortNone() Config {
+	mc.ReasoningEffort = String(ReasoningEffortNone)
+	return mc
+}
+
+// WithReasoningEffortMinimal sets reasoning effort to minimal
+func (mc Config) WithReasoningEffortMinimal() Config {
+	mc.ReasoningEffort = String(ReasoningEffortMinimal)
+	return mc
+}
+
+// WithReasoningEffortLow sets reasoning effort to low
+func (mc Config) WithReasoningEffortLow() Config {
+	mc.ReasoningEffort = String(ReasoningEffortLow)
+	return mc
+}
+
+// WithReasoningEffortMedium sets reasoning effort to medium
+func (mc Config) WithReasoningEffortMedium() Config {
+	mc.ReasoningEffort = String(ReasoningEffortMedium)
+	return mc
+}
+
+// WithReasoningEffortHigh sets reasoning effort to high
+func (mc Config) WithReasoningEffortHigh() Config {
+	mc.ReasoningEffort = String(ReasoningEffortHigh)
+	return mc
+}
+
+// WithReasoningEffortXHigh sets reasoning effort to xhigh
+func (mc Config) WithReasoningEffortXHigh() Config {
+	mc.ReasoningEffort = String(ReasoningEffortXHigh)
+	return mc
+}
+
 // =====
 
 func ConvertToOpenAIModelConfig(modelConfig Config) openai.ChatCompletionNewParams {
@@ -196,6 +260,9 @@ func ConvertToOpenAIModelConfig(modelConfig Config) openai.ChatCompletionNewPara
 	}
 	if modelConfig.Tools != nil {
 		openaiModelConfig.Tools = modelConfig.Tools
+	}
+	if modelConfig.ReasoningEffort != nil {
+		openaiModelConfig.ReasoningEffort = shared.ReasoningEffort(*modelConfig.ReasoningEffort)
 	}
 
 	return openaiModelConfig
