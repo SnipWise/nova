@@ -8,7 +8,6 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
 	"github.com/snipwise/nova/nova-sdk/agents/serverbase"
-	"github.com/snipwise/nova/nova-sdk/agents/structured"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 )
@@ -24,7 +23,7 @@ type CrewServerAgent struct {
 	currentChatAgent *chat.Agent
 
 	// Routing / Orchestration agent
-	orchestratorAgent *structured.Agent[agents.Intent]
+	orchestratorAgent agents.OrchestratorAgent
 
 	// Retrieval function: from a topic determine which agent to use
 	matchAgentIdToTopicFn func(string) string

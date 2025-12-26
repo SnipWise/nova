@@ -12,9 +12,9 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
 	"github.com/snipwise/nova/nova-sdk/agents/compressor"
 	"github.com/snipwise/nova/nova-sdk/agents/crewserver"
+	"github.com/snipwise/nova/nova-sdk/agents/orchestrator"
 	"github.com/snipwise/nova/nova-sdk/agents/rag"
 	"github.com/snipwise/nova/nova-sdk/agents/rag/chunks"
-	"github.com/snipwise/nova/nova-sdk/agents/structured"
 	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/models"
 	"github.com/snipwise/nova/nova-sdk/toolbox/files"
@@ -316,7 +316,7 @@ func main() {
         Respond in JSON format with the field 'topic_discussion'.
 	`
 
-	orchestratorAgent, err := structured.NewAgent[agents.Intent](
+	orchestratorAgent, err := orchestrator.NewAgent(
 		ctx,
 		agents.Config{
 			Name:               "orchestrator-agent",

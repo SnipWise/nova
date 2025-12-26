@@ -4,18 +4,17 @@ import (
 	"fmt"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
-	"github.com/snipwise/nova/nova-sdk/agents/structured"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 )
 
 // SetOrchestratorAgent sets the orchestrator agent
-func (agent *CrewAgent) SetOrchestratorAgent(orchestratorAgent *structured.Agent[agents.Intent]) {
+func (agent *CrewAgent) SetOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) {
 	agent.orchestratorAgent = orchestratorAgent
 }
 
 // GetOrchestratorAgent returns the orchestrator agent
-func (agent *CrewAgent) GetOrchestratorAgent() *structured.Agent[agents.Intent] {
+func (agent *CrewAgent) GetOrchestratorAgent() agents.OrchestratorAgent {
 	return agent.orchestratorAgent
 }
 
@@ -26,7 +25,7 @@ func (ca *CrewAgent) DetectTopicThenGetAgentId(query string) (string, error) {
 	ca.log.Info("🔍 Detecting topic for routing...")
 	ca.log.Info("📝 Query: " + query)
 	// Topic detection via orchestrator agent
-	response, _, err := ca.orchestratorAgent.GenerateStructuredData([]messages.Message{
+	response, _, err := ca.orchestratorAgent.IdentifyIntent([]messages.Message{
 		{
 			Role:    roles.User,
 			Content: query,
