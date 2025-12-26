@@ -165,3 +165,15 @@ func (agent *BaseAgent) SearchTopNSimilarities(content string, limit float64, n 
 
 	return results, nil
 }
+
+// === Config Getters and Setters ===
+
+// GetConfig returns the agent configuration
+func (agent *BaseAgent) GetConfig() agents.Config {
+	return agent.config
+}
+
+// SetConfig updates the agent configuration
+func (agent *BaseAgent) SetConfig(config agents.Config) {
+	agent.config = config
+}
