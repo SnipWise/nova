@@ -29,19 +29,26 @@ type (
 )
 
 // NewAgent creates a new server agent
+// executeFn is optional - if not provided, uses the default executeFunction method
 func NewAgent(
 	ctx context.Context,
 	agentConfig agents.Config,
 	modelConfig models.Config,
 	port string,
-	executeFn func(string, string) (string, error),
+	executeFn ...func(string, string) (string, error),
 ) (*ServerAgent, error) {
 	chatAgent, err := chat.NewAgent(ctx, agentConfig, modelConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	baseAgent := serverbase.NewBaseServerAgent(ctx, port, chatAgent, executeFn)
+	// Use provided executeFn or nil (will be set to default later)
+	var execFn func(string, string) (string, error)
+	if len(executeFn) > 0 && executeFn[0] != nil {
+		execFn = executeFn[0]
+	}
+
+	baseAgent := serverbase.NewBaseServerAgent(ctx, port, chatAgent, execFn)
 
 	agent := &ServerAgent{
 		BaseServerAgent: baseAgent,
@@ -49,7 +56,7 @@ func NewAgent(
 	}
 
 	// Set executeFunction to default if not provided
-	if executeFn == nil {
+	if execFn == nil {
 		agent.ExecuteFn = agent.executeFunction
 	}
 

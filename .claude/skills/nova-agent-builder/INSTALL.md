@@ -65,6 +65,9 @@ Once installed, simply ask Claude Code to generate agents:
 generate a chat agent with streaming
 create a RAG agent for my FAQ system
 generate a tools agent to calculate and send emails
+create a server agent with streaming
+generate a server agent with tools and RAG
+create a remote agent client to connect to my server
 create an orchestrator agent for topic detection
 ```
 
@@ -82,6 +85,12 @@ Claude will automatically:
 | **RAG** | Retrieval-Augmented Generation | "create a RAG agent with vector search" |
 | **Tools** | Function calling agents | "generate a tools agent with parallel execution" |
 | **Structured** | Typed output agents | "create an agent with structured JSON output" |
+| **Server** | HTTP/REST API agents with SSE | "create a server agent with streaming" |
+| **Server + Tools** | API with function calling | "generate a server agent with tools" |
+| **Server + RAG** | API with document retrieval | "create a server agent with RAG" |
+| **Server + Compressor** | API with context compression | "generate a server agent with compression" |
+| **Full Server** | Complete API (tools+RAG+compress) | "create a full-featured server agent" |
+| **Remote** | Client connecting to Server Agent | "create a remote agent client" |
 | **Orchestrator** | Topic detection & routing | "generate an orchestrator for multi-agent routing" |
 | **Crew** | Multi-agent collaboration | "create a crew agent with 3 specialized agents" |
 | **Pipeline** | Sequential agent chains | "generate a pipeline for document processing" |

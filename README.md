@@ -2,6 +2,8 @@
 **N**eural **O**ptimized **V**irtual **A**ssistant
 > Composable AI agents framework in Go
 
+Nova specializes in developing generative text AI apps with local tiny language models.
+
 ## Nova SDK - Getting Started Examples
 
 > Nova SDK has been tested with:

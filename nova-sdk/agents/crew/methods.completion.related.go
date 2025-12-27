@@ -16,11 +16,13 @@ func (agent *CrewAgent) StreamCompletion(
 	// ------------------------------------------------------------
 	// NOTE: Context packing
 	// ------------------------------------------------------------
-	newSize, err := agent.CompressChatAgentContextIfOverLimit()
-	if err != nil {
-		agent.log.Error("Error during context compression: %v", err)
-	} else if newSize > 0 {
-		agent.log.Info("🗜️  Chat agent context compressed to %d bytes", newSize)
+	if agent.compressorAgent != nil {
+		newSize, err := agent.CompressChatAgentContextIfOverLimit()
+		if err != nil {
+			agent.log.Error("Error during context compression: %v", err)
+		} else if newSize > 0 {
+			agent.log.Info("🗜️  Chat agent context compressed to %d bytes", newSize)
+		}
 	}
 
 	// ------------------------------------------------------------
@@ -95,7 +97,7 @@ func (agent *CrewAgent) StreamCompletion(
 
 	agent.log.Info("🚀 Generating streaming completion for question: %s", question)
 	//stopped := false
-	completionResult , errCompletion := agent.currentChatAgent.GenerateStreamCompletion(
+	completionResult, errCompletion := agent.currentChatAgent.GenerateStreamCompletion(
 		[]messages.Message{
 			{Role: roles.User, Content: question},
 		},

@@ -10,6 +10,10 @@ description: |
   - "chat agent", "chatbot", "conversational" + Go
   - "RAG agent", "retrieval", "embeddings", "vector" + Go
   - "tools agent", "function calling" + Go
+  - "server agent", "HTTP API", "REST API", "API server" + Go
+  - "server with tools", "API with functions"
+  - "server with RAG", "API with knowledge base"
+  - "remote agent", "client agent", "connect to server"
   - "crew agent", "multi-agents", "agent team"
   - "pipeline agent", "chained agents"
   - "structured output", "JSON schema" + agent
@@ -81,8 +85,14 @@ nova-sdk/
 | "tools", "function calling", "utilities" | Tools | `snippets/tools/` |
 | "structured", "JSON", "schema", "extraction" | Structured | `snippets/structured/` |
 | "compression", "long context", "long memory" | Compressor | `snippets/compressor/` |
+| "server agent", "HTTP API", "REST", "SSE" | Server Agent | `snippets/server/basic-server.md` |
+| "server with tools", "API with functions" | Server + Tools | `snippets/server/server-with-tools.md` |
+| "server with RAG", "API with knowledge base" | Server + RAG | `snippets/server/server-with-rag.md` |
+| "server with compression", "API with long context" | Server + Compressor | `snippets/server/server-with-compressor.md` |
+| "full server", "complete API", "production server" | Full Server | `snippets/server/server-full-featured.md` |
+| "remote agent", "client agent", "connect to server" | Remote Agent | `snippets/remote/basic-remote.md` |
 | "multi-agents", "crew", "team" | Crew | `snippets/complex/crew-agent.md` |
-| "server", "API agents", "expose agents" | Crew Server | `snippets/complex/crew-server-agent.md` |
+| "crew server", "multi-agent API", "expose crew" | Crew Server | `snippets/complex/crew-server-agent.md` |
 | "remote", "client", "distant", "connect server" | Remote Agent | `snippets/complex/remote-agent.md` |
 | "pipeline", "chained", "sequence" | Pipeline | `snippets/complex/pipeline-agent.md` |
 
@@ -125,6 +135,16 @@ Files in `snippets/` - direct generation without questions:
 
 **Compressor Agents:** (`snippets/compressor/`)
 - `compressor-agent.md` - Context compression (sample 28)
+
+**Server Agents:** (`snippets/server/`)
+- `basic-server.md` - HTTP/REST API server with streaming (sample 70)
+- `server-with-tools.md` - Server with function calling and validation (sample 49)
+- `server-with-rag.md` - Server with document retrieval (sample 54)
+- `server-with-compressor.md` - Server with context compression (sample 54)
+- `server-full-featured.md` - Complete server with all features (sample 54)
+
+**Remote Agents:** (`snippets/remote/`)
+- `basic-remote.md` - Remote client connecting to Server Agent (sample 71)
 
 ### Complex Agents (Interactive Mode)
 

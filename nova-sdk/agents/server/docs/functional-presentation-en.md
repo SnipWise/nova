@@ -287,6 +287,11 @@ import (
 func main() {
     ctx := context.Background()
 
+    // The executeFunction parameter is now OPTIONAL
+    // You can either:
+    // 1. Omit it completely (uses default executeFunction)
+    // 2. Pass nil (uses default executeFunction)
+    // 3. Pass a custom function
     agent, err := server.NewAgent(
         ctx,
         agents.Config{
@@ -299,7 +304,7 @@ func main() {
             Temperature: models.Float64(0.4),
         },
         ":3500",
-        nil, // No custom execute function
+        // executeFunction is optional - omitted here, will use default
     )
     if err != nil {
         log.Fatal(err)

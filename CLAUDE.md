@@ -93,7 +93,13 @@ use the nova-agent-builder skill to create a RAG agent
 | structured | structured-schema | Output with JSON Schema | 24 |
 | structured | structured-validation | Advanced validation + retry | 25 |
 | compressor | compressor-agent | Context compression | 28 |
-| **orchestrator** | **topic-detection** | **Topic/intent detection for routing** | **55** |
+| **server** | **basic-server** | **HTTP/REST API with SSE streaming** | **70** |
+| **server** | **server-with-tools** | **API with function calling** | **49** |
+| **server** | **server-with-rag** | **API with document retrieval** | **54** |
+| **server** | **server-with-compressor** | **API with context compression** | **54** |
+| **server** | **server-full-featured** | **Complete API (tools+RAG+compress)** | **54** |
+| **remote** | **basic-remote** | **Client connecting to Server Agent** | **71** |
+| orchestrator | topic-detection | Topic/intent detection for routing | 55 |
 | complex | crew-agent | Multi-agent collaboration (local) | 55 |
 | complex | crew-server-agent | HTTP agent server (API) | 56 |
 | complex | remote-agent | Client for Crew Server | 51 |

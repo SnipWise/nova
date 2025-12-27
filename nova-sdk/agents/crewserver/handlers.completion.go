@@ -40,11 +40,13 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 	// ------------------------------------------------------------
 	// NOTE: Context packing
 	// ------------------------------------------------------------
-	newSize, err := agent.CompressChatAgentContextIfOverLimit()
-	if err != nil {
-		agent.Log.Error("Error during context compression: %v", err)
-	} else if newSize > 0 {
-		agent.Log.Info("🗜️  Chat agent context compressed to %d bytes", newSize)
+	if agent.CompressorAgent != nil {
+		newSize, err := agent.CompressChatAgentContextIfOverLimit()
+		if err != nil {
+			agent.Log.Error("Error during context compression: %v", err)
+		} else if newSize > 0 {
+			agent.Log.Info("🗜️  Chat agent context compressed to %d bytes", newSize)
+		}
 	}
 
 	var req CompletionRequest
@@ -235,7 +237,7 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 	)
 
 	if errCompletion != nil && !stopped {
-		data := map[string]string{"error": err.Error()}
+		data := map[string]string{"error": errCompletion.Error()}
 		jsonData, _ := json.Marshal(data)
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
 			agent.Log.Error("Failed to write error: %v", err)
