@@ -122,33 +122,6 @@ MAX_TOKENS: 2000
 
 ## Customization
 
-### Streaming with Context History
-
-```go
-var conversationHistory []messages.Message
-
-// Add user message
-conversationHistory = append(conversationHistory, messages.Message{
-    Role:    roles.User,
-    Content: input,
-})
-
-// Stream with full history
-result, err := agent.GenerateStreamCompletion(
-    conversationHistory,
-    func(chunk string, finishReason string) error {
-        fmt.Print(chunk)
-        return nil
-    },
-)
-
-// Add assistant response to history
-conversationHistory = append(conversationHistory, messages.Message{
-    Role:    roles.Assistant,
-    Content: result.Response,
-})
-```
-
 ### Streaming with Progress Indicator
 
 ```go
@@ -169,7 +142,56 @@ result, err := agent.GenerateStreamCompletion(
 
 ## Important Notes
 
+- **Conversation History is Automatic**: The agent automatically manages conversation history. DO NOT manually maintain a `conversationHistory` array - just pass the current user message.
+- **Simple Usage**: Always use `[]messages.Message{{Role: roles.User, Content: input}}` for each call
+- **History Management**: Use `agent.GetMessages()` to retrieve history, `agent.ResetMessages()` to clear it
 - Streaming requires a compatible model
 - The callback is called for each token/chunk
 - `finishReason` is empty until the end of generation
 - Use `result.Response` to get the complete response after streaming
+
+## Conversation History
+
+The agent **automatically maintains** conversation context:
+
+```go
+// First message
+agent.GenerateStreamCompletion(
+    []messages.Message{{Role: roles.User, Content: "My name is Alice"}},
+    callback,
+)
+
+// Second message - agent remembers "Alice"
+agent.GenerateStreamCompletion(
+    []messages.Message{{Role: roles.User, Content: "What's my name?"}},
+    callback,
+)
+// Agent responds: "Your name is Alice"
+
+// Retrieve full history
+history := agent.GetMessages()
+for _, msg := range history {
+    fmt.Printf("%s: %s\n", msg.Role, msg.Content)
+}
+
+// Clear history
+agent.ResetMessages()
+```
+
+**Do NOT do this** (unnecessary manual management):
+```go
+// ❌ WRONG - Don't manually maintain history
+var conversationHistory []messages.Message
+conversationHistory = append(conversationHistory, userMessage)
+agent.GenerateStreamCompletion(conversationHistory, callback)
+conversationHistory = append(conversationHistory, assistantMessage)
+```
+
+**Do this instead** (let the agent handle it):
+```go
+// ✅ CORRECT - Just pass the current message
+agent.GenerateStreamCompletion(
+    []messages.Message{{Role: roles.User, Content: userInput}},
+    callback,
+)
+```

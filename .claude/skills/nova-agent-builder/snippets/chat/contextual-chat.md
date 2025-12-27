@@ -126,79 +126,78 @@ TEMPERATURE: 0.7
 MAX_TOKENS: 2000
 ```
 
-## Customization
+## Conversation History Management
 
-### With Maximum History Limit
+**IMPORTANT**: The agent **automatically maintains** conversation history internally. You do NOT need to manually track it.
 
-```go
-const MaxHistorySize = 20 // Keep last 20 messages
-
-func trimHistory(history []messages.Message, maxSize int) []messages.Message {
-    if len(history) <= maxSize {
-        return history
-    }
-    // Keep recent messages
-    return history[len(history)-maxSize:]
-}
-
-// Before generating
-history = trimHistory(history, MaxHistorySize)
-```
-
-### With History Persistence
+### Retrieve History
 
 ```go
-import "encoding/json"
-
-func saveHistory(history []messages.Message, filename string) error {
-    data, err := json.Marshal(history)
-    if err != nil {
-        return err
-    }
-    return os.WriteFile(filename, data, 0644)
-}
-
-func loadHistory(filename string) ([]messages.Message, error) {
-    data, err := os.ReadFile(filename)
-    if err != nil {
-        return nil, err
-    }
-    var history []messages.Message
-    err = json.Unmarshal(data, &history)
-    return history, err
+// Get all conversation messages
+history := agent.GetMessages()
+for i, msg := range history {
+    fmt.Printf("[%d] %s: %s\n", i, msg.Role, msg.Content)
 }
 ```
 
-### With Conversation Summary
+### Reset History
 
 ```go
-func summarizeIfNeeded(agent *chat.Agent, history []messages.Message, threshold int) []messages.Message {
-    if len(history) < threshold {
-        return history
-    }
-    
-    // Create summary of old messages
-    oldMessages := history[:len(history)-4] // Keep last 4 intact
-    summaryPrompt := "Summarize this conversation in 2-3 sentences:\n"
-    for _, msg := range oldMessages {
-        summaryPrompt += fmt.Sprintf("%s: %s\n", msg.Role, msg.Content)
-    }
-    
-    result, _ := agent.GenerateCompletion([]messages.Message{
-        {Role: roles.User, Content: summaryPrompt},
-    })
-    
-    // Return summary + recent messages
-    return append(
-        []messages.Message{{Role: roles.System, Content: "Previous context: " + result.Response}},
-        history[len(history)-4:]...,
-    )
+// Clear all messages except system instructions
+agent.ResetMessages()
+```
+
+### Check Context Size
+
+```go
+// Get approximate context size in characters
+contextSize := agent.GetContextSize()
+fmt.Printf("Current context: %d characters\n", contextSize)
+```
+
+### Export to JSON
+
+```go
+// Export conversation history to JSON
+jsonData, err := agent.ExportMessagesToJSON()
+if err != nil {
+    log.Fatal(err)
 }
+fmt.Println(jsonData)
+
+// Save to file
+os.WriteFile("conversation.json", []byte(jsonData), 0644)
 ```
 
 ## Important Notes
 
-- History grows with each exchange - consider limiting
+- **Automatic History Management**: The agent maintains conversation history automatically - DO NOT create manual `conversationHistory` arrays
+- **Simple Usage**: Always pass only the current user message: `[]messages.Message{{Role: roles.User, Content: input}}`
+- **History Methods**: Use `GetMessages()`, `ResetMessages()`, `GetContextSize()`, `ExportMessagesToJSON()`
+- History grows with each exchange - monitor with `GetContextSize()`
+- For long conversations, consider using a Compressor Agent (see `compressor/compressor-agent.md`)
+
+## What NOT to Do
+
+```go
+// ❌ WRONG - Don't manually maintain history
+var history []messages.Message
+history = append(history, messages.Message{Role: roles.User, Content: input})
+result, _ := agent.GenerateCompletion(history)
+history = append(history, messages.Message{Role: roles.Assistant, Content: result.Response})
+```
+
+## What to Do Instead
+
+```go
+// ✅ CORRECT - Just pass the current message
+result, _ := agent.GenerateCompletion(
+    []messages.Message{{Role: roles.User, Content: input}},
+)
+// History is automatically updated by the agent
+```
+
+## Customization
 - Each request sends full history (token cost)
 - Use `clear` to reset if context becomes confusing
 - Consider compression for long conversations (see compressor-agent)

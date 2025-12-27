@@ -253,6 +253,38 @@ if agent.StoreFileExists("./store/data.json") {
 4. **Comment** customizable parts
 5. **Provide** functional default values
 
+## CRITICAL: Conversation History
+
+**DO NOT manually manage conversation history** - agents handle this automatically:
+
+### ✅ CORRECT Pattern
+```go
+// Just pass the current user message
+agent.GenerateCompletion(
+    []messages.Message{{Role: roles.User, Content: userInput}},
+)
+// Agent automatically maintains full conversation history
+```
+
+### ❌ WRONG Pattern (Never Generate This)
+```go
+// DON'T create manual history arrays
+var conversationHistory []messages.Message
+conversationHistory = append(conversationHistory, userMessage)
+agent.GenerateCompletion(conversationHistory)
+conversationHistory = append(conversationHistory, assistantMessage)
+```
+
+### History Management Methods
+```go
+agent.GetMessages()           // Retrieve history
+agent.ResetMessages()         // Clear history
+agent.GetContextSize()        // Check size
+agent.ExportMessagesToJSON()  // Export to JSON
+```
+
+**This applies to**: Chat agents, Tools agents, RAG agents, Structured agents, Server agents, Remote agents.
+
 ## Recommended Configuration
 
 ```yaml
