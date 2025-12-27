@@ -11,6 +11,11 @@ The **Nova Agent Builder** skill enables Claude Code to generate production-read
 - 🤖 **Automatic code generation** based on your requests
 - ✨ **Best practices** and patterns for AI agent development
 
+## ⚙️ Requirements
+
+- **Go**: Version `1.25.4` or higher
+- **Nova SDK**: Latest release from GitHub
+
 ## 📦 Installation
 
 Download and extract the skill to your project:
@@ -82,6 +87,36 @@ Claude will automatically:
 | **Pipeline** | Sequential agent chains | "generate a pipeline for document processing" |
 
 ## 🛠️ Configuration
+
+### Project Setup
+
+Initialize your Go project with the correct versions:
+
+```bash
+# Create go.mod with Go 1.25.4
+go mod init your-project-name
+
+# Ensure Go version in go.mod
+echo "go 1.25.4" >> go.mod
+
+# Install latest Nova SDK
+go get github.com/snipwise/nova@latest
+go mod tidy
+```
+
+Your `go.mod` should look like:
+
+```go
+module your-project-name
+
+go 1.25.4
+
+require (
+    github.com/snipwise/nova latest
+)
+```
+
+### Runtime Configuration
 
 Default configuration (customize in your project):
 

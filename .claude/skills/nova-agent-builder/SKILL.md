@@ -26,6 +26,33 @@ description: |
 
 Specialized skill for generating AI agent code with the Nova SDK framework in Go.
 
+## Version Requirements
+
+**CRITICAL**: Always use these versions when generating code:
+
+- **Go**: `1.25.4` (minimum)
+- **Nova SDK**: Latest release from `github.com/snipwise/nova`
+
+### go.mod Template
+
+When generating new projects, always include:
+
+```go
+module your-project-name
+
+go 1.25.4
+
+require (
+    github.com/snipwise/nova latest
+)
+```
+
+**Installation command**:
+```bash
+go get github.com/snipwise/nova@latest
+go mod tidy
+```
+
 ## Nova SDK Architecture
 
 Nova SDK uses a modular architecture:
