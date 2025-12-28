@@ -23,3 +23,6 @@ tmp/
 #wip/
 
 backup/
+
+huggingface.env
+cerebras.env

@@ -1,0 +1,1 @@
+Go to https://inference-docs.cerebras.ai/quickstart to get an API key

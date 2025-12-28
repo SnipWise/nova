@@ -23,9 +23,9 @@ func main() {
 			SystemInstructions: "You are Bob, a helpful AI assistant.",
 		},
 		models.Config{
-			Name: "ai/qwen2.5:1.5B-F16",
-			Temperature:        models.Float64(0.0),
-			MaxTokens:         models.Int(2000),
+			Name:        "ai/qwen2.5:1.5B-F16",
+			Temperature: models.Float64(0.0),
+			MaxTokens:   models.Int(2000),
 		},
 	)
 	if err != nil {
@@ -87,4 +87,16 @@ func main() {
 	display.Separator()
 	display.Info("Exported conversation:")
 	fmt.Println(jsonData)
+
+	// display.NewLine()
+	// display.Separator()
+
+	// display.KeyValue("Completion ", fmt.Sprintf("%d tokens", agent.GetLastResponseMetadata().CompletionTokens))
+	// display.KeyValue("Prompt ", fmt.Sprintf("%d tokens", agent.GetLastResponseMetadata().PromptTokens))
+	// display.KeyValue("Total ", fmt.Sprintf("%d tokens", agent.GetLastResponseMetadata().TotalTokens))
+
+	// display.Separator()
+	// fmt.Println(agent.GetLastRequestJSON())
+	// display.Separator()
+	// fmt.Println(agent.GetLastResponseJSON())
 }

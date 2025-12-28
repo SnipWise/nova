@@ -1,0 +1,1 @@
+ollama pull hf.co/menlo/lucy-gguf:q4_k_m

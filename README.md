@@ -4,12 +4,67 @@
 
 Nova specializes in developing generative text AI apps with local tiny language models.
 
-## Nova SDK - Getting Started Examples
+## Introducing Nova: A Go Framework for Local AI Agents"
+
+Nova was developed with one main goal: to create AI agents simply, and above all with local language models, primarily with tiny language models (I like working with models ranging from 0.5B to 8B parameters).
+I started developing Nova because I couldn't find a library or framework in Go that suited my needs for developing generative AI applications: lack of features, use of outdated versions of the OpenAI Go SDK (Nova uses OpenAI Go SDK v3), etc.
+My preferred "LLM engine" is **[Docker Model Runner](https://docs.docker.com/ai/model-runner/)** used in conjunction with **[Docker Agentic Compose](https://docs.docker.com/ai/compose/models-and-compose/)**, but it's entirely possible to use Nova with other engines, such as Ollama, LM Studio, the Hugging Face API, Cerebras, and others.
+
+> My mentor used to say: *"Always start by showing code"*
+```golang
+agent, err := chat.NewAgent(
+	ctx,
+	agents.Config{
+		EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+		SystemInstructions: "You are Bob, a helpful AI assistant.",
+	},
+	models.Config{
+		Name:        "ai/qwen2.5:1.5B-F16",
+		Temperature: models.Float64(0.8),
+	},
+)
+
+result, err := agent.GenerateStreamCompletion(
+	[]messages.Message{
+		{Role: roles.User, Content: "Why is Hawaiian pizza the best?"},
+	},
+	func(chunk string, finishReason string) error {
+		if chunk != "" {
+			fmt.Print(chunk)
+		}
+		return nil
+	},
+)
+```
+
+## Out-of-the-box AI agents
+
+Nova ships with pre-built AI agents that you can compose to create new ones:
+- **Chat Agent**: Conversational agent with context management and streaming support.
+- **RAG Agent**: Retrieval-Augmented Generation agent with in-memory vector store.
+- **Tools Agent**: Agent with tool-calling capabilities, including parallel tool execution and human-in-the-loop confirmation.
+- **Compressor Agent**: Agent with context compression for long conversations.
+- **Structured Output Agent**: Agent that produces structured outputs using Go structs.
+- **Orchestrator Agent**: Specialized agent for topic detection and query routing.
+- **Crew Agent**: Multi-agent collaboration framework for complex tasks.
+- **Server Agent**: HTTP/REST API server agent with SSE streaming, tool calling, RAG, and context compression.
+- **Remote Agent**: Client agent that connects to a Server Agent for distributed AI applications.
+- **Crew Agent Server**: Multi-agent server for collaborative AI tasks over HTTP.
+
+> More agents and features will be added soon!
+
+## OpenAI API Compliance
+
+Nova SDK is fully compatible with OpenAI API specifications. 
 
 > Nova SDK has been tested with:
-> - [Docker Model Runner](https://docs.docker.com/ai/model-runner/)
+> - **Primarily** [Docker Model Runner](https://docs.docker.com/ai/model-runner/)
 > - [Ollama](https://ollama.com/)
 > - [LM Studio](https://lmstudio.ai/)
+> - [Hugging Face Inference API](https://huggingface.co/inference-api)
+> - [Cerebras API](https://inference-docs.cerebras.ai/introduction)
+
+## Nova SDK - Getting Started Examples
 
 > This `README.md` file is a work in progress and will be expanded with more examples soon.
 
@@ -18,36 +73,6 @@ Nova specializes in developing generative text AI apps with local tiny language 
 ```bash
 go get github.com/snipwise/nova@latest
 ```
-
-## Nova Agent Builder Skill for Claude Code
-
-Generate production-ready Nova agents with Claude Code! The **nova-agent-builder** skill enables automatic Go code generation for all agent types (chat, RAG, tools, orchestrator, crew, etc.).
-
-### Installing the Skill
-
-```bash
-# Download and extract the skill
-curl -LO https://github.com/snipwise/nova/releases/latest/download/nova-agent-builder-skill.zip
-mkdir -p .claude/skills
-unzip nova-agent-builder-skill.zip -d .claude/skills/
-rm nova-agent-builder-skill.zip
-```
-
-If you've cloned this repository, the skill is already available in `.claude/skills/nova-agent-builder/`
-
-### Using the Skill
-
-Once installed, ask Claude Code to generate agents:
-
-```
-generate a chat agent with streaming
-create a RAG agent for my FAQ system
-generate a tools agent with parallel execution
-create an orchestrator agent for topic detection
-```
-
-See [.claude/skills/nova-agent-builder/INSTALL.md](.claude/skills/nova-agent-builder/INSTALL.md) for complete documentation.
-
 
 ### Chat agent
 > Simple completion
@@ -699,3 +724,48 @@ The confirmation function allows the user to:
 - Enter `y` or `yes` to **confirm** the tool execution (returns `tools.Confirmed`)
 - Enter `n` or `no` to **deny** the tool execution (returns `tools.Denied`)
 - Enter `q` or `quit` to **quit** the entire tool execution loop (returns `tools.Quit`)
+
+## Base Agents
+
+The **Chat**, **Rag**, **Tool** and **Compressor** Nova agents are built on top of **base agents**, which provide the foundational building blocks for AI interactions. Understanding base agents helps you create custom agents or extend existing ones.
+
+### What are Base Agents?
+
+Base agents are the low-level components that handle direct communication with LLM engines using the **OpenAI API**. Nova provides two primary base agents:
+
+1. **Completion Agent** - For non-streaming text generation
+2. **Stream Completion Agent** - For streaming text generation with real-time responses
+
+
+### When to Use Base Agents
+
+Use base agents directly when you need:
+
+- **Maximum control** over the LLM interaction
+- **Custom agent behavior** not covered by high-level agents
+- **Minimal overhead** without additional features like RAG or tools
+- **Learning** how Nova works under the hood
+
+> ***✋ Most of the time, the composition of the out-of-the-box AI agents will cover your needs without dealing with base agents directly***.
+
+### Building on Base Agents
+
+When you create a custom agent, you can:
+
+1. Extend a base agent with your own logic
+2. Combine multiple base agents for complex workflows
+3. Add custom preprocessing/postprocessing to completions
+
+### Base Agent Features
+
+Both completion agents provide:
+
+- **Context management** - Automatic conversation history tracking
+- **Configuration** - Flexible model and agent configuration
+- **OpenAI compatibility** - Works with any OpenAI-compatible API
+
+### Learn More
+
+To see base agents in action, check out the samples in the repository:
+- [samples/01-simple-completion/](samples/01-simple-completion/) - Basic completion example
+- [samples/02-stream-completion/](samples/02-stream-completion/) - Streaming completion example

@@ -122,6 +122,7 @@ Files in `snippets/` - direct generation without questions:
 **RAG Agents:** (`snippets/rag/`)
 - `basic-rag.md` - Basic RAG agent with in-memory vectorstore (sample 13)
 - `jsonstore-rag.md` - RAG with JSON persistence for embeddings (sample 69)
+- **Default embedding model**: `ai/mxbai-embed-large`
 
 **Tools Agents:** (`snippets/tools/`)
 - `simple-tools.md` - Agent with simple tools (sample 18)
@@ -224,9 +225,11 @@ tool := tools.NewTool("tool_name").
 
 ### RAG Pattern
 
+**Default embedding model**: `ai/mxbai-embed-large`
+
 ```go
 agent, err := rag.NewAgent(ctx, agentConfig, models.Config{
-    Name: "ai/mxbai-embed-large",
+    Name: "ai/mxbai-embed-large",  // Default embedding model
 })
 agent.SaveEmbedding("text chunk")
 similarities, _ := agent.SearchSimilar(query, 0.6)
@@ -296,7 +299,7 @@ ENGINE_URL: "http://localhost:12434/engines/llama.cpp/v1"
 
 # Recommended models by usage:
 CHAT_MODEL: "ai/qwen2.5:1.5B-F16"
-EMBEDDING_MODEL: "ai/mxbai-embed-large"
+EMBEDDING_MODEL: "ai/mxbai-embed-large"  # Default for RAG agents
 TOOLS_MODEL: "hf.co/menlo/jan-nano-gguf:q4_k_m"
 ```
 
