@@ -52,9 +52,10 @@ func main() {
 	serverAgent, err := server.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "Bob",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are Bob, a helpful AI assistant.",
+			Name:                    "Bob",
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions:      "You are Bob, a helpful AI assistant.",
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
@@ -71,9 +72,10 @@ func main() {
 	toolsAgent, err := tools.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "Bob Tools",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are Bob, a helpful AI assistant.",
+			Name:                    "Bob Tools",
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions:      "You are Bob, a helpful AI assistant.",
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:              "hf.co/menlo/jan-nano-gguf:q4_k_m",

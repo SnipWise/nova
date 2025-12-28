@@ -46,9 +46,10 @@ func main() {
 	agent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "streaming-assistant",                              // Agent name
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",      // LLM Engine URL
-			SystemInstructions: "You are a helpful and friendly assistant.",        // System instructions
+			Name:                    "streaming-assistant",                              // Agent name
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",      // LLM Engine URL
+			SystemInstructions:      "You are a helpful and friendly assistant.",        // System instructions
+			KeepConversationHistory: true,                                               // Keep conversation context
 		},
 		models.Config{
 			Name:        "ai/qwen2.5:1.5B-F16",   // Model to use

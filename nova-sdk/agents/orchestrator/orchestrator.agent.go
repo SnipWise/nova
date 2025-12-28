@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
-	"github.com/snipwise/nova/nova-sdk/agents/base"
 	"github.com/snipwise/nova/nova-sdk/agents/structured"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
@@ -112,53 +111,6 @@ func (agent *Agent) IdentifyTopicFromText(text string) (string, error) {
 	return intent.TopicDiscussion, nil
 }
 
-// === Telemetry Methods ===
-
-// GetLastRequestJSON returns the last request sent to the LLM as JSON
-func (agent *Agent) GetLastRequestJSON() (string, error) {
-	return agent.internalStructAgent.GetLastRequestJSON()
-}
-
-// GetLastRequestContextLength returns the context length of the last request
-func (agent *Agent) GetLastRequestContextLength() int {
-	return agent.internalStructAgent.GetLastRequestContextLength()
-}
-
-// GetLastRequestMetadata returns metadata about the last request
-func (agent *Agent) GetLastRequestMetadata() base.RequestMetadata {
-	return agent.internalStructAgent.GetLastRequestMetadata()
-}
-
-// GetLastResponseJSON returns the last response received from the LLM as JSON
-func (agent *Agent) GetLastResponseJSON() (string, error) {
-	return agent.internalStructAgent.GetLastResponseJSON()
-}
-
-// GetLastResponseMetadata returns metadata about the last response
-func (agent *Agent) GetLastResponseMetadata() base.ResponseMetadata {
-	return agent.internalStructAgent.GetLastResponseMetadata()
-}
-
-// GetConversationHistoryJSON returns the entire conversation history as JSON
-func (agent *Agent) GetConversationHistoryJSON() (string, error) {
-	return agent.internalStructAgent.GetConversationHistoryJSON()
-}
-
-// GetTotalTokensUsed returns the total number of tokens used since the agent was created
-func (agent *Agent) GetTotalTokensUsed() int {
-	return agent.internalStructAgent.GetTotalTokensUsed()
-}
-
-// ResetTelemetry resets all telemetry counters and stored data
-func (agent *Agent) ResetTelemetry() {
-	agent.internalStructAgent.ResetTelemetry()
-}
-
-// SetTelemetryCallback sets a callback for receiving telemetry events in real-time
-func (agent *Agent) SetTelemetryCallback(callback base.TelemetryCallback) {
-	agent.internalStructAgent.SetTelemetryCallback(callback)
-}
-
 // === Config Getters and Setters ===
 
 // GetConfig returns the agent configuration
@@ -183,4 +135,20 @@ func (agent *Agent) GetModelConfig() models.Config {
 func (agent *Agent) SetModelConfig(config models.Config) {
 	agent.modelConfig = config
 	agent.internalStructAgent.SetModelConfig(config)
+}
+
+
+func (agent *Agent) GetLastRequestRawJSON() string {
+	return agent.internalStructAgent.GetLastRequestRawJSON()
+}
+func (agent *Agent) GetLastResponseRawJSON() string {
+	return agent.internalStructAgent.GetLastResponseRawJSON()
+}
+
+func (agent *Agent) GetLastRequestJSON() (string, error) {
+	return agent.internalStructAgent.GetLastRequestJSON()
+}
+
+func (agent *Agent) GetLastResponseJSON() (string, error) {
+	return agent.internalStructAgent.GetLastResponseJSON()
 }

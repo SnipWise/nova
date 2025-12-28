@@ -116,5 +116,7 @@ func main() {
 	display.Info("The history should include system, user, and assistant messages.")
 	display.Separator()
 
-	fmt.Println(agent.GetConversationHistoryJSON())
+	fmt.Println(agent.ExportMessagesToJSON())
+
+
 }

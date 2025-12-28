@@ -144,8 +144,9 @@ func createDocumentPipeline(ctx context.Context, engineURL string) (*Pipeline, e
 	// Step 1: Extract key information
 	extractor, err := chat.NewAgent(ctx,
 		agents.Config{
-			Name:      "extractor",
-			EngineURL: engineURL,
+			Name:                    "extractor",
+			EngineURL:               engineURL,
+			KeepConversationHistory: true,
 			SystemInstructions: `Extract the key information from the text:
 - Main topic
 - Key facts
@@ -170,8 +171,9 @@ Format as a structured list.`,
 	// Step 2: Summarize
 	summarizer, err := chat.NewAgent(ctx,
 		agents.Config{
-			Name:      "summarizer",
-			EngineURL: engineURL,
+			Name:                    "summarizer",
+			EngineURL:               engineURL,
+			KeepConversationHistory: true,
 			SystemInstructions: `Create a concise summary from the extracted information.
 Keep only essential points. Maximum 3 sentences.`,
 		},
@@ -191,8 +193,9 @@ Keep only essential points. Maximum 3 sentences.`,
 	// Step 3: Format
 	formatter, err := chat.NewAgent(ctx,
 		agents.Config{
-			Name:      "formatter",
-			EngineURL: engineURL,
+			Name:                    "formatter",
+			EngineURL:               engineURL,
+			KeepConversationHistory: true,
 			SystemInstructions: `Format the summary as a professional brief:
 - Title
 - Executive summary

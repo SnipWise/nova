@@ -46,9 +46,10 @@ func main() {
 	agent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "contextual-assistant",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are a helpful assistant. Remember our conversation context to provide relevant responses.",
+			Name:                    "contextual-assistant",
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions:      "You are a helpful assistant. Remember our conversation context to provide relevant responses.",
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        "ai/qwen2.5:1.5B-F16",

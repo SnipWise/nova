@@ -37,6 +37,7 @@ func main() {
 			EngineURL:          engineURL,
 			SystemInstructions: "You are Bob, a helpful AI assistant.",
 			APIKey:             env.GetEnvOrDefault("TOKEN", ""),
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:              modelId,

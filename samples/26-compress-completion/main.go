@@ -39,6 +39,7 @@ func main() {
 			Name:               "Bob",
 			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
 			SystemInstructions: "You are Bob, a helpful AI assistant.",
+			KeepConversationHistory: true,
 		},
 		openai.ChatCompletionNewParams{
 			Model:       "ai/qwen2.5:latest",

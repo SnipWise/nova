@@ -3,7 +3,6 @@ package tools
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
@@ -63,19 +62,15 @@ func (agent *BaseAgent) DetectParallelToolCalls(messages []openai.ChatCompletion
 	paramsForCall := agent.ChatCompletionParams
 	paramsForCall.Messages = workingMessages
 
-	// Capture request for telemetry
-	agent.CaptureRequest(paramsForCall)
-	startTime := time.Now()
+	agent.SaveLastRequest()
 
 	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 	if err != nil {
-		agent.Log.Error("Error making function call request:", err)
-		agent.CaptureError(err, "DetectParallelToolCalls")
+		agent.Log.Error("Error making function call request: %v", err)
 		return "", results, "", err
 	}
 
-	// Capture response for telemetry
-	agent.CaptureResponse(completion, startTime)
+	agent.SaveLastResponse(completion)
 
 	finishReason = completion.Choices[0].FinishReason
 
@@ -131,11 +126,15 @@ func (agent *BaseAgent) DetectParallelToolCallsWitConfirmation(
 	paramsForCall := agent.ChatCompletionParams
 	paramsForCall.Messages = workingMessages
 
+	agent.SaveLastRequest()
+
 	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 	if err != nil {
-		agent.Log.Error("Error making function call request:", err)
+		agent.Log.Error("Error making function call request: %v", err)
 		return "", results, "", err
 	}
+
+	agent.SaveLastResponse(completion)
 
 	finishReason = completion.Choices[0].FinishReason
 
@@ -190,11 +189,15 @@ func (agent *BaseAgent) DetectToolCallsLoop(messages []openai.ChatCompletionMess
 		paramsForCall := agent.ChatCompletionParams
 		paramsForCall.Messages = workingMessages
 
+		agent.SaveLastRequest()
+
 		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 		if err != nil {
-			agent.Log.Error("Error making function call request:", err)
+			agent.Log.Error("Error making function call request: %v", err)
 			return "", results, "", err
 		}
+
+		agent.SaveLastResponse(completion)
 
 		finishReason = completion.Choices[0].FinishReason
 
@@ -246,11 +249,15 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmation(
 		paramsForCall := agent.ChatCompletionParams
 		paramsForCall.Messages = workingMessages
 
+		agent.SaveLastRequest()
+
 		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 		if err != nil {
-			agent.Log.Error("Error making function call request:", err)
+			agent.Log.Error("Error making function call request: %v", err)
 			return "", results, "", err
 		}
+
+		agent.SaveLastResponse(completion)
 
 		finishReason = completion.Choices[0].FinishReason
 
@@ -305,19 +312,28 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 		paramsForCall := agent.ChatCompletionParams
 		paramsForCall.Messages = workingMessages
 
+		agent.SaveLastRequest()
+
 		stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, paramsForCall)
 		var response string
 		var cbkRes error
 
 		for stream.Next() {
 			chunk := stream.Current()
+
+			// Capture finishReason if present (even if there's no content)
+			if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != "" {
+				agent.SaveLastChunkResponse(&chunk)
+				//finalFinishReason = chunk.Choices[0].FinishReason
+			}
+
 			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
 				cbkRes = streamCallback(chunk.Choices[0].Delta.Content)
 				response += chunk.Choices[0].Delta.Content
 			}
 
 			if cbkRes != nil {
-				agent.Log.Error("Error in stream callback:", cbkRes)
+				agent.Log.Error("Error in stream callback: %v", cbkRes)
 				break
 			}
 		}
@@ -332,6 +348,7 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 			return "", results, "", err
 		}
 
+		// QUESTION: 🤔 can I use `finalFinishReason`, see below
 		// Make a non-streaming call to get tool calls
 		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 		if err != nil {
@@ -390,19 +407,28 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 		paramsForCall := agent.ChatCompletionParams
 		paramsForCall.Messages = workingMessages
 
+		agent.SaveLastRequest()
+
 		stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, paramsForCall)
 		var response string
 		var cbkRes error
 
 		for stream.Next() {
 			chunk := stream.Current()
+
+			// Capture finishReason if present (even if there's no content)
+			if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != "" {
+				agent.SaveLastChunkResponse(&chunk)
+				//finalFinishReason = chunk.Choices[0].FinishReason
+			}
+
 			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
 				cbkRes = streamCallback(chunk.Choices[0].Delta.Content)
 				response += chunk.Choices[0].Delta.Content
 			}
 
 			if cbkRes != nil {
-				agent.Log.Error("Error in stream callback:", cbkRes)
+				agent.Log.Error("Error in stream callback: %v", cbkRes)
 				break
 			}
 		}
@@ -417,6 +443,7 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 			return "", results, "", err
 		}
 
+		// QUESTION: 🤔 can I use `finalFinishReason`, see below
 		// Make a non-streaming call to get tool calls
 		completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 		if err != nil {

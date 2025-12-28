@@ -6,15 +6,26 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/joho/godotenv"
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
 func main() {
+	// Create logger from environment variable
+	log := logger.GetLoggerFromEnv()
+
+	envFile := ".env"
+	// Load environment variables from env file
+	if err := godotenv.Load(envFile); err != nil {
+		log.Error("Warning: Error loading env file: %v\n", err)
+	}
+
 	ctx := context.Background()
 	agent, err := tools.NewAgent(
 		ctx,

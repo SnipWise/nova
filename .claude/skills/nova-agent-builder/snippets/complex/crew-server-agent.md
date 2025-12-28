@@ -175,9 +175,10 @@ func NewCrewServer(ctx context.Context) (*CrewServer, error) {
 	// Chat Agent
 	chatAgent, err := chat.NewAgent(ctx,
 		agents.Config{
-			Name:               "crew-chat",
-			EngineURL:          EngineURL,
-			SystemInstructions: "You are a helpful AI assistant from the Crew Server.",
+			Name:                    "crew-chat",
+			EngineURL:               EngineURL,
+			SystemInstructions:      "You are a helpful AI assistant from the Crew Server.",
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        "ai/qwen2.5:1.5B-F16",
@@ -206,9 +207,10 @@ func NewCrewServer(ctx context.Context) (*CrewServer, error) {
 	// Tools Agent
 	toolsAgent, err := tools.NewAgent(ctx,
 		agents.Config{
-			Name:               "crew-tools",
-			EngineURL:          EngineURL,
-			SystemInstructions: "You are an agent capable of using tools.",
+			Name:                    "crew-tools",
+			EngineURL:               EngineURL,
+			SystemInstructions:      "You are an agent capable of using tools.",
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:              "hf.co/menlo/jan-nano-gguf:q4_k_m",

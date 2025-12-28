@@ -3,19 +3,31 @@ package main
 import (
 	"context"
 
+	"github.com/joho/godotenv"
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/rag"
 	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 
 	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
 func main() {
+
+	// Create logger from environment variable
+	log := logger.GetLoggerFromEnv()
+
+	envFile := ".env"
+	// Load environment variables from env file
+	if err := godotenv.Load(envFile); err != nil {
+		log.Error("Warning: Error loading env file: %v\n", err)
+	}
+
 	ctx := context.Background()
 	agent, err := rag.NewAgent(
 		ctx,
 		agents.Config{
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
 		},
 		models.Config{
 			Name: "ai/mxbai-embed-large",

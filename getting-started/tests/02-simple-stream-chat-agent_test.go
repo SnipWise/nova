@@ -19,9 +19,10 @@ func TestSimpleStreamChatAgent(t *testing.T) {
 	agent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "bob-assistant",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are Bob, a helpful AI assistant.",
+			Name:                    "bob-assistant",
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions:      "You are Bob, a helpful AI assistant.",
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        "ai/qwen2.5:1.5B-F16",

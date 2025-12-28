@@ -24,9 +24,11 @@ func main() {
 			SystemInstructions:      "You are Bob, a helpful AI assistant.",
 			KeepConversationHistory: true, // Enable conversation history
 		},
-		models.NewConfig("ai/qwen2.5:1.5B-F16").
-			WithTemperature(0.0).
-			WithMaxTokens(2000),
+		models.Config{
+			Name:        "ai/qwen2.5:1.5B-F16",
+			Temperature: models.Float64(0.0),
+			MaxTokens:   models.Int(2000),
+		},
 	)
 	if err != nil {
 		panic(err)
@@ -120,5 +122,5 @@ func main() {
 	display.Info("Each request has full context from previous interactions.")
 	display.Separator()
 
-	fmt.Println(agent.GetConversationHistoryJSON())
+	fmt.Println(agent.ExportMessagesToJSON())
 }

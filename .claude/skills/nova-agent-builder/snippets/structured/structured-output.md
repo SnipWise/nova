@@ -61,6 +61,7 @@ func main() {
 			Your name is Bob.
 			You are an assistant that answers questions about countries around the world.
 			`,
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",

@@ -19,6 +19,7 @@ func main() {
 			Name:               "Bob",
 			EngineURL:          "http://localhost:11434/v1",
 			SystemInstructions: "You are Bob, a helpful AI assistant.",
+			KeepConversationHistory: true,
 		},
 		openai.ChatCompletionNewParams{
 			Model:       "hf.co/menlo/lucy-gguf:q4_k_m",

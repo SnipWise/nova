@@ -54,9 +54,10 @@ func main() {
 	agent, err := structured.NewAgent[Intent](
 		ctx,
 		agents.Config{
-			Name:        "DungeonMaster",
-			Description: "...",
-			EngineURL:   "http://localhost:12434/engines/llama.cpp/v1",
+			Name:                    "DungeonMaster",
+			Description:             "...",
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",
+			KeepConversationHistory: true,
 			SystemInstructions: `
 			You are helping the dungeon master of a D&D game.
 			Detect if the user want to speak to one of the following NPCs:

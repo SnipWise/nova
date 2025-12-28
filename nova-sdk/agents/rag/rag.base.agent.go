@@ -2,11 +2,11 @@ package rag
 
 import (
 	"context"
-	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/conversion"
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 
 	"github.com/snipwise/nova/nova-sdk/agents/rag/stores"
@@ -21,12 +21,8 @@ type BaseAgent struct {
 
 	store stores.MemoryVectorStore
 
-	// Telemetry fields for tracking embedding requests and responses
-	lastEmbeddingRequest          *openai.EmbeddingNewParams
-	lastEmbeddingRequestTime      time.Time
-	lastEmbeddingResponse         *openai.Embedding
-	lastEmbeddingResponseTime     time.Time
-	lastEmbeddingResponseDuration time.Duration
+	lastRequestJSON  string
+	lastResponseJSON string
 }
 
 type AgentOption func(*BaseAgent)
@@ -52,12 +48,11 @@ func NewBaseAgent(
 		config:          agentConfig,
 		EmbeddingParams: modelConfig,
 		openaiClient:    client,
+		log:             log,
 
 		store: stores.MemoryVectorStore{
 			Records: make(map[string]stores.VectorRecord),
 		},
-
-		log: log,
 	}
 
 	return ragAgent, nil
@@ -71,9 +66,7 @@ func (agent *BaseAgent) GenerateEmbeddingVector(content string) (embeddingVector
 		OfString: openai.String(content),
 	}
 
-	// Capture request for telemetry
-	agent.captureEmbeddingRequest(agent.EmbeddingParams)
-	startTime := time.Now()
+	agent.SaveLastEmbeddingRequest()
 
 	// Use the client to create embeddings
 	embeddingResponse, err := agent.openaiClient.Embeddings.New(agent.ctx, agent.EmbeddingParams)
@@ -81,10 +74,7 @@ func (agent *BaseAgent) GenerateEmbeddingVector(content string) (embeddingVector
 		return nil, err
 	}
 
-	// Capture response for telemetry
-	if len(embeddingResponse.Data) > 0 {
-		agent.captureEmbeddingResponse(&embeddingResponse.Data[0], startTime)
-	}
+	agent.SaveLastEmbeddingResponse(embeddingResponse)
 
 	return embeddingResponse.Data[0].Embedding, nil
 }
@@ -176,4 +166,40 @@ func (agent *BaseAgent) GetConfig() agents.Config {
 // SetConfig updates the agent configuration
 func (agent *BaseAgent) SetConfig(config agents.Config) {
 	agent.config = config
+}
+
+// SaveLastEmbeddingRequest saves the last embedding request JSON for logging/debugging purposes
+func (agent *BaseAgent) SaveLastEmbeddingRequest() error {
+
+	bparam, err := agent.EmbeddingParams.MarshalJSON()
+	if err != nil {
+		agent.log.Error("Error saving last embedding request: %v", err)
+		return err
+	}
+	agent.lastRequestJSON = string(bparam)
+	agent.log.Debug("📡 Request Sent:\n%s", agent.lastRequestJSON)
+
+	return nil
+}
+
+func (agent *BaseAgent) SaveLastEmbeddingResponse(embeddingResponse *openai.CreateEmbeddingResponse) error {
+	//Store last request and response JSON for telemetry or debugging
+	agent.lastResponseJSON = embeddingResponse.RawJSON()
+	agent.log.Debug("📝 Response Received:\n%s", agent.lastResponseJSON)
+	return nil
+}
+
+func (agent *BaseAgent) GetLastRequestRawJSON() string {
+	return agent.lastRequestJSON
+}
+func (agent *BaseAgent) GetLastResponseRawJSON() string {
+	return agent.lastResponseJSON
+}
+
+func (agent *BaseAgent) GetLastRequestSON() (string, error) {
+	return conversion.PrettyPrint(agent.lastRequestJSON)
+}
+
+func (agent *BaseAgent) GetLastResponseJSON() (string, error) {
+	return conversion.PrettyPrint(agent.lastResponseJSON)
 }
