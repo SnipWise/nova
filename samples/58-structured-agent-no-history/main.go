@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
-	"github.com/snipwise/nova/nova-sdk/agents/chat"
+	"github.com/snipwise/nova/nova-sdk/agents/structured"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 	"github.com/snipwise/nova/nova-sdk/models"
@@ -13,40 +14,55 @@ import (
 	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
+type Country struct {
+	Name       string   `json:"name"`
+	Capital    string   `json:"capital"`
+	Population int      `json:"population"`
+	Languages  []string `json:"languages"`
+}
+
 func main() {
 	ctx := context.Background()
 
 	// Create agent with KeepConversationHistory set to false
-	agent, err := chat.NewAgent(
+	agent, err := structured.NewAgent[Country](
 		ctx,
 		agents.Config{
-			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions:      "You are Bob, a helpful AI assistant.",
+			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: `
+			Your name is Bob.
+			You are an assistant that answers questions about countries around the world.
+			`,
 			KeepConversationHistory: false, // Disable conversation history
 		},
-		models.NewConfig("ai/qwen2.5:1.5B-F16").
-			WithTemperature(0.0).
-			WithMaxTokens(2000),
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature: models.Float64(0.0),
+		},
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	// First request
+	// First request about Canada
 	display.NewLine()
 	display.Separator()
-	display.Title("First Request: What is your name?")
+	display.Title("First Request: Tell me about Canada")
 	display.Separator()
 
-	result1, err := agent.GenerateCompletion([]messages.Message{
-		{Role: roles.User, Content: "Hello, what is your name?"},
+	response1, finishReason1, err := agent.GenerateStructuredData([]messages.Message{
+		{Role: roles.User, Content: "Tell me about Canada."},
 	})
+
 	if err != nil {
 		panic(err)
 	}
 
-	display.KeyValue("Response", result1.Response)
-	display.KeyValue("Finish reason", result1.FinishReason)
+	display.KeyValue("Name", response1.Name)
+	display.KeyValue("Capital", response1.Capital)
+	display.KeyValue("Population", conversion.IntToString(response1.Population))
+	display.KeyValue("Languages", strings.Join(response1.Languages, ", "))
+	display.KeyValue("Finish reason", finishReason1)
 
 	// Check messages after first request
 	messages1 := agent.GetMessages()
@@ -54,21 +70,25 @@ func main() {
 	display.KeyValue("Messages count after first request", conversion.IntToString(len(messages1)))
 	display.Info("Expected: 1 (only system message, no user/assistant messages)")
 
-	// Second request - asking about previous context
+	// Second request about France
 	display.NewLine()
 	display.Separator()
-	display.Title("Second Request: Who is James T Kirk?")
+	display.Title("Second Request: Tell me about France")
 	display.Separator()
 
-	result2, err := agent.GenerateCompletion([]messages.Message{
-		{Role: roles.User, Content: "Who is James T Kirk?"},
+	response2, finishReason2, err := agent.GenerateStructuredData([]messages.Message{
+		{Role: roles.User, Content: "Tell me about France."},
 	})
+
 	if err != nil {
 		panic(err)
 	}
 
-	display.KeyValue("Response", result2.Response)
-	display.KeyValue("Finish reason", result2.FinishReason)
+	display.KeyValue("Name", response2.Name)
+	display.KeyValue("Capital", response2.Capital)
+	display.KeyValue("Population", conversion.IntToString(response2.Population))
+	display.KeyValue("Languages", strings.Join(response2.Languages, ", "))
+	display.KeyValue("Finish reason", finishReason2)
 
 	// Check messages after second request
 	messages2 := agent.GetMessages()
@@ -76,35 +96,12 @@ func main() {
 	display.KeyValue("Messages count after second request", conversion.IntToString(len(messages2)))
 	display.Info("Expected: 1 (still only system message)")
 
-	// Third request - this should NOT have context from previous requests
-	display.NewLine()
-	display.Separator()
-	display.Title("Third Request: Who is his best friend? (no context)")
-	display.Separator()
-
-	result3, err := agent.GenerateCompletion([]messages.Message{
-		{Role: roles.User, Content: "Who is his best friend?"},
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	display.KeyValue("Response", result3.Response)
-	display.KeyValue("Finish reason", result3.FinishReason)
-	display.Info("Note: Agent should NOT know who 'his' refers to (no context)")
-
-	// Check messages after third request
-	messages3 := agent.GetMessages()
-	display.NewLine()
-	display.KeyValue("Messages count after third request", conversion.IntToString(len(messages3)))
-	display.Info("Expected: 1 (still only system message)")
-
 	// Display all messages to verify
 	display.NewLine()
 	display.Separator()
 	display.Title("All Messages in History")
 	display.Separator()
-	for i, msg := range messages3 {
+	for i, msg := range messages2 {
 		contentPreview := msg.Content
 		if len(contentPreview) > 50 {
 			contentPreview = contentPreview[:50] + "..."
@@ -117,9 +114,7 @@ func main() {
 	display.Success("Test completed!")
 	display.Info("With KeepConversationHistory=false, only the system message should be kept.")
 	display.Info("User and assistant messages should NOT be added to history.")
-	display.Info("Each request is independent without context from previous ones.")
 	display.Separator()
 
-	fmt.Println(agent.GetConversationHistoryJSON())
-
+	fmt.Println(agent.ExportMessagesToJSON())
 }

@@ -32,18 +32,18 @@ func InitializeConnection(ctx context.Context, agentConfig Config, modelConfig m
 	modelFound := false
 	for modelsList.Next() {
 		m := modelsList.Current()
-		log.Debug("Available model:", m.ID)
+		log.Debug("Available model: %s", m.ID)
 		if m.ID == modelConfig.Name {
 			modelFound = true
 		}
 	}
 	if err := modelsList.Err(); err != nil {
-		log.Error("Error listing models:", err)
+		log.Error("Error listing models: %v", err)
 		return openai.Client{}, nil, err
 	}
 
 	if !modelFound {
-		log.Error("Model not available:", modelConfig.Name)
+		log.Error("Model not available: %s", modelConfig.Name)
 		return openai.Client{}, nil, errors.New("model not available on the specified engine URL")
 	}
 

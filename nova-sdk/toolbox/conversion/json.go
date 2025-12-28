@@ -1,6 +1,9 @@
 package conversion
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 // JsonStringToMap parses a JSON string and converts it to a map with string keys and any values
 func JsonStringToMap(jsonString string) (map[string]any, error) {
@@ -31,7 +34,15 @@ func AnyToMap(data any) (map[string]any, error) {
 
 // FromJSON converts a JSON string to a struct of type T
 func FromJSON[T any](jsonString string) (T, error) {
-    var result T
-    err := json.Unmarshal([]byte(jsonString), &result)
-    return result, err
+	var result T
+	err := json.Unmarshal([]byte(jsonString), &result)
+	return result, err
+}
+
+func PrettyPrint(jsonStr string) (string, error) {
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, []byte(jsonStr), "", "  "); err != nil {
+		return "", err
+	}
+	return prettyJSON.String(), nil
 }

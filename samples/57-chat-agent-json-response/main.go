@@ -30,7 +30,6 @@ func main() {
 		panic(err)
 	}
 
-	display.Title("Chat Agent with Telemetry")
 	display.Separator()
 
 	// First completion
@@ -45,35 +44,7 @@ func main() {
 	display.KeyValue("Response", result.Response)
 	display.KeyValue("Finish reason", result.FinishReason)
 
-	// Get telemetry data after the first request
-	display.NewLine()
-	display.Separator()
-	display.Title("Telemetry Data - Last Request")
-	display.Separator()
-
-	// Get request metadata
-	reqMetadata := agent.GetLastRequestMetadata()
-	display.KeyValue("Model", reqMetadata.Model)
-	display.KeyValue("Context Length", fmt.Sprintf("%d", reqMetadata.ContextLength))
-	display.KeyValue("Temperature", fmt.Sprintf("%.2f", reqMetadata.Temperature))
-	display.KeyValue("Max Tokens", fmt.Sprintf("%d", reqMetadata.MaxTokens))
-	display.KeyValue("Request Time", reqMetadata.Timestamp.Format("2006-01-02 15:04:05"))
-
-	// Get response metadata
-	display.NewLine()
-	display.Title("Telemetry Data - Last Response")
-	display.Separator()
-
-	respMetadata := agent.GetLastResponseMetadata()
-	display.KeyValue("Response ID", respMetadata.ID)
-	display.KeyValue("Model", respMetadata.Model)
-	display.KeyValue("Finish Reason", respMetadata.FinishReason)
-	display.KeyValue("Prompt Tokens", fmt.Sprintf("%d", respMetadata.PromptTokens))
-	display.KeyValue("Completion Tokens", fmt.Sprintf("%d", respMetadata.CompletionTokens))
-	display.KeyValue("Total Tokens", fmt.Sprintf("%d", respMetadata.TotalTokens))
-	display.KeyValue("Response Time", fmt.Sprintf("%d ms", respMetadata.ResponseTime))
-	display.KeyValue("Response Timestamp", respMetadata.Timestamp.Format("2006-01-02 15:04:05"))
-
+	
 	// Get full request and response JSON
 	display.NewLine()
 	display.Title("Full Request JSON")
@@ -107,16 +78,7 @@ func main() {
 	display.KeyValue("Response", result.Response)
 	display.KeyValue("Finish reason", result.FinishReason)
 
-	// Show updated telemetry
-	display.NewLine()
-	display.Separator()
-	display.Title("Updated Telemetry After Second Request")
-	display.Separator()
 
-	respMetadata = agent.GetLastResponseMetadata()
-	display.KeyValue("Last Response Tokens", fmt.Sprintf("%d", respMetadata.TotalTokens))
-	display.KeyValue("Total Tokens Used (Session)", fmt.Sprintf("%d", agent.GetTotalTokensUsed()))
-	display.KeyValue("Response Time", fmt.Sprintf("%d ms", respMetadata.ResponseTime))
 
 	// Show conversation history
 	display.NewLine()
@@ -124,12 +86,29 @@ func main() {
 	display.Title("Conversation History")
 	display.Separator()
 
-	historyJSON, err := agent.GetConversationHistoryJSON()
+	historyJSON, err := agent.ExportMessagesToJSON()
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(historyJSON)
 
 	display.NewLine()
-	display.Success("Telemetry example completed!")
+	// Get full request and response JSON
+	display.NewLine()
+	display.Title("Full Request JSON")
+	display.Separator()
+	reqJSON, err = agent.GetLastRequestJSON()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(reqJSON)
+
+	display.NewLine()
+	display.Title("Full Response JSON")
+	display.Separator()
+	respJSON, err = agent.GetLastResponseJSON()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(respJSON)
 }

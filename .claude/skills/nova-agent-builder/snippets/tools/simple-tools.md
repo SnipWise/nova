@@ -64,9 +64,10 @@ func main() {
 	agent, err := tools.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "tools-assistant",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are a helpful assistant with access to tools. Use them when needed to answer user questions.",
+			Name:                    "tools-assistant",
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions:      "You are a helpful assistant with access to tools. Use them when needed to answer user questions.",
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m", // Model supporting tools

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
@@ -92,19 +91,11 @@ func (agent *BaseAgent) CompressContext(messagesList []openai.ChatCompletionMess
 		openai.UserMessage("CONVERSATION:\n"+text),
 	)
 
-	// Capture request for telemetry
-	agent.CaptureRequest(agent.ChatCompletionParams)
-	startTime := time.Now()
-
 	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
 
 	if err != nil {
-		agent.CaptureError(err, "CompressContext")
 		return "", "", err
 	}
-
-	// Capture response for telemetry
-	agent.CaptureResponse(completion, startTime)
 
 	if len(completion.Choices) > 0 {
 		response = completion.Choices[0].Message.Content
@@ -144,9 +135,6 @@ func (agent *BaseAgent) CompressContextStream(
 		agent.ChatCompletionParams.Messages,
 		openai.UserMessage("CONVERSATION:\n"+text),
 	)
-
-	// Capture request for telemetry
-	agent.CaptureRequest(agent.ChatCompletionParams)
 
 	stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, agent.ChatCompletionParams)
 

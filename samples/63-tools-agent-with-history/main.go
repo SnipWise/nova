@@ -114,7 +114,7 @@ func main() {
 	display.Info("Each request has full context from previous interactions.")
 	display.Separator()
 
-	fmt.Println(agent.GetConversationHistoryJSON())
+	fmt.Println(agent.ExportMessagesToJSON())
 	fmt.Println(agent.GetMessages())
 
 

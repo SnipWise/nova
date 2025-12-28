@@ -88,8 +88,9 @@ func NewCrew(ctx context.Context, engineURL string) (*Crew, error) {
 	// === AGENT 1: RESEARCHER ===
 	researcher, err := chat.NewAgent(ctx,
 		agents.Config{
-			Name:      "researcher",
-			EngineURL: engineURL,
+			Name:                    "researcher",
+			EngineURL:               engineURL,
+			KeepConversationHistory: true,
 			SystemInstructions: `You are a researcher. Your role is to:
 - Gather relevant information on the given topic
 - Identify key facts and data
@@ -115,8 +116,9 @@ Output format: structured summary with key points.`,
 	// === AGENT 2: WRITER ===
 	writer, err := chat.NewAgent(ctx,
 		agents.Config{
-			Name:      "writer",
-			EngineURL: engineURL,
+			Name:                    "writer",
+			EngineURL:               engineURL,
+			KeepConversationHistory: true,
 			SystemInstructions: `You are a professional writer. Your role is to:
 - Transform research into well-written content
 - Maintain clear and engaging style
@@ -142,8 +144,9 @@ Output format: polished, publishable content.`,
 	// === AGENT 3: REVIEWER ===
 	reviewer, err := chat.NewAgent(ctx,
 		agents.Config{
-			Name:      "reviewer",
-			EngineURL: engineURL,
+			Name:                    "reviewer",
+			EngineURL:               engineURL,
+			KeepConversationHistory: true,
 			SystemInstructions: `You are a critical reviewer. Your role is to:
 - Check content accuracy
 - Identify errors and inconsistencies

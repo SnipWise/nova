@@ -52,9 +52,10 @@ func main() {
 	serverAgent, err := server.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "Bob",                                           // Agent name
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",  // LLM Engine URL
-			SystemInstructions: "You are Bob, a helpful AI assistant.",         // System instructions
+			Name:                    "Bob",                                           // Agent name
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",  // LLM Engine URL
+			SystemInstructions:      "You are Bob, a helpful AI assistant.",         // System instructions
+			KeepConversationHistory: true,                                           // Keep conversation context
 		},
 		models.Config{
 			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",    // Model for chat

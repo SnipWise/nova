@@ -6,7 +6,6 @@ import (
 	"errors"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
@@ -97,19 +96,15 @@ func (agent *BaseAgent[Output]) GenerateStructuredData(messages []openai.ChatCom
 	paramsForCall := agent.ChatCompletionParams
 	paramsForCall.Messages = messagesToSend
 
-	// Capture request for telemetry
-	agent.CaptureRequest(paramsForCall)
-	startTime := time.Now()
+	agent.SaveLastRequest()
 
 	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 
 	if err != nil {
-		agent.CaptureError(err, "GenerateStructuredData")
 		return nil, "", err
 	}
 
-	// Capture response for telemetry
-	agent.CaptureResponse(completion, startTime)
+	agent.SaveLastResponse(completion)
 
 	if len(completion.Choices) > 0 {
 		responseStr := completion.Choices[0].Message.Content
@@ -122,7 +117,7 @@ func (agent *BaseAgent[Output]) GenerateStructuredData(messages []openai.ChatCom
 		var structuredResponse Output
 		err = json.Unmarshal([]byte(responseStr), &structuredResponse)
 		if err != nil {
-			agent.Log.Error("Error unmarshaling structured response:", err)
+			agent.Log.Error("Error unmarshaling structured response: %v", err)
 			return nil, "", err
 		}
 

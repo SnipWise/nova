@@ -114,7 +114,7 @@ func main() {
 	display.Info("Each request is independent without context from previous ones.")
 	display.Separator()
 
-	fmt.Println(agent.GetConversationHistoryJSON())
+	fmt.Println(agent.ExportMessagesToJSON())
 	fmt.Println(agent.GetMessages())
 
 }

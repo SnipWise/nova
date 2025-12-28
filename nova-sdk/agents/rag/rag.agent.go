@@ -173,26 +173,6 @@ func (agent *Agent) SearchTopN(content string, limit float64, n int) ([]VectorRe
 	return publicResults, nil
 }
 
-// GetLastEmbeddingRequestJSON returns the last embedding request as JSON string
-func (agent *Agent) GetLastEmbeddingRequestJSON() (string, error) {
-	return agent.internalAgent.GetLastEmbeddingRequestJSON()
-}
-
-// GetLastEmbeddingResponseJSON returns the last embedding response as JSON string
-func (agent *Agent) GetLastEmbeddingResponseJSON() (string, error) {
-	return agent.internalAgent.GetLastEmbeddingResponseJSON()
-}
-
-// GetLastEmbeddingRequestMetadata returns metadata about the last embedding request
-func (agent *Agent) GetLastEmbeddingRequestMetadata() EmbeddingRequestMetadata {
-	return agent.internalAgent.GetLastEmbeddingRequestMetadata()
-}
-
-// GetLastEmbeddingResponseMetadata returns metadata about the last embedding response
-func (agent *Agent) GetLastEmbeddingResponseMetadata() EmbeddingResponseMetadata {
-	return agent.internalAgent.GetLastEmbeddingResponseMetadata()
-}
-
 // === Config Getters and Setters ===
 
 // GetConfig returns the agent configuration
@@ -218,3 +198,17 @@ func (agent *Agent) SetModelConfig(config models.Config) {
 	agent.modelConfig = config
 }
 
+func (agent *Agent) GetLastRequestRawJSON() string {
+	return agent.GetLastRequestRawJSON()
+}
+func (agent *Agent) GetLastResponseRawJSON() string {
+	return agent.GetLastResponseRawJSON()
+}
+
+func (agent *Agent) GetLastRequestJSON() (string, error) {
+	return agent.GetLastRequestJSON()
+}
+
+func (agent *Agent) GetLastResponseJSON() (string, error) {
+	return agent.GetLastResponseJSON()
+}

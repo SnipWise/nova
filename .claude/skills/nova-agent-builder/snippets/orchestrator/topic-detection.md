@@ -74,9 +74,10 @@ Example: {"topic_discussion": "Technology"}
 	orchestratorAgent, err := orchestrator.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "orchestrator-agent",
-			EngineURL:          engineURL,
-			SystemInstructions: systemInstructions,
+			Name:                    "orchestrator-agent",
+			EngineURL:               engineURL,
+			SystemInstructions:      systemInstructions,
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        "hf.co/menlo/lucy-gguf:q4_k_m",
@@ -202,9 +203,10 @@ Respond with ONLY the category name in the 'topic_discussion' field.
 orchestratorAgent, _ := orchestrator.NewAgent(
 	ctx,
 	agents.Config{
-		Name:               "support-orchestrator",
-		EngineURL:          engineURL,
-		SystemInstructions: systemInstructions,
+		Name:                    "support-orchestrator",
+		EngineURL:               engineURL,
+		SystemInstructions:      systemInstructions,
+		KeepConversationHistory: true,
 	},
 	models.Config{
 		Name:        "hf.co/menlo/lucy-gguf:q4_k_m",

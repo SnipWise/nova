@@ -35,7 +35,7 @@ func main() {
 		panic(err)
 	}
 
-	display.Colorf(display.ColorCyan, "🌐 Connected to remote agent at %s\n", "http://localhost:8080")
+	display.Colorf(display.ColorCyan, "🌐 Connected to remote agent at %s\n", "http://localhost:3500")
 	display.Colorf(display.ColorCyan, "Agent: %s\n", agent.GetName())
 	display.Colorf(display.ColorCyan, "Model: %s\n\n", agent.GetModelID())
 
@@ -84,5 +84,5 @@ func main() {
 		display.Separator()
 
 	}
-
+	//agent.ResetMessages()
 }

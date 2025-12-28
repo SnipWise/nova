@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"time"
 
 	"github.com/openai/openai-go/v3"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/conversion"
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
@@ -24,14 +24,16 @@ type Agent struct {
 	Log                  logger.Logger
 	StreamCanceled       bool
 
-	// Telemetry fields for tracking requests and responses
-	lastRequest          *openai.ChatCompletionNewParams
-	lastRequestTime      time.Time
-	lastResponse         *openai.ChatCompletion
-	lastResponseTime     time.Time
-	lastResponseDuration time.Duration
-	telemetryCallback    TelemetryCallback
-	totalTokensUsed      int
+	// // Telemetry fields for tracking requests and responses
+	// lastRequest          *openai.ChatCompletionNewParams
+	// lastRequestTime      time.Time
+	// lastResponse         *openai.ChatCompletion
+	// lastResponseTime     time.Time
+	// lastResponseDuration time.Duration
+	// telemetryCallback    TelemetryCallback
+	// totalTokensUsed      int
+	lastRequestJSON  string
+	lastResponseJSON string
 }
 
 // AgentOption is a functional option for configuring an Agent
@@ -206,19 +208,16 @@ func (agent *Agent) GenerateCompletion(messages []openai.ChatCompletionMessagePa
 	paramsForCall := agent.ChatCompletionParams
 	paramsForCall.Messages = messagesToSend
 
-	// Capture request for telemetry
-	agent.captureRequest(paramsForCall)
-	startTime := time.Now()
+	agent.SaveLastRequest()
 
+	// NOTE: start completion
 	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 
+	agent.SaveLastResponse(completion)
+
 	if err != nil {
-		agent.captureError(err, "GenerateCompletion")
 		return "", "", err
 	}
-
-	// Capture response for telemetry
-	agent.captureResponse(completion, startTime)
 
 	if len(completion.Choices) > 0 {
 		response = completion.Choices[0].Message.Content
@@ -259,19 +258,15 @@ func (agent *Agent) GenerateCompletionWithReasoning(messages []openai.ChatComple
 	paramsForCall := agent.ChatCompletionParams
 	paramsForCall.Messages = messagesToSend
 
-	// Capture request for telemetry
-	agent.captureRequest(paramsForCall)
-	startTime := time.Now()
+	agent.SaveLastRequest()
 
 	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 
+	agent.SaveLastResponse(completion)
+
 	if err != nil {
-		agent.captureError(err, "GenerateCompletionWithReasoning")
 		return "", "", "", err
 	}
-
-	// Capture response for telemetry
-	agent.captureResponse(completion, startTime)
 
 	if len(completion.Choices) == 0 {
 		return "", "", "", errors.New("no choices found")
@@ -314,14 +309,27 @@ func (agent *Agent) GenerateStreamCompletion(
 	// Reset cancellation flag at the start of streaming
 	agent.StreamCanceled = false
 
-	// Combine existing messages with new messages
-	agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+	// Prepare messages for the API call
+	// If KeepConversationHistory is true, add to history permanently
+	// Otherwise, create a temporary message list for this call only
+	var messagesToSend []openai.ChatCompletionMessageParamUnion
 
-	// Capture request for telemetry
-	agent.captureRequest(agent.ChatCompletionParams)
-	startTime := time.Now()
+	if agent.Config.KeepConversationHistory {
+		// Add new messages to history permanently
+		agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+		messagesToSend = agent.ChatCompletionParams.Messages
+	} else {
+		// Create temporary message list with system + current user messages only
+		messagesToSend = append(agent.ChatCompletionParams.Messages, messages...)
+	}
 
-	stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, agent.ChatCompletionParams)
+	// Update params with messages for this call
+	paramsForCall := agent.ChatCompletionParams
+	paramsForCall.Messages = messagesToSend
+
+	agent.SaveLastRequest()
+
+	stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, paramsForCall)
 
 	var callBackError error
 	finalFinishReason := ""
@@ -338,6 +346,7 @@ func (agent *Agent) GenerateStreamCompletion(
 
 		// Capture finishReason if present (even if there's no content)
 		if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != "" {
+			agent.SaveLastChunkResponse(&chunk)
 			finalFinishReason = chunk.Choices[0].FinishReason
 		}
 
@@ -347,10 +356,6 @@ func (agent *Agent) GenerateStreamCompletion(
 			callBackError = callBack(chunkContent, finalFinishReason)
 			response += chunkContent
 
-			// Trigger telemetry callback for stream chunks
-			if agent.telemetryCallback != nil {
-				agent.telemetryCallback.OnStreamChunk(chunkContent, chunkIndex)
-			}
 			chunkIndex++
 		}
 
@@ -368,44 +373,22 @@ func (agent *Agent) GenerateStreamCompletion(
 	}
 
 	if callBackError != nil {
-		agent.captureError(callBackError, "GenerateStreamCompletion")
 		return response, finalFinishReason, callBackError
 	}
 	if err := stream.Err(); err != nil {
-		agent.captureError(err, "GenerateStreamCompletion")
 		return response, finalFinishReason, err
 	}
 	if err := stream.Close(); err != nil {
-		agent.captureError(err, "GenerateStreamCompletion")
 		return response, finalFinishReason, err
 	}
 
-	// Create a synthetic completion response for telemetry (streaming doesn't return a full completion object)
-	modelName := ""
-	if modelJSON, err := json.Marshal(agent.ChatCompletionParams.Model); err == nil {
-		modelName = string(modelJSON)
+	// Only add assistant response to history if KeepConversationHistory is true
+	if agent.Config.KeepConversationHistory {
+		agent.ChatCompletionParams.Messages = append(
+			agent.ChatCompletionParams.Messages,
+			openai.AssistantMessage(response),
+		)
 	}
-	syntheticCompletion := &openai.ChatCompletion{
-		ID:      "stream-" + time.Now().Format("20060102150405"),
-		Created: time.Now().Unix(),
-		Model:   modelName,
-		Choices: []openai.ChatCompletionChoice{
-			{
-				FinishReason: finalFinishReason,
-				Message: openai.ChatCompletionMessage{
-					Content: response,
-					Role:    "assistant",
-				},
-			},
-		},
-	}
-	agent.captureResponse(syntheticCompletion, startTime)
-
-	// Append the full response as an assistant message to the agent's messages
-	agent.ChatCompletionParams.Messages = append(
-		agent.ChatCompletionParams.Messages,
-		openai.AssistantMessage(response),
-	)
 
 	return response, finalFinishReason, nil
 }
@@ -421,14 +404,27 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 	// Reset cancellation flag at the start of streaming
 	agent.StreamCanceled = false
 
-	// Combine existing messages with new messages
-	agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+	// Prepare messages for the API call
+	// If KeepConversationHistory is true, add to history permanently
+	// Otherwise, create a temporary message list for this call only
+	var messagesToSend []openai.ChatCompletionMessageParamUnion
 
-	// Capture request for telemetry
-	agent.captureRequest(agent.ChatCompletionParams)
-	startTime := time.Now()
+	if agent.Config.KeepConversationHistory {
+		// Add new messages to history permanently
+		agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
+		messagesToSend = agent.ChatCompletionParams.Messages
+	} else {
+		// Create temporary message list with system + current user messages only
+		messagesToSend = append(agent.ChatCompletionParams.Messages, messages...)
+	}
 
-	stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, agent.ChatCompletionParams)
+	// Update params with messages for this call
+	paramsForCall := agent.ChatCompletionParams
+	paramsForCall.Messages = messagesToSend
+
+	agent.SaveLastRequest()
+
+	stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, paramsForCall)
 
 	var callBackError error
 	var hasReceivedReasoning bool
@@ -445,6 +441,7 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 
 		// Capture finishReason if present (even if there's no content)
 		if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != "" {
+			agent.SaveLastChunkResponse(&chunk)
 			finishReason = chunk.Choices[0].FinishReason
 		}
 
@@ -498,44 +495,66 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 	}
 
 	if callBackError != nil {
-		agent.captureError(callBackError, "GenerateStreamCompletionWithReasoning")
 		return response, reasoning, finishReason, callBackError
 	}
 	if err := stream.Err(); err != nil {
-		agent.captureError(err, "GenerateStreamCompletionWithReasoning")
 		return response, reasoning, finishReason, err
 	}
 	if err := stream.Close(); err != nil {
-		agent.captureError(err, "GenerateStreamCompletionWithReasoning")
 		return response, reasoning, finishReason, err
 	}
 
-	// Create a synthetic completion response for telemetry
-	modelName := ""
-	if modelJSON, err := json.Marshal(agent.ChatCompletionParams.Model); err == nil {
-		modelName = string(modelJSON)
+	// Only add assistant response to history if KeepConversationHistory is true
+	if agent.Config.KeepConversationHistory {
+		agent.ChatCompletionParams.Messages = append(
+			agent.ChatCompletionParams.Messages,
+			openai.AssistantMessage(response),
+		)
 	}
-	syntheticCompletion := &openai.ChatCompletion{
-		ID:      "stream-" + time.Now().Format("20060102150405"),
-		Created: time.Now().Unix(),
-		Model:   modelName,
-		Choices: []openai.ChatCompletionChoice{
-			{
-				FinishReason: finishReason,
-				Message: openai.ChatCompletionMessage{
-					Content: response,
-					Role:    "assistant",
-				},
-			},
-		},
-	}
-	agent.captureResponse(syntheticCompletion, startTime)
-
-	// Append the full response as an assistant message to the agent's messages
-	agent.ChatCompletionParams.Messages = append(
-		agent.ChatCompletionParams.Messages,
-		openai.AssistantMessage(response),
-	)
 
 	return response, reasoning, finishReason, nil
+}
+
+// SaveLastRequest stores the last request JSON for telemetry or debugging
+func (agent *Agent) SaveLastRequest() error {
+	bparam, err := agent.ChatCompletionParams.MarshalJSON()
+	if err != nil {
+		agent.Log.Error("Error marshaling last request: %v", err)
+		return err
+	}
+	agent.lastRequestJSON = string(bparam)
+	agent.Log.Debug("📡 Request Sent:\n%s", agent.lastRequestJSON)
+	return nil
+}
+
+// SaveLastResponse stores the last response JSON for telemetry or debugging
+func (agent *Agent) SaveLastResponse(completion *openai.ChatCompletion) error {
+	//Store last request and response JSON for telemetry or debugging
+	agent.lastResponseJSON = completion.RawJSON()
+	agent.Log.Debug("📝 Response Received:\n%s", agent.lastResponseJSON)
+	return nil
+}
+
+// SaveLastChunkResponse stores the last chunk response JSON for telemetry or debugging
+func (agent *Agent) SaveLastChunkResponse(completion *openai.ChatCompletionChunk) error {
+	//Store last request and response JSON for telemetry or debugging
+	agent.lastResponseJSON = completion.RawJSON()
+	agent.Log.Debug("🍰 Response Received:\n%s", agent.lastResponseJSON)
+	return nil
+}
+
+func (agent *Agent) GetLastRequestRawJSON() string {
+	return agent.lastRequestJSON
+}
+
+func (agent *Agent) GetLastResponseRawJSON() string {
+	return agent.lastResponseJSON
+}
+
+func (agent *Agent) GetLastRequestSON() (string, error) {
+	return conversion.PrettyPrint(agent.lastRequestJSON)
+}
+
+func (agent *Agent) GetLastResponseJSON() (string, error) {
+	return conversion.PrettyPrint(agent.lastResponseJSON)
 }

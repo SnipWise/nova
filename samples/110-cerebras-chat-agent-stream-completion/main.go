@@ -36,6 +36,7 @@ func main() {
 			EngineURL:          engineURL,
 			SystemInstructions: "You are Bob, a helpful AI assistant.",
 			APIKey:             env.GetEnvOrDefault("CEREBRAS_API_KEY", ""),
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        modelId,
