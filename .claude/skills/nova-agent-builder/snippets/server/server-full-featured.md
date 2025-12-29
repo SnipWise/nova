@@ -121,18 +121,21 @@ func main() {
 	serverAgent.SetRagAgent(ragAgent)
 
 	// === 4. COMPRESSOR AGENT ===
+	// Best practice: Use Effective instructions and UltraShort prompts
 	compressorAgent, err := compressor.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "compressor-agent",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: compressor.Instructions.Minimalist,
+			Name:      "compressor-agent",
+			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+			// RECOMMENDED: Use Effective for balanced compression
+			SystemInstructions: compressor.Instructions.Effective,
 		},
 		models.Config{
 			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
 			Temperature: models.Float64(0.0),
 		},
-		compressor.WithCompressionPrompt(compressor.Prompts.Minimalist),
+		// RECOMMENDED: Use UltraShort for maximum token reduction
+		compressor.WithCompressionPrompt(compressor.Prompts.UltraShort),
 	)
 	if err != nil {
 		panic(err)

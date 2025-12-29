@@ -67,34 +67,23 @@ func main() {
 	}
 
 	// === COMPRESSOR AGENT ===
+	// Best practice: Use predefined Instructions and Prompts from compressor package
 	compressorAgent, err := compressor.NewAgent(
 		ctx,
 		agents.Config{
 			Name:      "compressor",
 			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: `You are an expert at summarizing and compressing conversations.
-Your role is to create concise summaries that preserve:
-- Key information and important facts
-- Decisions made
-- User preferences
-- Emotional context if relevant
-- Ongoing or pending actions
-
-Output format:
-## Conversation Summary
-[Concise summary of exchanges]
-
-## Key Points
-- [Point 1]
-- [Point 2]
-
-## To Remember
-[Important information for continuity]`,
+			// Use built-in instructions for optimal compression
+			// Options: compressor.Instructions.Expert, .Effective, .Basic
+			SystemInstructions: compressor.Instructions.Effective,
 		},
 		models.Config{
 			Name:        "ai/qwen2.5:1.5B-F16",
 			Temperature: models.Float64(0.0), // Deterministic for summaries
 		},
+		// Use built-in compression prompts for consistent results
+		// Options: compressor.Prompts.UltraShort, .Minimalist, .Balanced, .Detailed
+		compressor.WithCompressionPrompt(compressor.Prompts.UltraShort),
 	)
 	if err != nil {
 		panic(err)
@@ -284,18 +273,33 @@ KEEP_RECENT_MESSAGES: 4     # Recent messages to preserve
 ```go
 import "github.com/snipwise/nova/nova-sdk/agents/compressor"
 
+// RECOMMENDED: Use built-in instructions and prompts
 agent, err := compressor.NewAgent(
     ctx,
     agents.Config{
         Name:               "compressor",
         EngineURL:          engineURL,
-        SystemInstructions: "Compression instructions...",
+        // Use predefined instructions for best results
+        SystemInstructions: compressor.Instructions.Effective,
     },
     models.Config{
         Name:        "ai/qwen2.5:1.5B-F16",
         Temperature: models.Float64(0.0),
     },
+    // Use built-in compression prompts
+    compressor.WithCompressionPrompt(compressor.Prompts.UltraShort),
 )
+
+// Available Instructions:
+// - compressor.Instructions.Expert     - Most detailed compression
+// - compressor.Instructions.Effective  - Balanced (RECOMMENDED)
+// - compressor.Instructions.Basic      - Simple compression
+
+// Available Prompts:
+// - compressor.Prompts.UltraShort   - Maximum compression (RECOMMENDED)
+// - compressor.Prompts.Minimalist   - Very concise
+// - compressor.Prompts.Balanced     - Balance detail/brevity
+// - compressor.Prompts.Detailed     - Preserve more information
 ```
 
 ### Compress Method
@@ -372,8 +376,30 @@ func (cm *ContextManager) LoadState(filepath string) error {
 ## Important Notes
 
 - Use `compressor.NewAgent` (not `chat.NewAgent`) for the compressor
+- **BEST PRACTICE**: Use `compressor.Instructions.Effective` for SystemInstructions
+- **BEST PRACTICE**: Use `compressor.Prompts.UltraShort` for maximum compression
 - The `Compress()` method takes a string and returns a compressed summary
+- The `CompressContextStream()` method compresses messages with streaming support
 - Always keep recent messages uncompressed for conversation flow
 - Temperature 0.0 for compressor ensures consistent summaries
 - Save summaries for session persistence
 - Quality of summary depends on the model used
+
+## Built-in Presets
+
+### Instructions Presets (SystemInstructions)
+
+```go
+compressor.Instructions.Expert     // Most sophisticated compression
+compressor.Instructions.Effective  // Balanced approach (RECOMMENDED)
+compressor.Instructions.Basic      // Simple, straightforward compression
+```
+
+### Compression Prompts (WithCompressionPrompt)
+
+```go
+compressor.Prompts.UltraShort   // Maximum token reduction (RECOMMENDED)
+compressor.Prompts.Minimalist   // Very concise summaries
+compressor.Prompts.Balanced     // Balance between detail and brevity
+compressor.Prompts.Detailed     // Preserve more contextual information
+```

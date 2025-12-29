@@ -185,6 +185,7 @@ func (agent *BaseAgent) CompressContextStream(
 type SystemInstructions struct {
 	Minimalist string
 	Expert     string
+	Effective string
 }
 
 var Instructions = SystemInstructions{
@@ -211,6 +212,25 @@ var Instructions = SystemInstructions{
 	- Remove: Greetings, acknowledgments, verbose explanations, failed attempts
 	- Keep: Facts, code, decisions, file paths, function signatures, error messages, requirements
 	- Summarize: Long discussions into bullet points with essential information
+	`,
+	Effective: `You are an expert at summarizing and compressing conversations.
+	Your role is to create concise summaries that preserve:
+	- Key information and important facts
+	- Decisions made
+	- User preferences
+	- Emotional context if relevant
+	- Ongoing or pending actions
+
+	Output format:
+	## Conversation Summary
+	[Concise summary of exchanges]
+
+	## Key Points
+	- [Point 1]
+	- [Point 2]
+
+	## To Remember
+	[Important information for continuity]
 	`,
 }
 

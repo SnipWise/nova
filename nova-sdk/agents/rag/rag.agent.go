@@ -93,8 +93,17 @@ func (agent *Agent) GetEmbeddingDimension() int {
 	return agent.internalAgent.GetEmbeddingDimension()
 }
 
-// SaveEmbedding generates and saves an embedding for the given content
+// SaveEmbedding generates and saves an embedding for the given content into the in memory agent's vector store
 func (agent *Agent) SaveEmbedding(content string) error {
+	if content == "" {
+		return errors.New("content cannot be empty")
+	}
+
+	return agent.internalAgent.GenerateThenSaveEmbeddingVector(content)
+}
+
+// SaveEmbeddingIntoMemoryVectorStore generates and saves an embedding for the given content into the in memory agent's vector store
+func (agent *Agent) SaveEmbeddingIntoMemoryVectorStore(content string) error {
 	if content == "" {
 		return errors.New("content cannot be empty")
 	}

@@ -66,18 +66,21 @@ func main() {
 	}
 
 	// === COMPRESSOR AGENT CONFIGURATION ===
+	// Best practice: Use Effective instructions and UltraShort prompts
 	compressorAgent, err := compressor.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "compressor-agent",                             // Compressor name
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: compressor.Instructions.Minimalist,             // Use minimalist compression
+			Name:      "compressor-agent",                             // Compressor name
+			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+			// RECOMMENDED: Use Effective for balanced compression
+			SystemInstructions: compressor.Instructions.Effective,
 		},
 		models.Config{
 			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",    // Model for compression
 			Temperature: models.Float64(0.0),                    // Deterministic compression
 		},
-		compressor.WithCompressionPrompt(compressor.Prompts.Minimalist),  // Compression strategy
+		// RECOMMENDED: Use UltraShort for maximum token reduction
+		compressor.WithCompressionPrompt(compressor.Prompts.UltraShort),
 	)
 	if err != nil {
 		panic(err)
@@ -134,28 +137,45 @@ CONTEXT_SIZE_LIMIT: 3000
 
 ## Compression Strategies
 
-### Minimalist Compression (Default)
+### UltraShort Compression (RECOMMENDED)
 
 ```go
+// Best practice for most use cases
 compressor.NewAgent(
 	ctx,
 	agents.Config{
-		SystemInstructions: compressor.Instructions.Minimalist,
+		SystemInstructions: compressor.Instructions.Effective,
 	},
 	modelConfig,
-	compressor.WithCompressionPrompt(compressor.Prompts.Minimalist),
+	compressor.WithCompressionPrompt(compressor.Prompts.UltraShort),
 )
 ```
 
-**Effect**: Very concise summaries, maximum token reduction
+**Effect**: Maximum token reduction with essential information preserved
+
+### Available Options
+
+```go
+// Instructions (SystemInstructions)
+compressor.Instructions.Expert      // Most sophisticated compression
+compressor.Instructions.Effective   // Balanced (RECOMMENDED)
+compressor.Instructions.Basic       // Simple compression
+
+// Prompts (WithCompressionPrompt)
+compressor.Prompts.UltraShort   // Maximum reduction (RECOMMENDED)
+compressor.Prompts.Minimalist   // Very concise
+compressor.Prompts.Balanced     // Balance detail/brevity
+compressor.Prompts.Detailed     // Preserve more information
+```
 
 ### Detailed Compression
 
 ```go
+// When you need to preserve more context
 compressor.NewAgent(
 	ctx,
 	agents.Config{
-		SystemInstructions: compressor.Instructions.Detailed,
+		SystemInstructions: compressor.Instructions.Expert,
 	},
 	modelConfig,
 	compressor.WithCompressionPrompt(compressor.Prompts.Detailed),
@@ -312,10 +332,11 @@ curl -X POST http://localhost:8080/memory/reset
 - Warning appears at 80% of limit
 - Compression is **deterministic** (temperature 0.0)
 - Recent messages are **preserved**, older ones are summarized
+- **BEST PRACTICE**: Use `compressor.Instructions.Effective` for SystemInstructions
+- **BEST PRACTICE**: Use `compressor.Prompts.UltraShort` for maximum compression
 - Compression reduces token count but may lose some context details
-- Use minimalist compression for maximum token reduction
-- Use detailed compression to preserve more information
 - System instructions are never compressed
+- Available built-in presets: Expert, Effective, Basic (Instructions) and UltraShort, Minimalist, Balanced, Detailed (Prompts)
 
 ## Best Practices
 

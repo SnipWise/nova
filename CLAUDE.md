@@ -32,7 +32,10 @@ nova-demos/
             │   ├── structured/          # Structured output agents
             │   ├── compressor/          # Compressor agents
             │   ├── orchestrator/        # Orchestrator agents (topic detection)
-            │   └── complex/             # Crew & Pipeline
+            │   ├── server/              # Server agents (HTTP API)
+            │   ├── remote/              # Remote agents (clients)
+            │   ├── complex/             # Crew & Pipeline
+            │   └── docker/              # Docker & Deployment
             └── references/              # API documentation
 ```
 
@@ -104,6 +107,85 @@ use the nova-agent-builder skill to create a RAG agent
 | complex | crew-server-agent | HTTP agent server (API) | 56 |
 | complex | remote-agent | Client for Crew Server | 51 |
 | complex | pipeline-agent | Chained agents | 56 |
+| **docker** | **dockerfile-template** | **Multi-stage Dockerfile for agents** | - |
+| **docker** | **docker-compose-simple** | **Docker Compose for simple agents** | - |
+| **docker** | **docker-compose-complex** | **Docker Compose for crew/pipeline** | - |
+| **docker** | **dockerization-guide** | **Complete dockerization guide** | - |
+
+## Docker & Deployment
+
+### Dockerize Agents
+
+To dockerize your agents for production deployment:
+
+```
+dockerize my chat agent
+create docker compose for my RAG agent
+deploy my crew to production
+```
+
+**Claude will generate**:
+- Multi-stage Dockerfile (optimized, ~15-25 MB)
+- docker-compose.yml with Docker Agentic Compose
+- .dockerignore file
+- Environment-variable-based configuration
+- Build and run instructions
+
+### Docker Agentic Compose
+
+**What is it?** Docker Compose extension (v2.38.0+) that manages AI models as first-class resources.
+
+**Key features**:
+- Declarative model management in `compose.yml`
+- Automatic environment variable injection (`ENGINE_URL`, `MODEL_ID`)
+- Model lifecycle management via Docker Model Runner
+- Multi-model orchestration
+
+**Example**:
+```yaml
+services:
+  chat-agent:
+    models:
+      chat-model:
+        endpoint_var: ENGINE_URL      # Auto-injected
+        model_var: CHAT_MODEL_ID      # Auto-injected
+
+models:
+  chat-model:
+    model: ai/qwen2.5:1.5B-F16
+```
+
+### Available Docker Templates
+
+| Template | Use Case | Command |
+|----------|----------|---------|
+| **Dockerfile** | Any agent | `docker build -t my-agent .` |
+| **Simple Compose** | Chat/RAG/Tools/Server | `docker compose up -d` |
+| **Complex Compose** | Crew/Pipeline/Orchestrator | `docker compose up -d` |
+| **Complete Guide** | Step-by-step tutorial | Read `docker/dockerization-guide.md` |
+
+### Deployment Strategies
+
+- **Local**: Docker Compose (development, demos)
+- **Multi-host**: Docker Swarm (small-medium production)
+- **Cloud**: Kubernetes, AWS ECS, Azure ACI, GCP Cloud Run
+
+### Prerequisites
+
+- Docker Desktop 4.36+ (includes Docker Compose 2.38+)
+- Docker Model Runner (included in Docker Desktop)
+- Pre-downloaded models (optional, auto-pulled on first run)
+
+```bash
+# Verify installation
+docker --version
+docker compose version
+docker model list
+
+# Pull models
+docker model pull ai/qwen2.5:1.5B-F16
+docker model pull ai/mxbai-embed-large
+```
 
 ## Orchestrator Agent
 

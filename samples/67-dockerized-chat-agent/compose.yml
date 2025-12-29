@@ -1,0 +1,47 @@
+# Docker Compose configuration for Dockerized Chat Agent
+# Uses Docker Agentic Compose for AI model management
+# Requires Docker Desktop 4.36+ with Docker Compose 2.38+
+
+# === SERVICES ===
+services:
+  chat-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # For interactive CLI agents
+    # stdin_open: true
+    # tty: true
+
+    environment:
+      # Application configuration
+      NOVA_LOG_LEVEL: INFO
+      AGENT_NAME: "Bob"
+      SYSTEM_INSTRUCTIONS: "You are Bob, a helpful and friendly AI assistant."
+
+      # Model configuration (injected by Docker Agentic Compose)
+      # ENGINE_URL: (auto-injected by Docker Model Runner)
+      # CHAT_MODEL_ID: (auto-injected from models section below)
+
+    # AI models used by this service
+    # Docker Agentic Compose will automatically:
+    # 1. Start Docker Model Runner
+    # 2. Load the specified model
+    # 3. Inject ENGINE_URL and CHAT_MODEL_ID into the container
+    models:
+      chat-model:
+        endpoint_var: ENGINE_URL      # Environment variable for LLM endpoint
+        model_var: CHAT_MODEL_ID      # Environment variable for model name
+
+    # Restart policy for production
+    # restart: unless-stopped
+
+# === GLOBAL MODELS ===
+# Define AI models available to services
+# These models are managed by Docker Model Runner
+models:
+  chat-model:
+    model: ai/qwen2.5:1.5B-F16
+    # Optional configuration:
+    # context_size: 32768
+    # gpu_layers: 35  # For GPU acceleration
