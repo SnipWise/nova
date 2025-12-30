@@ -181,6 +181,6 @@ func (agent *BaseAgent) handleStopReason(
 
 	// Add final assistant message to conversation history
 	// NOTE: do not keep the tool calls in the final message / 2025.12.31
-	//messages = append(messages, openai.AssistantMessage(content))
+	messages = append(messages, openai.AssistantMessage(content))
 	return messages, content
 }

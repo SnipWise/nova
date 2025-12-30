@@ -39,6 +39,7 @@ func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
 			Name:               "coder",
 			EngineURL:          engineURL,
 			SystemInstructions: coderAgentSystemInstructionsContent,
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        coderAgentModel,
@@ -71,6 +72,7 @@ func getThinkerAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 			Name:               "thinker",
 			EngineURL:          engineURL,
 			SystemInstructions: thinkerAgentSystemInstructionsContent,
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        thinkerModel,
@@ -102,6 +104,7 @@ func getCookAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
 			Name:               "cook",
 			EngineURL:          engineURL,
 			SystemInstructions: cookAgentSystemInstructionsContent,
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        cookModel,
@@ -134,6 +137,7 @@ func getGenericAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 			Name:               "generic",
 			EngineURL:          engineURL,
 			SystemInstructions: genericAgentSystemInstructionsContent,
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        genericModel,

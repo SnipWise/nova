@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
@@ -193,12 +192,8 @@ func (agent *Agent) GenerateStreamCompletion(
 		return nil, err
 	}
 
-	// Add assistant response to history only if KeepConversationHistory is true
-	if agent.config.KeepConversationHistory {
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(response),
-		)
-	}
+	// NOTE: The assistant response is already added to history in BaseAgent.GenerateStreamCompletion
+	// when KeepConversationHistory is true, so we don't need to add it again here
 
 	return &CompletionResult{
 		Response:     response,
@@ -232,12 +227,8 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 		return nil, err
 	}
 
-	// Add assistant response to history only if KeepConversationHistory is true
-	if agent.config.KeepConversationHistory {
-		agent.internalAgent.AddMessage(
-			openai.AssistantMessage(response),
-		)
-	}
+	// NOTE: The assistant response is already added to history in BaseAgent.GenerateStreamCompletionWithReasoning
+	// when KeepConversationHistory is true, so we don't need to add it again here
 
 	return &ReasoningResult{
 		Response:     response,

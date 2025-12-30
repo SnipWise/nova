@@ -347,9 +347,11 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 			return "", results, "", cbkRes
 		}
 		if err := stream.Err(); err != nil {
+			agent.Log.Error("Stream error: %v", err)
 			return "", results, "", err
 		}
 		if err := stream.Close(); err != nil {
+			agent.Log.Error("Stream close error: %v", err)
 			return "", results, "", err
 		}
 
@@ -443,9 +445,11 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmationStream(
 			return "", results, "", cbkRes
 		}
 		if err := stream.Err(); err != nil {
+			agent.Log.Error("Stream error: %v", err)
 			return "", results, "", err
 		}
 		if err := stream.Close(); err != nil {
+			agent.Log.Error("Stream close error: %v", err)
 			return "", results, "", err
 		}
 

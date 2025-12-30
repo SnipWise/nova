@@ -44,7 +44,7 @@ func (agent *CrewAgent) StreamCompletion(
 		// Stream the final response after tool calls
 
 		// Add tool results to chat agent context
-		if len(toolCallsResult.Results) > 0 {
+		if len(toolCallsResult.Results) > 0 && toolCallsResult.LastAssistantMessage != "" {
 			agent.currentChatAgent.AddMessage(roles.System, toolCallsResult.LastAssistantMessage)
 			agent.toolsAgent.ResetMessages()
 		}
@@ -64,10 +64,12 @@ func (agent *CrewAgent) StreamCompletion(
 				relevantContext += sim.Prompt + "\n---\n"
 			}
 			agent.log.Info("Added %d similar contexts from RAG agent", len(similarities))
-			agent.currentChatAgent.AddMessage(
-				roles.System,
-				"Relevant information to help you answer the question:\n"+relevantContext,
-			)
+			if relevantContext != "" {
+				agent.currentChatAgent.AddMessage(
+					roles.System,
+					"Relevant information to help you answer the question:\n"+relevantContext,
+				)
+			}
 		} else {
 			if err != nil {
 				agent.log.Error("Error during similarity search: %v", err)

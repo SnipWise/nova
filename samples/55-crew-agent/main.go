@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -39,6 +40,7 @@ func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
 			Name:               "coder",
 			EngineURL:          engineURL,
 			SystemInstructions: coderAgentSystemInstructionsContent,
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        coderAgentModel,
@@ -71,6 +73,7 @@ func getThinkerAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 			Name:               "thinker",
 			EngineURL:          engineURL,
 			SystemInstructions: thinkerAgentSystemInstructionsContent,
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        thinkerModel,
@@ -102,6 +105,7 @@ func getCookAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
 			Name:               "cook",
 			EngineURL:          engineURL,
 			SystemInstructions: cookAgentSystemInstructionsContent,
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        cookModel,
@@ -134,6 +138,7 @@ func getGenericAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 			Name:               "generic",
 			EngineURL:          engineURL,
 			SystemInstructions: genericAgentSystemInstructionsContent,
+			KeepConversationHistory: true,
 		},
 		models.Config{
 			Name:        genericModel,
@@ -146,6 +151,8 @@ func getGenericAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 
 	return genericAgent, nil
 }
+
+var agentCrew = make(map[string]*chat.Agent)
 
 func main() {
 	// Enable logging
@@ -160,7 +167,7 @@ func main() {
 	// ------------------------------------------------
 	// Create the agent crew
 	// ------------------------------------------------
-	agentCrew := make(map[string]*chat.Agent)
+	//agentCrew := make(map[string]*chat.Agent)
 
 	coderAgent, err := getCoderAgent(ctx, engineURL)
 	if err != nil {
@@ -350,6 +357,16 @@ func main() {
 			break
 		}
 
+		if strings.HasPrefix(question, "/messages") {
+			display.Infof("💬 Current conversation messages:")
+			for i, msg := range crewAgent.GetMessages() {
+				display.Infof("Message %d - Role: %s, Content: \n%s", i, msg.Role, msg.Content)
+				display.Separator()
+			}
+			continue
+		}
+
+
 		if strings.HasPrefix(question, "/reset") {
 			display.Infof("🔄 Resetting %s context", crewAgent.GetName())
 			crewAgent.ResetMessages()
@@ -396,9 +413,14 @@ func GetToolsIndex() []*tools.Tool {
 		SetDescription("Say hello to the given name").
 		AddParameter("name", "string", "The name to greet", true)
 
+	getHistoryMessagesOfAgentByIdTool := tools.NewTool("get_history_messages_of_agent_by_id").
+		SetDescription("Get the history messages of an agent by its ID").
+		AddParameter("agent_id", "string", "The ID of the agent", true)
+
 	return []*tools.Tool{
 		calculateSumTool,
 		sayHelloTool,
+		getHistoryMessagesOfAgentByIdTool,
 	}
 }
 
@@ -426,6 +448,26 @@ func executeFunction(functionName string, arguments string) (string, error) {
 		}
 		sum := args.A + args.B
 		return fmt.Sprintf(`{"result": %g}`, sum), nil
+
+	case "get_history_messages_of_agent_by_id":
+		var args struct {
+			AgentID string `json:"agent_id"`
+		}
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			return `{"error": "Invalid arguments for get_history_messages_of_agent_by_id"}`, nil
+		}
+		agent, exists := agentCrew[args.AgentID]
+		if !exists {
+			return `{"error": "Agent not found"}`, errors.New("agent not found: " + args.AgentID)
+		}
+		historyMessages := agent.GetMessages()
+
+		for _, msg := range historyMessages {
+			display.Infof("🟠 %s: %s", msg.Role, msg.Content)
+			display.Separator()
+		}
+
+		return fmt.Sprintf(`{"message": "%s"}`, "😂😉😁"), nil
 
 	default:
 		return `{"error": "Unknown function"}`, fmt.Errorf("unknown function: %s", functionName)

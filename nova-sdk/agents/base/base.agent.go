@@ -223,8 +223,8 @@ func (agent *Agent) GenerateCompletion(messages []openai.ChatCompletionMessagePa
 		response = completion.Choices[0].Message.Content
 		finishReason = completion.Choices[0].FinishReason
 
-		// Only add assistant response to history if KeepConversationHistory is true
-		if agent.Config.KeepConversationHistory {
+		// Only add assistant response to history if KeepConversationHistory is true and response is not empty
+		if agent.Config.KeepConversationHistory && response != "" {
 			agent.ChatCompletionParams.Messages = append(
 				agent.ChatCompletionParams.Messages,
 				openai.AssistantMessage(response),
@@ -288,8 +288,8 @@ func (agent *Agent) GenerateCompletionWithReasoning(messages []openai.ChatComple
 	reasoning = reasoningContent.ReasoningContent
 	response = completion.Choices[0].Message.Content
 
-	// Only add assistant response to history if KeepConversationHistory is true
-	if agent.Config.KeepConversationHistory {
+	// Only add assistant response to history if KeepConversationHistory is true and response is not empty
+	if agent.Config.KeepConversationHistory && response != "" {
 		agent.ChatCompletionParams.Messages = append(
 			agent.ChatCompletionParams.Messages,
 			openai.AssistantMessage(response),
@@ -376,14 +376,16 @@ func (agent *Agent) GenerateStreamCompletion(
 		return response, finalFinishReason, callBackError
 	}
 	if err := stream.Err(); err != nil {
+		agent.Log.Error("Stream error: %v", err)
 		return response, finalFinishReason, err
 	}
 	if err := stream.Close(); err != nil {
+		agent.Log.Error("Stream close error: %v", err)
 		return response, finalFinishReason, err
 	}
 
-	// Only add assistant response to history if KeepConversationHistory is true
-	if agent.Config.KeepConversationHistory {
+	// Only add assistant response to history if KeepConversationHistory is true and response is not empty
+	if agent.Config.KeepConversationHistory && response != "" {
 		agent.ChatCompletionParams.Messages = append(
 			agent.ChatCompletionParams.Messages,
 			openai.AssistantMessage(response),
@@ -498,14 +500,16 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 		return response, reasoning, finishReason, callBackError
 	}
 	if err := stream.Err(); err != nil {
+		agent.Log.Error("Stream error: %v", err)
 		return response, reasoning, finishReason, err
 	}
 	if err := stream.Close(); err != nil {
+		agent.Log.Error("Stream close error: %v", err)
 		return response, reasoning, finishReason, err
 	}
 
-	// Only add assistant response to history if KeepConversationHistory is true
-	if agent.Config.KeepConversationHistory {
+	// Only add assistant response to history if KeepConversationHistory is true and response is not empty
+	if agent.Config.KeepConversationHistory && response != "" {
 		agent.ChatCompletionParams.Messages = append(
 			agent.ChatCompletionParams.Messages,
 			openai.AssistantMessage(response),

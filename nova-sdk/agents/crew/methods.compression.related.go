@@ -47,10 +47,12 @@ func (agent *CrewAgent) CompressChatAgentContextIfOverLimit() (int, error) {
 			return 0, err
 		}
 		agent.currentChatAgent.ResetMessages()
-		agent.currentChatAgent.AddMessage(
-			roles.System,
-			newContext.CompressedText,
-		)
+		if newContext.CompressedText != "" {
+			agent.currentChatAgent.AddMessage(
+				roles.System,
+				newContext.CompressedText,
+			)
+		}
 		// IMPORTANT: if the new context is still over the limit, we might need to handle that case
 		// if the new size is arround 80% of the limit, return an error
 		if len(newContext.CompressedText) > int(0.8*float64(agent.contextSizeLimit)) {
@@ -83,9 +85,11 @@ func (agent *CrewAgent) CompressChatAgentContext() (int, error) {
 		return 0, err
 	}
 	agent.currentChatAgent.ResetMessages()
-	agent.currentChatAgent.AddMessage(
-		roles.System,
-		newContext.CompressedText,
-	)
+	if newContext.CompressedText != "" {
+		agent.currentChatAgent.AddMessage(
+			roles.System,
+			newContext.CompressedText,
+		)
+	}
 	return len(newContext.CompressedText), nil
 }

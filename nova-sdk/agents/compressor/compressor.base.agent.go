@@ -173,9 +173,11 @@ func (agent *BaseAgent) CompressContextStream(
 		return response, finalFinishReason, callBackError
 	}
 	if err := stream.Err(); err != nil {
+		agent.Log.Error("Stream error: %v", err)
 		return response, finalFinishReason, err
 	}
 	if err := stream.Close(); err != nil {
+		agent.Log.Error("Stream close error: %v", err)
 		return response, finalFinishReason, err
 	}
 
