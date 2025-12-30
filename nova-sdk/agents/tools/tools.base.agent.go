@@ -89,7 +89,9 @@ func (agent *BaseAgent) DetectParallelToolCalls(messages []openai.ChatCompletion
 				return finishReason, results, lastAssistantMessage, nil
 			}
 		} else {
-			agent.Log.Warn("😢 No tool calls found in response")
+			//agent.Log.Warn("😢 No tool calls found in response")
+			agent.Log.Info("😢 No tool calls found in response")
+
 		}
 
 	case "stop":
@@ -153,7 +155,8 @@ func (agent *BaseAgent) DetectParallelToolCallsWitConfirmation(
 				return finishReason, results, lastAssistantMessage, nil
 			}
 		} else {
-			agent.Log.Warn("😢 No tool calls found in response")
+			//agent.Log.Warn("😢 No tool calls found in response")
+			agent.Log.Info("😢 No tool calls found in response")
 		}
 
 	case "stop":
@@ -208,7 +211,8 @@ func (agent *BaseAgent) DetectToolCallsLoop(messages []openai.ChatCompletionMess
 			if len(detectedToolCalls) > 0 {
 				workingMessages, stopped, finishReason = agent.processToolCalls(workingMessages, detectedToolCalls, &results, toolCallBack, nil)
 			} else {
-				agent.Log.Warn("😢 No tool calls found in response")
+				//agent.Log.Warn("😢 No tool calls found in response")
+				agent.Log.Info("😢 No tool calls found in response")
 			}
 
 		case "stop":
@@ -275,7 +279,8 @@ func (agent *BaseAgent) DetectToolCallsLoopWithConfirmation(
 					return finishReason, results, lastAssistantMessage, nil
 				}
 			} else {
-				agent.Log.Warn("😢 No tool calls found in response")
+				//agent.Log.Warn("😢 No tool calls found in response")
+				agent.Log.Info("😢 No tool calls found in response")
 			}
 
 		case "stop":
@@ -364,7 +369,8 @@ func (agent *BaseAgent) DetectToolCallsLoopStream(messages []openai.ChatCompleti
 			if len(detectedToolCalls) > 0 {
 				workingMessages, stopped, finishReason = agent.processToolCalls(workingMessages, detectedToolCalls, &results, toolCallback, nil)
 			} else {
-				agent.Log.Warn("😢 No tool calls found in response")
+				//agent.Log.Warn("😢 No tool calls found in response")
+				agent.Log.Info("😢 No tool calls found in response")
 			}
 
 		case "stop":

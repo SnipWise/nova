@@ -174,10 +174,13 @@ func (agent *BaseAgent) handleStopReason(
 	messages []openai.ChatCompletionMessageParamUnion,
 	content string,
 ) ([]openai.ChatCompletionMessageParamUnion, string) {
+	// NOTE: If you reach here, it means the agent decided to stop without calling any tools
 	agent.Log.Info("✋ Stopping due to 'stop' finish reason.")
-	agent.Log.Info(fmt.Sprintf("🤖 %s\n", content))
+	
+	agent.Log.Info(fmt.Sprintf("🤖 [from the tool agent] %s\n", content))
 
 	// Add final assistant message to conversation history
-	messages = append(messages, openai.AssistantMessage(content))
+	// NOTE: do not keep the tool calls in the final message / 2025.12.31
+	//messages = append(messages, openai.AssistantMessage(content))
 	return messages, content
 }
