@@ -474,7 +474,7 @@ chatAgents := map[string]*chat.Agent{
 }
 
 // Define routing
-matchAgentFn := func(topic string) string {
+matchAgentFn := func(currentAgentId, topic string) string {
     switch strings.ToLower(topic) {
     case "technical", "tools":
         return "technical"

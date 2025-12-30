@@ -88,6 +88,7 @@ func (agent *CrewAgent) StreamCompletion(
 		} else if detectedAgentId != "" && agent.chatAgents[detectedAgentId] != agent.currentChatAgent {
 			agent.log.Info("💡 Switching to detected agent ID: %s", detectedAgentId)
 			agent.currentChatAgent = agent.chatAgents[detectedAgentId]
+			agent.selectedAgentId = detectedAgentId
 		}
 	}
 

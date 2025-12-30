@@ -193,6 +193,7 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 		} else if detectedAgentId != "" && agent.chatAgents[detectedAgentId] != agent.currentChatAgent {
 			agent.Log.Info("💡 Switching to detected agent ID: %s", detectedAgentId)
 			agent.currentChatAgent = agent.chatAgents[detectedAgentId]
+			agent.selectedAgentId = detectedAgentId
 		}
 	}
 	// ------------------------------------------------------------

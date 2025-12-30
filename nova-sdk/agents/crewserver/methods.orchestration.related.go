@@ -40,7 +40,7 @@ func (ca *CrewServerAgent) DetectTopicThenGetAgentId(query string) (string, erro
 	// --------------------------------------------------------
 	// Get agent ID based on detected topic
 	// --------------------------------------------------------
-	agentId := ca.matchAgentIdToTopicFn(response.TopicDiscussion)
+	agentId := ca.matchAgentIdToTopicFn(ca.selectedAgentId, response.TopicDiscussion)
 
 	if _, exists := ca.chatAgents[agentId]; !exists {
 		return "", fmt.Errorf("no chat agent found with ID: %s", agentId)

@@ -21,7 +21,7 @@ func (agent *CrewAgent) GetOrchestratorAgent() agents.OrchestratorAgent {
 // DetectTopicThenSetCurrentAgent sets the current active chat agent based on the detected topic from the query.
 // query -> user message
 func (ca *CrewAgent) DetectTopicThenGetAgentId(query string) (string, error) {
-
+    
 	ca.log.Info("🔍 Detecting topic for routing...")
 	ca.log.Info("📝 Query: " + query)
 	// Topic detection via orchestrator agent
@@ -40,7 +40,7 @@ func (ca *CrewAgent) DetectTopicThenGetAgentId(query string) (string, error) {
 	// --------------------------------------------------------
 	// Get agent ID based on detected topic
 	// --------------------------------------------------------
-	agentId := ca.matchAgentIdToTopicFn(response.TopicDiscussion)
+	agentId := ca.matchAgentIdToTopicFn(ca.selectedAgentId, response.TopicDiscussion)
 
 	if _, exists := ca.chatAgents[agentId]; !exists {
 		return "", fmt.Errorf("no chat agent found with ID: %s", agentId)

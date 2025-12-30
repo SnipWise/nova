@@ -326,7 +326,7 @@ Respond in JSON: {"topic_discussion": "TopicName"}`,
 )
 
 // Define routing logic
-matchAgentFn := func(topic string) string {
+matchAgentFn := func(currentAgentId, topic string) string {
     switch strings.ToLower(topic) {
     case "technology", "programming":
         return "researcher"

@@ -14,12 +14,12 @@ import (
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
-
 type CrewAgent struct {
 
 	// Multiple chat agents for different purposes
 	// The crew agent can route between them based on the task
-	chatAgents map[string]*chat.Agent
+	chatAgents      map[string]*chat.Agent
+	selectedAgentId string
 
 	currentChatAgent *chat.Agent
 	toolsAgent       *tools.Agent
@@ -36,7 +36,7 @@ type CrewAgent struct {
 	orchestratorAgent agents.OrchestratorAgent
 
 	// Retrieval function: from a topic determine which agent to use
-	matchAgentIdToTopicFn func(string) string
+	matchAgentIdToTopicFn func(string, string) string
 
 	ctx context.Context
 	log logger.Logger
@@ -88,7 +88,7 @@ func NewAgent(
 	ctx context.Context,
 	agentCrew map[string]*chat.Agent,
 	selectedAgentId string,
-	matchAgentIdToTopicFn func(string) string,
+	matchAgentIdToTopicFn func(string, string) string,
 	executeFn func(string, string) (string, error),
 	confirmationPromptFn func(string, string) tools.ConfirmationResponse,
 ) (*CrewAgent, error) {
@@ -101,6 +101,7 @@ func NewAgent(
 	agent := &CrewAgent{
 		chatAgents:       agentCrew,
 		currentChatAgent: firstSelectedAgent,
+		selectedAgentId:  selectedAgentId,
 		toolsAgent:       nil,
 		ragAgent:         nil,
 		similarityLimit:  0.6,
@@ -118,7 +119,7 @@ func NewAgent(
 		agent.matchAgentIdToTopicFn = matchAgentIdToTopicFn
 	} else {
 		// Default function: return the first agent ID in the map ignoring the topic if no function is provided
-		agent.matchAgentIdToTopicFn = func(topic string) string {
+		agent.matchAgentIdToTopicFn = func(currentAgent, topic string) string {
 			var agentId string
 			for key := range agent.chatAgents {
 				agentId = key
@@ -257,4 +258,21 @@ func (agent *CrewAgent) GenerateStreamCompletionWithReasoning(
 // ExportMessagesToJSON exports the conversation history to JSON
 func (agent *CrewAgent) ExportMessagesToJSON() (string, error) {
 	return agent.currentChatAgent.ExportMessagesToJSON()
+}
+
+// GetSelectedAgentId returns the currently selected agent ID
+func (agent *CrewAgent) GetSelectedAgentId() string {
+	return agent.selectedAgentId
+}
+
+// SetSelectedAgentId sets the currently selected agent ID
+func (agent *CrewAgent) SetSelectedAgentId(agentId string) error {
+	chatAgent, exists := agent.chatAgents[agentId]
+	if !exists {
+		return fmt.Errorf("no chat agent found with ID: %s", agentId)
+	}
+	agent.selectedAgentId = agentId
+	agent.currentChatAgent = chatAgent
+	agent.log.Info("🔀 Switched to agent ID: %s", agentId)
+	return nil
 }

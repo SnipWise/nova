@@ -151,7 +151,7 @@ import (
 )
 
 // Define routing function based on detected topic
-matchAgentFunction := func(topic string) string {
+matchAgentFunction := func(currentAgentId, topic string) string {
 	var agentId string
 	switch strings.ToLower(topic) {
 	case "coding", "programming", "development", "technology", "software":

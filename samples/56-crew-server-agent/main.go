@@ -189,7 +189,7 @@ func main() {
 	// ------------------------------------------------
 	// Define the function to match agent ID to topic
 	// ------------------------------------------------
-	matchAgentFunction := func(topic string) string {
+	matchAgentFunction := func(currentAgentId, topic string) string {
 		fmt.Println("🔵 Matching agent for topic:", topic)
 		var agentId string
 		switch strings.ToLower(topic) {

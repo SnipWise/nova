@@ -18,7 +18,8 @@ type CrewServerAgent struct {
 
 	// Multiple chat agents for different purposes
 	// The crewserver can route between them based on the task
-	chatAgents map[string]*chat.Agent
+	chatAgents      map[string]*chat.Agent
+	selectedAgentId string
 
 	currentChatAgent *chat.Agent
 
@@ -26,7 +27,7 @@ type CrewServerAgent struct {
 	orchestratorAgent agents.OrchestratorAgent
 
 	// Retrieval function: from a topic determine which agent to use
-	matchAgentIdToTopicFn func(string) string
+	matchAgentIdToTopicFn func(string, string) string
 }
 
 // Re-export types from serverbase for backward compatibility
@@ -45,7 +46,7 @@ func NewAgent(
 	agentCrew map[string]*chat.Agent,
 	selectedAgentId string,
 	port string,
-	matchAgentIdToTopicFn func(string) string,
+	matchAgentIdToTopicFn func(string, string) string,
 	executeFn func(string, string) (string, error),
 ) (*CrewServerAgent, error) {
 
@@ -60,6 +61,7 @@ func NewAgent(
 		BaseServerAgent:  baseAgent,
 		chatAgents:       agentCrew,
 		currentChatAgent: firstSelectedAgent,
+		selectedAgentId:  selectedAgentId,
 	}
 
 	// Set matchAgentIdToTopicFn
@@ -67,7 +69,7 @@ func NewAgent(
 		agent.matchAgentIdToTopicFn = matchAgentIdToTopicFn
 	} else {
 		// Default function: return the first agent ID in the map ignoring the topic if no function is provided
-		agent.matchAgentIdToTopicFn = func(topic string) string {
+		agent.matchAgentIdToTopicFn = func(currentAgent, topic string) string {
 			var agentId string
 			for key := range agent.chatAgents {
 				agentId = key
@@ -209,6 +211,23 @@ func (agent *CrewServerAgent) GenerateStreamCompletionWithReasoning(
 func (agent *CrewServerAgent) ExportMessagesToJSON() (string, error) {
 	return agent.currentChatAgent.ExportMessagesToJSON()
 }
+
+func (agent *CrewServerAgent) SetSelectedAgentId(agentId string) error {
+	chatAgent, exists := agent.chatAgents[agentId]
+	if !exists {
+		return fmt.Errorf("no chat agent found with ID: %s", agentId)
+	}
+	agent.selectedAgentId = agentId
+	agent.currentChatAgent = chatAgent
+	agent.Log.Info("🔀 Switched to agent ID: %s", agentId)
+	return nil
+}
+
+// GetSelectedAgentId returns the currently selected agent ID
+func (agent *CrewServerAgent) GetSelectedAgentId() string {
+	return agent.selectedAgentId
+}
+
 
 // StartServer starts the HTTP server with all routes
 func (agent *CrewServerAgent) StartServer() error {
