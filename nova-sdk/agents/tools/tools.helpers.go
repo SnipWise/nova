@@ -91,19 +91,19 @@ func (agent *BaseAgent) executeToolCallWithConfirmation(
 		return agent.executeToolCall(functionName, functionArgs, callID, toolCallBack)
 
 	case Denied:
-		// Skip execution but add a message indicating the tool was denied
+		// Skip execution but add a message indicating the tool was denied (cancel in the vscode extension)
 		agent.Log.Warn(fmt.Sprintf("⛔ Tool execution denied for function: %s\n", functionName))
 		return toolExecutionResult{
-			Content:      `{"status": "denied", "message": "Tool execution was denied by user"}`,
+			Content: `{"status": "denied", "message": "Tool execution was denied by user"}`,
 			ShouldStop:   false,
-			FinishReason: "",
+			FinishReason: "user_denied",
 		}, nil
 
 	case Quit:
-		// Exit the function immediately
+		// Exit the function immediately (reset in the vscode extension)
 		agent.Log.Warn(fmt.Sprintf("🛑 Quit requested for function: %s\n", functionName))
 		return toolExecutionResult{
-			Content:      "",
+			Content:      `{"status": "quit", "message": "Tool execution was quit by user"}`,
 			ShouldStop:   true,
 			FinishReason: "user_quit",
 		}, nil
@@ -176,7 +176,7 @@ func (agent *BaseAgent) handleStopReason(
 ) ([]openai.ChatCompletionMessageParamUnion, string) {
 	// NOTE: If you reach here, it means the agent decided to stop without calling any tools
 	agent.Log.Info("✋ Stopping due to 'stop' finish reason.")
-	
+
 	agent.Log.Info(fmt.Sprintf("🤖 [from the tool agent] %s\n", content))
 
 	// Add final assistant message to conversation history

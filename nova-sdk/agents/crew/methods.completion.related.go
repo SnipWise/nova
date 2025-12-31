@@ -29,11 +29,22 @@ func (agent *CrewAgent) StreamCompletion(
 	// NOTE: Tool calls detection and execution if toolsAgent is set
 	// ------------------------------------------------------------
 	// Tool calls detection and execution if toolsAgent is set
+	toolExecution := false
 	if agent.toolsAgent != nil {
-		toolCallsResult, err := agent.toolsAgent.DetectParallelToolCallsWithConfirmation(
-			[]messages.Message{
-				{Role: roles.User, Content: question},
-			},
+
+		agent.toolsAgent.ResetMessages()
+
+		historyMessagesForToolsAgent := agent.currentChatAgent.GetMessages()
+		historyMessagesForToolsAgent = append(historyMessagesForToolsAgent, messages.Message{
+			Role:    roles.User,
+			Content: question,
+		})
+
+		toolCallsResult, err := agent.toolsAgent.DetectToolCallsLoopWithConfirmation(
+			// []messages.Message{
+			// 	{Role: roles.User, Content: question},
+			// },
+			historyMessagesForToolsAgent,
 			agent.executeFn,
 			agent.confirmationPromptFn,
 		)
@@ -41,78 +52,102 @@ func (agent *CrewAgent) StreamCompletion(
 			return nil, err
 		}
 
+		// Check if user cancelled/quit the execution
+		// if toolCallsResult != nil && toolCallsResult.FinishReason == "user_quit" {
+		// 	agent.log.Warn("🛑 User cancelled tool execution")
+		// 	return &chat.CompletionResult{
+		// 		Response:     "Tool execution cancelled by user",
+		// 		FinishReason: "user_quit",
+		// 	}, nil
+		// }
+
 		// Stream the final response after tool calls
 
 		// Add tool results to chat agent context
 		if len(toolCallsResult.Results) > 0 && toolCallsResult.LastAssistantMessage != "" {
+
+			agent.log.Info("✅ Tool calls executed successfully.")
+			agent.log.Info("📝 Tool calls results: %s", toolCallsResult.Results)
+			agent.log.Info("😁 Last assistant message: %s", toolCallsResult.LastAssistantMessage)
+
 			agent.currentChatAgent.AddMessage(roles.System, toolCallsResult.LastAssistantMessage)
-			agent.toolsAgent.ResetMessages()
+
+			callback(toolCallsResult.LastAssistantMessage, "tool_calls_completed")
+			toolExecution = true
+
+			//agent.toolsAgent.ResetMessages()
 		}
 	} else {
 		// Do nothing
 	}
 
-	// ------------------------------------------------------------
-	// NOTE: Similarity search and add to context if RAG agent is set
-	// ------------------------------------------------------------
-	if agent.ragAgent != nil {
-		relevantContext := ""
-		similarities, err := agent.ragAgent.SearchTopN(question, agent.similarityLimit, agent.maxSimilarities)
-		if err == nil && len(similarities) > 0 {
-			for _, sim := range similarities {
-				agent.log.Debug("Adding relevant context with similarity: %s", sim.Prompt)
-				relevantContext += sim.Prompt + "\n---\n"
-			}
-			agent.log.Info("Added %d similar contexts from RAG agent", len(similarities))
-			if relevantContext != "" {
-				agent.currentChatAgent.AddMessage(
-					roles.System,
-					"Relevant information to help you answer the question:\n"+relevantContext,
-				)
-			}
-		} else {
-			if err != nil {
-				agent.log.Error("Error during similarity search: %v", err)
+	if !toolExecution { // IMPORTANT: only generate completion if no tool execution was done
+		agent.log.Info("No tool execution was performed.")
+
+		// ------------------------------------------------------------
+		// NOTE: Similarity search and add to context if RAG agent is set
+		// ------------------------------------------------------------
+		if agent.ragAgent != nil {
+			relevantContext := ""
+			similarities, err := agent.ragAgent.SearchTopN(question, agent.similarityLimit, agent.maxSimilarities)
+			if err == nil && len(similarities) > 0 {
+				for _, sim := range similarities {
+					agent.log.Debug("Adding relevant context with similarity: %s", sim.Prompt)
+					relevantContext += sim.Prompt + "\n---\n"
+				}
+				agent.log.Info("Added %d similar contexts from RAG agent", len(similarities))
+				if relevantContext != "" {
+					agent.currentChatAgent.AddMessage(
+						roles.System,
+						"Relevant information to help you answer the question:\n"+relevantContext,
+					)
+				}
 			} else {
-				agent.log.Info("No relevant contexts found for the query")
+				if err != nil {
+					agent.log.Error("Error during similarity search: %v", err)
+				} else {
+					agent.log.Info("No relevant contexts found for the query")
+				}
+			}
+
+		}
+
+		// ------------------------------------------------------------
+		// NOTE: Detect if we need to select another agent based on topic
+		// ------------------------------------------------------------
+		if agent.orchestratorAgent != nil {
+			detectedAgentId, err := agent.DetectTopicThenGetAgentId(question)
+			if err != nil {
+				agent.log.Error("Error during topic detection: %v", err)
+			} else if detectedAgentId != "" && agent.chatAgents[detectedAgentId] != agent.currentChatAgent {
+				agent.log.Info("💡 Switching to detected agent ID: %s", detectedAgentId)
+				agent.currentChatAgent = agent.chatAgents[detectedAgentId]
+				agent.selectedAgentId = detectedAgentId
 			}
 		}
 
-	}
+		// ------------------------------------------------------------
+		// NOTE: Generate streaming completion
+		// ------------------------------------------------------------
 
-	// ------------------------------------------------------------
-	// NOTE: Detect if we need to select another agent based on topic
-	// ------------------------------------------------------------
-	if agent.orchestratorAgent != nil {
-		detectedAgentId, err := agent.DetectTopicThenGetAgentId(question)
-		if err != nil {
-			agent.log.Error("Error during topic detection: %v", err)
-		} else if detectedAgentId != "" && agent.chatAgents[detectedAgentId] != agent.currentChatAgent {
-			agent.log.Info("💡 Switching to detected agent ID: %s", detectedAgentId)
-			agent.currentChatAgent = agent.chatAgents[detectedAgentId]
-			agent.selectedAgentId = detectedAgentId
+		agent.log.Info("🚀 Generating streaming completion for question: %s", question)
+		//stopped := false
+		completionResult, errCompletion := agent.currentChatAgent.GenerateStreamCompletion(
+			[]messages.Message{
+				{Role: roles.User, Content: question},
+			},
+			callback,
+		)
+
+		if errCompletion != nil {
+			agent.log.Error("Error during streaming completion: %v", errCompletion)
+			return nil, errCompletion
 		}
+		return completionResult, nil
 	}
 
-	// ------------------------------------------------------------
-	// NOTE: Generate streaming completion
-	// ------------------------------------------------------------
+	return &chat.CompletionResult{}, nil
 
-	agent.log.Info("🚀 Generating streaming completion for question: %s", question)
-	//stopped := false
-	completionResult, errCompletion := agent.currentChatAgent.GenerateStreamCompletion(
-		[]messages.Message{
-			{Role: roles.User, Content: question},
-		},
-		callback,
-	)
-
-	if errCompletion != nil {
-		agent.log.Error("Error during streaming completion: %v", errCompletion)
-		return nil, errCompletion
-	}
-
-	return completionResult, nil
 }
 
 /*

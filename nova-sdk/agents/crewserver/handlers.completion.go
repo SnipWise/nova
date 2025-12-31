@@ -110,11 +110,22 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 	// NOTE: Tool calls detection and execution if toolsAgent is set
 	// ------------------------------------------------------------
 	// Tool calls detection and execution if toolsAgent is set
+	toolExecution := false
 	if agent.ToolsAgent != nil {
-		toolCallsResult, err := agent.ToolsAgent.DetectParallelToolCallsWithConfirmation(
-			[]messages.Message{
-				{Role: roles.User, Content: question},
-			},
+
+		agent.ToolsAgent.ResetMessages()
+
+		historyMessagesForToolsAgent := agent.currentChatAgent.GetMessages()
+		historyMessagesForToolsAgent = append(historyMessagesForToolsAgent, messages.Message{
+			Role:    roles.User,
+			Content: question,
+		})
+
+		toolCallsResult, err := agent.ToolsAgent.DetectToolCallsLoopWithConfirmation(
+			// []messages.Message{
+			// 	{Role: roles.User, Content: question},
+			// },
+			historyMessagesForToolsAgent,
 			agent.ExecuteFn,
 			agent.webConfirmationPrompt,
 		)
@@ -135,17 +146,41 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		// Add tool results to chat agent context
-		if len(toolCallsResult.Results) > 0 {
-			agent.currentChatAgent.AddMessage(roles.System, toolCallsResult.LastAssistantMessage)
-			agent.ToolsAgent.ResetMessages()
+		// if toolCallsResult != nil && len(toolCallsResult.Results) == 0 {
+		// 	fmt.Println(strings.Repeat("=", 40))
+		// 	agent.Log.Warn("🅰️ "+ toolCallsResult.FinishReason)
+		// 	fmt.Println(strings.Repeat("=", 40))
+		// }
 
-			data := map[string]string{"message": "<hr>"}
+		// Add tool results to chat agent context
+		if len(toolCallsResult.Results) > 0 && toolCallsResult.LastAssistantMessage != "" {
+
+			agent.Log.Info("✅ Tool calls executed successfully.")
+			agent.Log.Info("📝 Tool calls results: %s", toolCallsResult.Results)
+			agent.Log.Info("😁 Last assistant message: %s", toolCallsResult.LastAssistantMessage)
+
+			agent.currentChatAgent.AddMessage(roles.System, toolCallsResult.LastAssistantMessage)
+
+			data := map[string]string{"message": "<hr>" + toolCallsResult.LastAssistantMessage + "<hr>"}
 			jsonData, _ := json.Marshal(data)
 			if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-				agent.Log.Error("Failed to write separator: %v", err)
+				agent.Log.Error("Failed to write message: %v", err)
 			}
+
 			flusher.Flush()
+
+			toolExecution = true
+			//agent.ToolsAgent.ResetMessages()
+
+			/*
+				data := map[string]string{"message": chunk}
+				jsonData, _ := json.Marshal(data)
+				if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
+					agent.Log.Error("Failed to write chunk: %v", err)
+				}
+				flusher.Flush()
+			*/
+
 		}
 	} else {
 		// Close notification channel and cleanup
@@ -157,92 +192,97 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 		agent.NotificationChanMutex.Unlock()
 	}
 
-	// ------------------------------------------------------------
-	// NOTE: Similarity search and add to context if RAG agent is set
-	// ------------------------------------------------------------
-	if agent.RagAgent != nil {
-		relevantContext := ""
-		similarities, err := agent.RagAgent.SearchTopN(question, agent.SimilarityLimit, agent.MaxSimilarities)
-		if err == nil && len(similarities) > 0 {
-			for _, sim := range similarities {
-				agent.Log.Debug("Adding relevant context with similarity: %s", sim.Prompt)
-				relevantContext += sim.Prompt + "\n---\n"
-			}
-			agent.Log.Info("Added %d similar contexts from RAG agent", len(similarities))
-			agent.currentChatAgent.AddMessage(
-				roles.System,
-				"Relevant information to help you answer the question:\n"+relevantContext,
-			)
-		} else {
-			if err != nil {
-				agent.Log.Error("Error during similarity search: %v", err)
+	if !toolExecution { // IMPORTANT: only generate completion if no tool execution was done
+		agent.Log.Info("No tool execution was performed.")
+
+		// ------------------------------------------------------------
+		// NOTE: Similarity search and add to context if RAG agent is set
+		// ------------------------------------------------------------
+		if agent.RagAgent != nil {
+			relevantContext := ""
+			similarities, err := agent.RagAgent.SearchTopN(question, agent.SimilarityLimit, agent.MaxSimilarities)
+			if err == nil && len(similarities) > 0 {
+				for _, sim := range similarities {
+					agent.Log.Debug("Adding relevant context with similarity: %s", sim.Prompt)
+					relevantContext += sim.Prompt + "\n---\n"
+				}
+				agent.Log.Info("Added %d similar contexts from RAG agent", len(similarities))
+				agent.currentChatAgent.AddMessage(
+					roles.System,
+					"Relevant information to help you answer the question:\n"+relevantContext,
+				)
 			} else {
-				agent.Log.Info("No relevant contexts found for the query")
-			}
-		}
-
-	}
-
-	// ------------------------------------------------------------
-	// NOTE: Detect if we need to select another agent based on topic
-	// ------------------------------------------------------------
-	if agent.orchestratorAgent != nil {
-		detectedAgentId, err := agent.DetectTopicThenGetAgentId(question)
-		if err != nil {
-			agent.Log.Error("Error during topic detection: %v", err)
-		} else if detectedAgentId != "" && agent.chatAgents[detectedAgentId] != agent.currentChatAgent {
-			agent.Log.Info("💡 Switching to detected agent ID: %s", detectedAgentId)
-			agent.currentChatAgent = agent.chatAgents[detectedAgentId]
-			agent.selectedAgentId = detectedAgentId
-		}
-	}
-	// ------------------------------------------------------------
-	// NOTE: Generate streaming completion
-	// ------------------------------------------------------------
-
-	agent.Log.Info("🚀 Generating streaming completion for question: %s", question)
-	stopped := false
-	_, errCompletion := agent.currentChatAgent.GenerateStreamCompletion(
-		[]messages.Message{
-			{Role: roles.User, Content: question},
-		},
-		func(chunk string, finishReason string) error {
-			// Check if stop signal received
-			select {
-			case <-agent.StopStreamChan:
-				stopped = true
-				return errors.New("stream stopped by user")
-			default:
-			}
-
-			if chunk != "" {
-				data := map[string]string{"message": chunk}
-				jsonData, _ := json.Marshal(data)
-				if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-					agent.Log.Error("Failed to write chunk: %v", err)
+				if err != nil {
+					agent.Log.Error("Error during similarity search: %v", err)
+				} else {
+					agent.Log.Info("No relevant contexts found for the query")
 				}
-				flusher.Flush()
 			}
 
-			if finishReason == "stop" && !stopped {
-				data := map[string]string{"message": "", "finish_reason": "stop"}
-				jsonData, _ := json.Marshal(data)
-				if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-					agent.Log.Error("Failed to write finish reason: %v", err)
-				}
-				flusher.Flush()
-			}
-
-			return nil
-		},
-	)
-
-	if errCompletion != nil && !stopped {
-		data := map[string]string{"error": errCompletion.Error()}
-		jsonData, _ := json.Marshal(data)
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-			agent.Log.Error("Failed to write error: %v", err)
 		}
-		flusher.Flush()
+
+		// ------------------------------------------------------------
+		// NOTE: Detect if we need to select another agent based on topic
+		// ------------------------------------------------------------
+		if agent.orchestratorAgent != nil {
+			detectedAgentId, err := agent.DetectTopicThenGetAgentId(question)
+			if err != nil {
+				agent.Log.Error("Error during topic detection: %v", err)
+			} else if detectedAgentId != "" && agent.chatAgents[detectedAgentId] != agent.currentChatAgent {
+				agent.Log.Info("💡 Switching to detected agent ID: %s", detectedAgentId)
+				agent.currentChatAgent = agent.chatAgents[detectedAgentId]
+				agent.selectedAgentId = detectedAgentId
+			}
+		}
+		// ------------------------------------------------------------
+		// NOTE: Generate streaming completion
+		// ------------------------------------------------------------
+
+		agent.Log.Info("🚀 Generating streaming completion for question: %s", question)
+		stopped := false
+		_, errCompletion := agent.currentChatAgent.GenerateStreamCompletion(
+			[]messages.Message{
+				{Role: roles.User, Content: question},
+			},
+			func(chunk string, finishReason string) error {
+				// Check if stop signal received
+				select {
+				case <-agent.StopStreamChan:
+					stopped = true
+					return errors.New("stream stopped by user")
+				default:
+				}
+
+				if chunk != "" {
+					data := map[string]string{"message": chunk}
+					jsonData, _ := json.Marshal(data)
+					if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
+						agent.Log.Error("Failed to write chunk: %v", err)
+					}
+					flusher.Flush()
+				}
+
+				if finishReason == "stop" && !stopped {
+					data := map[string]string{"message": "", "finish_reason": "stop"}
+					jsonData, _ := json.Marshal(data)
+					if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
+						agent.Log.Error("Failed to write finish reason: %v", err)
+					}
+					flusher.Flush()
+				}
+
+				return nil
+			},
+		)
+
+		if errCompletion != nil && !stopped {
+			data := map[string]string{"error": errCompletion.Error()}
+			jsonData, _ := json.Marshal(data)
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
+				agent.Log.Error("Failed to write error: %v", err)
+			}
+			flusher.Flush()
+		}
 	}
+
 }

@@ -37,9 +37,9 @@ func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
 	coderAgent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "coder",
-			EngineURL:          engineURL,
-			SystemInstructions: coderAgentSystemInstructionsContent,
+			Name:                    "coder",
+			EngineURL:               engineURL,
+			SystemInstructions:      coderAgentSystemInstructionsContent,
 			KeepConversationHistory: true,
 		},
 		models.Config{
@@ -70,9 +70,9 @@ func getThinkerAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 	thinkerAgent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "thinker",
-			EngineURL:          engineURL,
-			SystemInstructions: thinkerAgentSystemInstructionsContent,
+			Name:                    "thinker",
+			EngineURL:               engineURL,
+			SystemInstructions:      thinkerAgentSystemInstructionsContent,
 			KeepConversationHistory: true,
 		},
 		models.Config{
@@ -102,9 +102,9 @@ func getCookAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
 	cookAgent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "cook",
-			EngineURL:          engineURL,
-			SystemInstructions: cookAgentSystemInstructionsContent,
+			Name:                    "cook",
+			EngineURL:               engineURL,
+			SystemInstructions:      cookAgentSystemInstructionsContent,
 			KeepConversationHistory: true,
 		},
 		models.Config{
@@ -135,9 +135,9 @@ func getGenericAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 	genericAgent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "generic",
-			EngineURL:          engineURL,
-			SystemInstructions: genericAgentSystemInstructionsContent,
+			Name:                    "generic",
+			EngineURL:               engineURL,
+			SystemInstructions:      genericAgentSystemInstructionsContent,
 			KeepConversationHistory: true,
 		},
 		models.Config{
@@ -243,7 +243,7 @@ func main() {
 		models.Config{
 			Name:              "hf.co/menlo/jan-nano-gguf:q4_k_m",
 			Temperature:       models.Float64(0.0),
-			ParallelToolCalls: models.Bool(true),
+			ParallelToolCalls: models.Bool(false),
 		},
 		tools.WithTools(GetToolsIndex()),
 	)
@@ -337,9 +337,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	_ = orchestratorAgent
 
 	// Attach the orchestrator agent to the server agent
-	crewAgent.SetOrchestratorAgent(orchestratorAgent)
+	//crewAgent.SetOrchestratorAgent(orchestratorAgent)
 
 	for {
 
@@ -365,7 +366,6 @@ func main() {
 			}
 			continue
 		}
-
 
 		if strings.HasPrefix(question, "/reset") {
 			display.Infof("🔄 Resetting %s context", crewAgent.GetName())
@@ -394,7 +394,8 @@ func main() {
 			display.Errorf("[%s][%v]failed to get completion: %v", crewAgent.GetName(), crewAgent.GetContextSize(), err)
 			return
 		}
-		//display.NewLine()
+		
+		display.NewLine()
 		display.Separator()
 		display.KeyValue("Finish reason", result.FinishReason)
 		display.KeyValue("Context size", fmt.Sprintf("%d characters", crewAgent.GetContextSize()))
@@ -409,18 +410,28 @@ func GetToolsIndex() []*tools.Tool {
 		AddParameter("a", "number", "The first number", true).
 		AddParameter("b", "number", "The second number", true)
 
+	writeFileTool := tools.NewTool("write_file").
+		SetDescription("Write content to a file").
+		AddParameter("file_path", "string", "The path of the file to write to", true).
+		AddParameter("content", "string", "The content to write to the file", true)
+
 	sayHelloTool := tools.NewTool("say_hello").
 		SetDescription("Say hello to the given name").
 		AddParameter("name", "string", "The name to greet", true)
+
+	_ = sayHelloTool
 
 	getHistoryMessagesOfAgentByIdTool := tools.NewTool("get_history_messages_of_agent_by_id").
 		SetDescription("Get the history messages of an agent by its ID").
 		AddParameter("agent_id", "string", "The ID of the agent", true)
 
+	_ = getHistoryMessagesOfAgentByIdTool
+
 	return []*tools.Tool{
 		calculateSumTool,
-		sayHelloTool,
-		getHistoryMessagesOfAgentByIdTool,
+		//sayHelloTool,
+		//getHistoryMessagesOfAgentByIdTool,
+		writeFileTool,
 	}
 }
 
@@ -428,6 +439,20 @@ func executeFunction(functionName string, arguments string) (string, error) {
 	display.Colorf(display.ColorGreen, "🟢 Executing function: %s with arguments: %s\n", functionName, arguments)
 
 	switch functionName {
+
+	case "write_file":
+		var args struct {
+			FilePath string `json:"file_path"`
+			Content  string `json:"content"`
+		}
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			return `{"error": "Invalid arguments for write_file"}`, nil
+		}
+
+		display.Colorln(args.Content, display.ColorBrightGreen)
+
+		return fmt.Sprintf(`{"message": "%s"}`, "file is saved"), nil
+
 	case "say_hello":
 		var args struct {
 			Name string `json:"name"`

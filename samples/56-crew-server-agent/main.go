@@ -240,7 +240,7 @@ func main() {
 		models.Config{
 			Name:              "hf.co/menlo/jan-nano-gguf:q4_k_m",
 			Temperature:       models.Float64(0.0),
-			ParallelToolCalls: models.Bool(true),
+			ParallelToolCalls: models.Bool(false),
 		},
 		tools.WithTools(GetToolsIndex()),
 	)
