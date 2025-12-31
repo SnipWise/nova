@@ -97,16 +97,16 @@ func (agent *BaseServerAgent) HandleMessagesList(w http.ResponseWriter, r *http.
 	}
 }
 
-// HandleTokensCount handles the tokens count endpoint
-func (agent *BaseServerAgent) HandleTokensCount(w http.ResponseWriter, r *http.Request) {
+// HandleContextSize handles the tokens count endpoint
+func (agent *BaseServerAgent) HandleContextSize(w http.ResponseWriter, r *http.Request) {
 	count := len(agent.ChatAgent.GetMessages())
-	tokens := agent.ChatAgent.GetContextSize()
-	limit := 9999
+	charactersCount := agent.ChatAgent.GetContextSize()
+	limit := agent.ContextSizeLimit
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(TokensResponse{
-		Count:  count,
-		Tokens: tokens,
+	if err := json.NewEncoder(w).Encode(ContextSizeResponse{
+		MessagesCount:  count,
+		CharactersCount: charactersCount,
 		Limit:  limit,
 	}); err != nil {
 		agent.Log.Error("Failed to encode tokens count response: %v", err)
@@ -175,7 +175,7 @@ func (agent *BaseServerAgent) HandleOperationValidate(w http.ResponseWriter, r *
 	}
 
 	// Send confirmation message to UI
-	data := map[string]string{"message": fmt.Sprintf("✅ Operation %s validated\n", req.OperationID)}
+	data := map[string]string{"message": fmt.Sprintf("✅ Operation %s validated<br>", req.OperationID)}
 	jsonData, _ := json.Marshal(data)
 	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
 		agent.Log.Error("Failed to write validation response: %v", err)
@@ -215,7 +215,7 @@ func (agent *BaseServerAgent) HandleOperationCancel(w http.ResponseWriter, r *ht
 	agent.OperationsMutex.Unlock()
 
 	if !exists {
-		data := map[string]string{"message": fmt.Sprintf("❌ Operation %s not found", req.OperationID)}
+		data := map[string]string{"message": fmt.Sprintf("❌ Operation %s not found<br>", req.OperationID)}
 		jsonData, _ := json.Marshal(data)
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
 			agent.Log.Error("Failed to write operation not found response: %v", err)
@@ -225,7 +225,7 @@ func (agent *BaseServerAgent) HandleOperationCancel(w http.ResponseWriter, r *ht
 	}
 
 	// Send cancellation message to UI
-	data := map[string]string{"message": fmt.Sprintf("⛔️ Operation %s cancelled", req.OperationID)}
+	data := map[string]string{"message": fmt.Sprintf("⛔️ Operation %s cancelled<br>", req.OperationID)}
 	jsonData, _ := json.Marshal(data)
 	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
 		agent.Log.Error("Failed to write cancellation response: %v", err)

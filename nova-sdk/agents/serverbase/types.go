@@ -38,9 +38,9 @@ type MemoryResponse struct {
 	Messages []messages.Message `json:"messages"`
 }
 
-// TokensResponse represents the response containing token count information
-type TokensResponse struct {
-	Count  int `json:"count"`
-	Tokens int `json:"tokens"`
-	Limit  int `json:"limit"`
+// ContextSizeResponse represents the response containing token count information
+type ContextSizeResponse struct {
+	MessagesCount   int `json:"messages_count"`
+	CharactersCount int `json:"characters_count"`
+	Limit           int `json:"limit"`
 }

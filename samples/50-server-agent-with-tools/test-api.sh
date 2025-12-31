@@ -45,7 +45,7 @@ echo ""
 
 # Get tokens
 echo -e "${YELLOW}5. Get Token Count${NC}"
-curl -s "${BASE_URL}/memory/messages/tokens" | jq '.'
+curl -s "${BASE_URL}/memory/messages/context-size" | jq '.'
 echo ""
 echo ""
 
@@ -72,7 +72,7 @@ echo ""
 
 # Final token count
 echo -e "${YELLOW}8. Final Token Count (after reset)${NC}"
-curl -s "${BASE_URL}/memory/messages/tokens" | jq '.'
+curl -s "${BASE_URL}/memory/messages/context-size" | jq '.'
 echo ""
 
 echo -e "${GREEN}=== Tests Complete ===${NC}"

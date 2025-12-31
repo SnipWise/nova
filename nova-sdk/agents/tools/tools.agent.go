@@ -438,3 +438,16 @@ func (agent *Agent) GetLastRequestSON() (string, error) {
 func (agent *Agent) GetLastResponseJSON() (string, error) {
 	return conversion.PrettyPrint(agent.internalAgent.GetLastResponseRawJSON())
 }
+
+// GetLastStatedToolCalls returns the last stated tool calls state
+//
+//   - IMPORTANT: Allows checking the state of tool calls across multiple invocations
+//   - USEFUL: for maintaining continuity in tool call confirmations and executions
+//
+// and when transfering context between different agent instances
+func (agent *Agent) GetLastStateToolCalls() LastToolCallsState {
+	return agent.internalAgent.lastState
+}
+func (agent *Agent) ResetLastStateToolCalls() {
+	agent.internalAgent.lastState = LastToolCallsState{}
+}

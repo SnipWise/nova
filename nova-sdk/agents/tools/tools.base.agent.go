@@ -9,9 +9,22 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/base"
 )
 
+// WIP:
+// GOAL: be able to check state of tool calls across multiple invocations
+type LastToolCallsState struct {
+	// If a tool call is awaiting user confirmation
+	// Possible values: `Confirmed`, `Denied`, `Quit`
+	// Denied: do not execute the tool call, but continue the flow
+	// Quit: stop the entire agent execution (exit loop)
+	Confirmation    ConfirmationResponse
+	ExecutionResult ToolExecutionResult
+}
+
 // BaseAgent wraps the shared base.Agent for tools-specific functionality
 type BaseAgent struct {
 	*base.Agent
+	// State of the last tool calls processed
+	lastState LastToolCallsState
 }
 
 type AgentOption func(*BaseAgent)

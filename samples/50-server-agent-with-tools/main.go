@@ -69,7 +69,7 @@ func main() {
 	display.Colorf(display.ColorYellow, "  POST   /completion/stop\n")
 	display.Colorf(display.ColorYellow, "  POST   /memory/reset\n")
 	display.Colorf(display.ColorYellow, "  GET    /memory/messages/list\n")
-	display.Colorf(display.ColorYellow, "  GET    /memory/messages/tokens\n")
+	display.Colorf(display.ColorYellow, "  GET    /memory/messages/context-size\n")
 	display.Colorf(display.ColorYellow, "  POST   /operation/validate\n")
 	display.Colorf(display.ColorYellow, "  POST   /operation/cancel\n")
 	display.Colorf(display.ColorYellow, "  POST   /operation/reset\n")

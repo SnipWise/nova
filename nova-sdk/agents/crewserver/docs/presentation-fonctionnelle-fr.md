@@ -127,9 +127,11 @@ Le Crew Server Agent orchestre cinq types d'agents :
 ### Complétion
 
 #### `POST /completion`
+
 Stream une complétion de chat avec routage intelligent d'agents et SSE.
 
 **Requête :**
+
 ```json
 {
   "data": {
@@ -139,6 +141,7 @@ Stream une complétion de chat avec routage intelligent d'agents et SSE.
 ```
 
 **Réponse :** Flux SSE avec chunks de texte
+
 ```
 data: {"message": "chunk de texte"}
 data: {"message": "suite du texte"}
@@ -146,6 +149,7 @@ data: {"message": "", "finish_reason": "stop"}
 ```
 
 **Notifications d'outils (si tools agent configuré) :**
+
 ```json
 data: {
   "kind": "tool_call",
@@ -156,14 +160,17 @@ data: {
 ```
 
 #### `POST /completion/stop`
+
 Arrête le streaming en cours.
 
 ### Gestion de la mémoire
 
 #### `POST /memory/reset`
+
 Efface l'historique de la conversation.
 
 **Réponse :**
+
 ```json
 {
   "status": "ok",
@@ -172,22 +179,26 @@ Efface l'historique de la conversation.
 ```
 
 #### `GET /memory/messages/list`
+
 Récupère tous les messages de l'historique.
 
 **Réponse :**
+
 ```json
 {
   "messages": [
-    {"role": "user", "content": "..."},
-    {"role": "assistant", "content": "..."}
+    { "role": "user", "content": "..." },
+    { "role": "assistant", "content": "..." }
   ]
 }
 ```
 
-#### `GET /memory/messages/tokens`
+#### `GET /memory/messages/context-size`
+
 Obtient le nombre de tokens et statistiques.
 
 **Réponse :**
+
 ```json
 {
   "context_size": 1234,
@@ -198,9 +209,11 @@ Obtient le nombre de tokens et statistiques.
 ### Gestion des opérations d'outils
 
 #### `POST /operation/validate`
+
 Approuve un appel d'outil en attente.
 
 **Requête :**
+
 ```json
 {
   "operation_id": "op_0x140003dcbe0"
@@ -208,6 +221,7 @@ Approuve un appel d'outil en attente.
 ```
 
 **Réponse :**
+
 ```json
 {
   "status": "validated",
@@ -216,9 +230,11 @@ Approuve un appel d'outil en attente.
 ```
 
 #### `POST /operation/cancel`
+
 Rejette un appel d'outil en attente.
 
 **Requête :**
+
 ```json
 {
   "operation_id": "op_0x140003dcbe0"
@@ -226,6 +242,7 @@ Rejette un appel d'outil en attente.
 ```
 
 **Réponse :**
+
 ```json
 {
   "status": "cancelled",
@@ -234,9 +251,11 @@ Rejette un appel d'outil en attente.
 ```
 
 #### `POST /operation/reset`
+
 Annule toutes les opérations en attente.
 
 **Réponse :**
+
 ```json
 {
   "status": "ok",
@@ -247,9 +266,11 @@ Annule toutes les opérations en attente.
 ### Informations
 
 #### `GET /models`
+
 Informations sur les modèles utilisés.
 
 **Réponse :**
+
 ```json
 {
   "chat_models": {
@@ -264,9 +285,11 @@ Informations sur les modèles utilisés.
 ```
 
 #### `GET /health`
+
 Vérification de santé du serveur.
 
 **Réponse :**
+
 ```json
 {
   "status": "ok",
@@ -422,6 +445,7 @@ func main() {
 ```
 
 **Utilisation :**
+
 ```bash
 # Question de programmation - routée vers l'agent coder
 curl -X POST http://localhost:8080/completion \
@@ -496,6 +520,7 @@ Sujets possibles : programming, cooking, philosophy, psychology, general.`,
 ```
 
 **Comment ça fonctionne :**
+
 1. L'utilisateur envoie : "Quelle est la meilleure façon d'implémenter une API REST ?"
 2. L'orchestrateur détecte le sujet : "programming"
 3. `matchAgentFunction` mappe "programming" vers "coder"
@@ -612,6 +637,7 @@ func main() {
 ## Méthodes de configuration
 
 ### Gestion du crew
+
 ```go
 agent.AddChatAgentToCrew("expert", expertAgent)    // Ajouter un nouvel agent
 agent.RemoveChatAgentFromCrew("expert")            // Supprimer un agent
@@ -620,12 +646,14 @@ agent.SetChatAgents(newAgentMap)                   // Remplacer tous les agents
 ```
 
 ### Configuration du serveur
+
 ```go
 agent.SetPort(":8080")
 port := agent.GetPort()
 ```
 
 ### Configuration des agents
+
 ```go
 agent.SetOrchestratorAgent(orchestratorAgent)  // Activer le routage intelligent
 agent.SetToolsAgent(toolsAgent)
@@ -634,12 +662,14 @@ agent.SetCompressorAgent(compressorAgent)
 ```
 
 ### Configuration RAG
+
 ```go
 agent.SetSimilarityLimit(0.6)      // Seuil de similarité (0.0 - 1.0)
 agent.SetMaxSimilarities(3)        // Nombre max de documents à récupérer
 ```
 
 ### Configuration de la compression
+
 ```go
 agent.SetContextSizeLimit(8000)    // Limite en tokens
 agent.CompressChatAgentContext()   // Compression forcée
@@ -647,6 +677,7 @@ agent.CompressChatAgentContextIfOverLimit() // Compression conditionnelle
 ```
 
 ### Gestion de la mémoire
+
 ```go
 agent.ResetMessages()              // Effacer l'historique
 agent.AddMessage(role, content)    // Ajouter un message
@@ -656,6 +687,7 @@ json := agent.ExportMessagesToJSON() // Exporter en JSON
 ```
 
 ### Fonction d'exécution personnalisée
+
 ```go
 agent.SetExecuteFunction(func(functionName, arguments string) (string, error) {
     // Votre logique d'exécution
@@ -666,11 +698,13 @@ agent.SetExecuteFunction(func(functionName, arguments string) (string, error) {
 ## Format des messages SSE
 
 ### Chunk de texte normal
+
 ```
 data: {"message": "chunk de texte"}
 ```
 
 ### Notification d'appel d'outil
+
 ```json
 data: {
   "kind": "tool_call",
@@ -683,11 +717,13 @@ data: {
 ```
 
 ### Fin de réponse
+
 ```
 data: {"message": "", "finish_reason": "stop"}
 ```
 
 ### Erreur
+
 ```
 data: {"error": "message d'erreur"}
 ```
@@ -746,12 +782,14 @@ matchAgentFunction := func(topic string) string {
 ## Sécurité et concurrence
 
 ### Thread-safety
+
 - **Map des opérations protégée par mutex** pour les appels d'outils concurrents
 - **Communication par canaux** pour les réponses d'opération
 - **Verrouillage du canal de notifications** pour éviter les race conditions
 - **Gestion sécurisée du crew** avec traitement concurrent des requêtes
 
 ### Gestion des opérations
+
 - Chaque appel d'outil reçoit un ID unique
 - Les opérations en attente sont stockées dans une map thread-safe
 - Les canaux de réponse permettent une communication asynchrone
@@ -768,14 +806,14 @@ export NOVA_LOG_LEVEL=DEBUG  # DEBUG, INFO, WARN, ERROR
 
 ## Valeurs par défaut
 
-| Paramètre | Valeur par défaut | Description |
-|-----------|-------------------|-------------|
-| Port | Défini à la création | Port HTTP du serveur |
-| Similarity Limit | 0.6 | Seuil de similarité RAG (0.0-1.0) |
-| Max Similarities | 3 | Nombre max de documents RAG |
-| Context Size Limit | 8000 | Limite de tokens avant compression |
-| Compression Warning | 80% | Avertissement de limite proche |
-| Compression Reset | 90% | Réinitialisation forcée |
+| Paramètre           | Valeur par défaut    | Description                        |
+| ------------------- | -------------------- | ---------------------------------- |
+| Port                | Défini à la création | Port HTTP du serveur               |
+| Similarity Limit    | 0.6                  | Seuil de similarité RAG (0.0-1.0)  |
+| Max Similarities    | 3                    | Nombre max de documents RAG        |
+| Context Size Limit  | 8000                 | Limite de tokens avant compression |
+| Compression Warning | 80%                  | Avertissement de limite proche     |
+| Compression Reset   | 90%                  | Réinitialisation forcée            |
 
 ## Scripts de test
 
@@ -797,19 +835,19 @@ Des exemples complets sont disponibles dans `/samples` :
 
 ## Comparaison : Server Agent vs Crew Server Agent
 
-| Fonctionnalité | Server Agent | Crew Server Agent |
-|----------------|--------------|-------------------|
-| **Agents de Chat** | Agent unique | Plusieurs agents spécialisés |
-| **Commutation d'agents** | Non | Oui - dynamique selon le sujet |
-| **Orchestration** | Non | Oui - avec agent structuré |
-| **Détection de sujets** | Non | Oui - routage automatique |
-| **Gestion des agents** | Statique | Dynamique ajout/suppression d'agents |
-| **Logique de routage** | N/A | Fonction de matching personnalisable |
-| **Cas d'usage** | Chatbot à usage unique | Assistant intelligent multi-domaines |
-| **Appel d'outils** | Oui | Oui |
-| **RAG** | Oui | Oui |
-| **Compression** | Oui | Oui |
-| **Streaming SSE** | Oui | Oui |
+| Fonctionnalité           | Server Agent           | Crew Server Agent                    |
+| ------------------------ | ---------------------- | ------------------------------------ |
+| **Agents de Chat**       | Agent unique           | Plusieurs agents spécialisés         |
+| **Commutation d'agents** | Non                    | Oui - dynamique selon le sujet       |
+| **Orchestration**        | Non                    | Oui - avec agent structuré           |
+| **Détection de sujets**  | Non                    | Oui - routage automatique            |
+| **Gestion des agents**   | Statique               | Dynamique ajout/suppression d'agents |
+| **Logique de routage**   | N/A                    | Fonction de matching personnalisable |
+| **Cas d'usage**          | Chatbot à usage unique | Assistant intelligent multi-domaines |
+| **Appel d'outils**       | Oui                    | Oui                                  |
+| **RAG**                  | Oui                    | Oui                                  |
+| **Compression**          | Oui                    | Oui                                  |
+| **Streaming SSE**        | Oui                    | Oui                                  |
 
 ## Avantages de l'orchestration en crew
 

@@ -34,11 +34,12 @@ func createAssistantMessageWithToolCalls(toolCallParams []openai.ChatCompletionM
 	}
 }
 
-// toolExecutionResult holds the result of a tool execution
-type toolExecutionResult struct {
-	Content      string
-	ShouldStop   bool
-	FinishReason string
+// ToolExecutionResult holds the result of a tool execution
+type ToolExecutionResult struct {
+	Content          string
+	ShouldStop       bool
+	// Possible values: "function_executed", "user_denied", "user_quit", "error", "exit_loop"
+	ExecFinishReason string
 }
 
 // executeToolCall executes a single tool call without confirmation
@@ -47,18 +48,30 @@ func (agent *BaseAgent) executeToolCall(
 	functionArgs string,
 	callID string,
 	toolCallBack func(string, string) (string, error),
-) (toolExecutionResult, error) {
+) (ToolExecutionResult, error) {
 	agent.Log.Info(fmt.Sprintf("▶️ Executing function: %s with args: %s\n", functionName, functionArgs))
 
 	resultContent, errExec := toolCallBack(functionName, functionArgs)
 
 	if errExec != nil {
 		agent.Log.Error(fmt.Sprintf("🔴 Error executing function %s: %s\n", functionName, errExec.Error()))
-		return toolExecutionResult{
-			Content:      fmt.Sprintf(`{"error": "Function execution failed: %s"}`, errExec.Error()),
-			ShouldStop:   true,
-			FinishReason: "exit_loop",
-		}, nil
+
+		toolExecRes := ToolExecutionResult{
+			Content:          fmt.Sprintf(`{"error": "Function execution failed: %s"}`, errExec.Error()),
+			ShouldStop:       true,
+			ExecFinishReason: "exit_loop",
+		}
+		// Store the last state of tool calls with confirmation
+		agent.lastState = LastToolCallsState{
+			Confirmation: Confirmed,
+			ExecutionResult: ToolExecutionResult{
+				Content:          toolExecRes.Content,
+				ShouldStop:       toolExecRes.ShouldStop,
+				ExecFinishReason: toolExecRes.ExecFinishReason,
+			},
+		}
+
+		return toolExecRes, nil
 	}
 
 	if resultContent == "" {
@@ -67,11 +80,21 @@ func (agent *BaseAgent) executeToolCall(
 
 	agent.Log.Info(fmt.Sprintf("✅ Function result: %s with CallID: %s\n\n", resultContent, callID))
 
-	return toolExecutionResult{
-		Content:      resultContent,
-		ShouldStop:   false,
-		FinishReason: "",
-	}, nil
+	toolExecRes := ToolExecutionResult{
+		Content:          resultContent,
+		ShouldStop:       false,
+		ExecFinishReason: "function_executed",
+	}
+	// Store the last state of tool calls with confirmation
+	agent.lastState = LastToolCallsState{
+		Confirmation: Confirmed,
+		ExecutionResult: ToolExecutionResult{
+			Content:          toolExecRes.Content,
+			ShouldStop:       toolExecRes.ShouldStop,
+			ExecFinishReason: toolExecRes.ExecFinishReason,
+		},
+	}
+	return toolExecRes, nil
 }
 
 // executeToolCallWithConfirmation executes a single tool call with confirmation
@@ -81,35 +104,73 @@ func (agent *BaseAgent) executeToolCallWithConfirmation(
 	callID string,
 	toolCallBack func(string, string) (string, error),
 	confirmationCallBack func(string, string) ConfirmationResponse,
-) (toolExecutionResult, error) {
+) (ToolExecutionResult, error) {
 	// Ask for confirmation before executing the tool
 	agent.Log.Info(fmt.Sprintf("⁉️ Requesting confirmation for function: %s with args: %s\n", functionName, functionArgs))
 	confirmation := confirmationCallBack(functionName, functionArgs)
 
 	switch confirmation {
 	case Confirmed:
-		return agent.executeToolCall(functionName, functionArgs, callID, toolCallBack)
+		// Proceed with tool execution
+		toolExecRes, err := agent.executeToolCall(functionName, functionArgs, callID, toolCallBack)
+
+		// Store the last state of tool calls with confirmation
+		agent.lastState = LastToolCallsState{
+			Confirmation: Confirmed,
+			ExecutionResult: ToolExecutionResult{
+				Content:          toolExecRes.Content,
+				ShouldStop:       toolExecRes.ShouldStop,
+				ExecFinishReason: toolExecRes.ExecFinishReason,
+			},
+		}
+
+		agent.Log.Info(fmt.Sprintf("✅ Tool execution confirmed for function: %s\n", functionName))
+		return toolExecRes, err
 
 	case Denied:
 		// Skip execution but add a message indicating the tool was denied (cancel in the vscode extension)
+		toolExecRes := ToolExecutionResult{
+			Content:          `{"status": "denied", "message": "Tool execution was denied by user"}`,
+			ShouldStop:       false,
+			ExecFinishReason: "user_denied",
+		}
+
+		// Store the last state of tool calls with confirmation
+		agent.lastState = LastToolCallsState{
+			Confirmation: Confirmed,
+			ExecutionResult: ToolExecutionResult{
+				Content:          toolExecRes.Content,
+				ShouldStop:       toolExecRes.ShouldStop,
+				ExecFinishReason: toolExecRes.ExecFinishReason,
+			},
+		}
+
 		agent.Log.Warn(fmt.Sprintf("⛔ Tool execution denied for function: %s\n", functionName))
-		return toolExecutionResult{
-			Content: `{"status": "denied", "message": "Tool execution was denied by user"}`,
-			ShouldStop:   false,
-			FinishReason: "user_denied",
-		}, nil
+		return toolExecRes, nil
 
 	case Quit:
 		// Exit the function immediately (reset in the vscode extension)
+		toolExecRes := ToolExecutionResult{
+			Content:          `{"status": "quit", "message": "Tool execution was quit by user"}`,
+			ShouldStop:       true,
+			ExecFinishReason: "user_quit",
+		}
+
+		// Store the last state of tool calls with confirmation
+		agent.lastState = LastToolCallsState{
+			Confirmation: Confirmed,
+			ExecutionResult: ToolExecutionResult{
+				Content:          toolExecRes.Content,
+				ShouldStop:       toolExecRes.ShouldStop,
+				ExecFinishReason: toolExecRes.ExecFinishReason,
+			},
+		}
+
 		agent.Log.Warn(fmt.Sprintf("🛑 Quit requested for function: %s\n", functionName))
-		return toolExecutionResult{
-			Content:      `{"status": "quit", "message": "Tool execution was quit by user"}`,
-			ShouldStop:   true,
-			FinishReason: "user_quit",
-		}, nil
+		return toolExecRes, nil
 	}
 
-	return toolExecutionResult{}, nil
+	return ToolExecutionResult{}, nil
 }
 
 // processToolCalls processes all detected tool calls and updates the message history
@@ -133,7 +194,7 @@ func (agent *BaseAgent) processToolCalls(
 		functionArgs := toolCall.Function.Arguments
 		callID := toolCall.ID
 
-		var result toolExecutionResult
+		var result ToolExecutionResult
 		var err error
 
 		// Execute with or without confirmation
@@ -148,8 +209,8 @@ func (agent *BaseAgent) processToolCalls(
 		}
 
 		// Handle quit case
-		if result.ShouldStop && result.FinishReason == "user_quit" {
-			return messages, true, result.FinishReason
+		if result.ShouldStop && result.ExecFinishReason == "user_quit" {
+			return messages, true, result.ExecFinishReason
 		}
 
 		// Add result to results list if there's content
@@ -162,7 +223,7 @@ func (agent *BaseAgent) processToolCalls(
 
 		// Handle error case
 		if result.ShouldStop {
-			return messages, true, result.FinishReason
+			return messages, true, result.ExecFinishReason
 		}
 	}
 

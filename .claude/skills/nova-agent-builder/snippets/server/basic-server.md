@@ -81,9 +81,11 @@ PORT: ":3500"
 ## API Endpoints
 
 ### POST /completion
+
 Stream a chat completion with SSE.
 
 **Request:**
+
 ```bash
 curl -N -X POST http://localhost:3500/completion \
   -H "Content-Type: application/json" \
@@ -95,6 +97,7 @@ curl -N -X POST http://localhost:3500/completion \
 ```
 
 **Response (SSE Stream):**
+
 ```
 data: {"chunk": "Hello"}
 data: {"chunk": "!"}
@@ -104,6 +107,7 @@ data: {"finish_reason": "stop"}
 ```
 
 ### POST /completion/stop
+
 Stop the current streaming operation.
 
 ```bash
@@ -111,6 +115,7 @@ curl -X POST http://localhost:3500/completion/stop
 ```
 
 ### POST /memory/reset
+
 Clear conversation history.
 
 ```bash
@@ -118,20 +123,23 @@ curl -X POST http://localhost:3500/memory/reset
 ```
 
 ### GET /memory/messages/list
+
 Get all conversation messages.
 
 ```bash
 curl http://localhost:3500/memory/messages/list
 ```
 
-### GET /memory/messages/tokens
+### GET /memory/messages/context-size
+
 Get token count for the conversation.
 
 ```bash
-curl http://localhost:3500/memory/messages/tokens
+curl http://localhost:3500/memory/messages/context-size
 ```
 
 ### GET /health
+
 Health check endpoint.
 
 ```bash
@@ -191,12 +199,12 @@ models.Config{
 ## Client Example (JavaScript)
 
 ```javascript
-const evtSource = new EventSource('http://localhost:3500/completion', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+const evtSource = new EventSource("http://localhost:3500/completion", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    data: { message: 'Hello!' }
-  })
+    data: { message: "Hello!" },
+  }),
 });
 
 evtSource.onmessage = (event) => {

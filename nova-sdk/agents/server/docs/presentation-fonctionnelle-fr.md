@@ -94,9 +94,11 @@ Le Server Agent orchestre quatre types d'agents :
 ### Complétion
 
 #### `POST /completion`
+
 Stream une complétion de chat avec SSE.
 
 **Requête :**
+
 ```json
 {
   "data": {
@@ -106,6 +108,7 @@ Stream une complétion de chat avec SSE.
 ```
 
 **Réponse :** Flux SSE avec chunks de texte
+
 ```
 data: {"message": "chunk de texte"}
 data: {"message": "suite du texte"}
@@ -113,6 +116,7 @@ data: {"message": "", "finish_reason": "stop"}
 ```
 
 **Notifications d'outils (si tools agent configuré) :**
+
 ```json
 data: {
   "kind": "tool_call",
@@ -123,14 +127,17 @@ data: {
 ```
 
 #### `POST /completion/stop`
+
 Arrête le streaming en cours.
 
 ### Gestion de la mémoire
 
 #### `POST /memory/reset`
+
 Efface l'historique de la conversation.
 
 **Réponse :**
+
 ```json
 {
   "status": "ok",
@@ -139,22 +146,26 @@ Efface l'historique de la conversation.
 ```
 
 #### `GET /memory/messages/list`
+
 Récupère tous les messages de l'historique.
 
 **Réponse :**
+
 ```json
 {
   "messages": [
-    {"role": "user", "content": "..."},
-    {"role": "assistant", "content": "..."}
+    { "role": "user", "content": "..." },
+    { "role": "assistant", "content": "..." }
   ]
 }
 ```
 
-#### `GET /memory/messages/tokens`
+#### `GET /memory/messages/context-size`
+
 Obtient le nombre de tokens et statistiques.
 
 **Réponse :**
+
 ```json
 {
   "context_size": 1234,
@@ -165,9 +176,11 @@ Obtient le nombre de tokens et statistiques.
 ### Gestion des opérations d'outils
 
 #### `POST /operation/validate`
+
 Approuve un appel d'outil en attente.
 
 **Requête :**
+
 ```json
 {
   "operation_id": "op_0x140003dcbe0"
@@ -175,6 +188,7 @@ Approuve un appel d'outil en attente.
 ```
 
 **Réponse :**
+
 ```json
 {
   "status": "validated",
@@ -183,9 +197,11 @@ Approuve un appel d'outil en attente.
 ```
 
 #### `POST /operation/cancel`
+
 Rejette un appel d'outil en attente.
 
 **Requête :**
+
 ```json
 {
   "operation_id": "op_0x140003dcbe0"
@@ -193,6 +209,7 @@ Rejette un appel d'outil en attente.
 ```
 
 **Réponse :**
+
 ```json
 {
   "status": "cancelled",
@@ -201,9 +218,11 @@ Rejette un appel d'outil en attente.
 ```
 
 #### `POST /operation/reset`
+
 Annule toutes les opérations en attente.
 
 **Réponse :**
+
 ```json
 {
   "status": "ok",
@@ -214,9 +233,11 @@ Annule toutes les opérations en attente.
 ### Informations
 
 #### `GET /models`
+
 Informations sur les modèles utilisés.
 
 **Réponse :**
+
 ```json
 {
   "chat_model": "hf.co/menlo/jan-nano-gguf:q4_k_m",
@@ -226,9 +247,11 @@ Informations sur les modèles utilisés.
 ```
 
 #### `GET /health`
+
 Vérification de santé du serveur.
 
 **Réponse :**
+
 ```json
 {
   "status": "ok",
@@ -315,6 +338,7 @@ func main() {
 ```
 
 **Utilisation :**
+
 ```bash
 curl -X POST http://localhost:3500/completion \
   -H "Content-Type: application/json" \
@@ -459,12 +483,14 @@ func main() {
 ## Méthodes de configuration
 
 ### Configuration du serveur
+
 ```go
 agent.SetPort(":8080")
 port := agent.GetPort()
 ```
 
 ### Configuration des agents
+
 ```go
 agent.SetToolsAgent(toolsAgent)
 agent.SetRagAgent(ragAgent)
@@ -472,12 +498,14 @@ agent.SetCompressorAgent(compressorAgent)
 ```
 
 ### Configuration RAG
+
 ```go
 agent.SetSimilarityLimit(0.6)      // Seuil de similarité (0.0 - 1.0)
 agent.SetMaxSimilarities(3)        // Nombre max de documents à récupérer
 ```
 
 ### Configuration de la compression
+
 ```go
 agent.SetContextSizeLimit(8000)    // Limite en tokens
 agent.CompressChatAgentContext()   // Compression forcée
@@ -485,6 +513,7 @@ agent.CompressChatAgentContextIfOverLimit() // Compression conditionnelle
 ```
 
 ### Gestion de la mémoire
+
 ```go
 agent.ResetMessages()              // Effacer l'historique
 agent.AddMessage(role, content)    // Ajouter un message
@@ -494,6 +523,7 @@ json := agent.ExportMessagesToJSON() // Exporter en JSON
 ```
 
 ### Fonction d'exécution personnalisée
+
 ```go
 agent.SetExecuteFunction(func(functionName, arguments string) (string, error) {
     // Votre logique d'exécution
@@ -504,11 +534,13 @@ agent.SetExecuteFunction(func(functionName, arguments string) (string, error) {
 ## Format des messages SSE
 
 ### Chunk de texte normal
+
 ```
 data: {"message": "chunk de texte"}
 ```
 
 ### Notification d'appel d'outil
+
 ```json
 data: {
   "kind": "tool_call",
@@ -521,11 +553,13 @@ data: {
 ```
 
 ### Fin de réponse
+
 ```
 data: {"message": "", "finish_reason": "stop"}
 ```
 
 ### Erreur
+
 ```
 data: {"error": "message d'erreur"}
 ```
@@ -533,11 +567,13 @@ data: {"error": "message d'erreur"}
 ## Sécurité et concurrence
 
 ### Thread-safety
+
 - **Map des opérations protégée par mutex** pour les appels d'outils concurrents
 - **Communication par canaux** pour les réponses d'opération
 - **Verrouillage du canal de notifications** pour éviter les race conditions
 
 ### Gestion des opérations
+
 - Chaque appel d'outil reçoit un ID unique
 - Les opérations en attente sont stockées dans une map thread-safe
 - Les canaux de réponse permettent une communication asynchrone
@@ -554,14 +590,14 @@ export NOVA_LOG_LEVEL=DEBUG  # DEBUG, INFO, WARN, ERROR
 
 ## Valeurs par défaut
 
-| Paramètre | Valeur par défaut | Description |
-|-----------|-------------------|-------------|
-| Port | Défini à la création | Port HTTP du serveur |
-| Similarity Limit | 0.6 | Seuil de similarité RAG (0.0-1.0) |
-| Max Similarities | 3 | Nombre max de documents RAG |
-| Context Size Limit | 8000 | Limite de tokens avant compression |
-| Compression Warning | 80% | Avertissement de limite proche |
-| Compression Reset | 90% | Réinitialisation forcée |
+| Paramètre           | Valeur par défaut    | Description                        |
+| ------------------- | -------------------- | ---------------------------------- |
+| Port                | Défini à la création | Port HTTP du serveur               |
+| Similarity Limit    | 0.6                  | Seuil de similarité RAG (0.0-1.0)  |
+| Max Similarities    | 3                    | Nombre max de documents RAG        |
+| Context Size Limit  | 8000                 | Limite de tokens avant compression |
+| Compression Warning | 80%                  | Avertissement de limite proche     |
+| Compression Reset   | 90%                  | Réinitialisation forcée            |
 
 ## Scripts de test
 

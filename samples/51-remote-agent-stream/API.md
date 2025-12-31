@@ -15,6 +15,7 @@ agent, err := remote.NewAgent(
 ```
 
 **Parameters:**
+
 - `ctx`: Context for cancellation and timeouts
 - `agentConfig`: Agent configuration (name, system instructions)
 - `baseURL`: Server URL (e.g., "http://localhost:8080")
@@ -33,11 +34,13 @@ agent.SetToolCallCallback(func(operationID string, message string) error {
 ```
 
 **Use this to:**
+
 - Capture operation IDs as they are detected
 - Implement automatic validation/cancellation logic
 - Track tool calls for auditing
 
 **Example:**
+
 ```go
 agent.SetToolCallCallback(func(operationID string, message string) error {
     log.Printf("Tool call detected: %s (ID: %s)", message, operationID)
@@ -47,6 +50,7 @@ agent.SetToolCallCallback(func(operationID string, message string) error {
 ```
 
 **Important Notes:**
+
 - Pass `nil` to clear the callback: `agent.SetToolCallCallback(nil)`
 - Only one callback can be active at a time (setting a new one replaces the previous)
 - The callback is invoked synchronously during streaming
@@ -57,12 +61,15 @@ agent.SetToolCallCallback(func(operationID string, message string) error {
 ### Agent Information
 
 #### `Kind() agents.Kind`
+
 Returns the agent type (always `agents.Remote`)
 
 #### `GetName() string`
+
 Returns the agent name
 
 #### `GetModelID() string`
+
 Returns the model ID by fetching from the server.
 
 **HTTP:** `GET /models`
@@ -70,17 +77,20 @@ Returns the model ID by fetching from the server.
 ### Server Information
 
 #### `GetModelsInfo() (*ModelsInfo, error)`
+
 Returns detailed information about all models used by the server.
 
 **HTTP:** `GET /models`
 
 **Returns:** `*ModelsInfo` containing:
+
 - `Status`: Server status
 - `ChatModel`: Model used for chat completions
 - `EmbeddingsModel`: Model used for embeddings
 - `ToolsModel`: Model used for tool calling
 
 **Example:**
+
 ```go
 info, err := agent.GetModelsInfo()
 if err != nil {
@@ -93,14 +103,17 @@ if err != nil {
 ```
 
 #### `GetHealth() (*HealthStatus, error)`
+
 Checks if the server is healthy and reachable.
 
 **HTTP:** `GET /health`
 
 **Returns:** `*HealthStatus` containing:
+
 - `Status`: Server status ("ok" if healthy)
 
 **Example:**
+
 ```go
 health, err := agent.GetHealth()
 if err != nil {
@@ -111,9 +124,11 @@ if err != nil {
 ```
 
 #### `IsHealthy() bool`
+
 Convenience method that returns true if the server is healthy.
 
 **Example:**
+
 ```go
 if agent.IsHealthy() {
     fmt.Println("Server is ready")
@@ -125,19 +140,23 @@ if agent.IsHealthy() {
 ### Message Operations
 
 #### `GetMessages() []messages.Message`
+
 Fetches all conversation messages from the server.
 
 **HTTP:** `GET /memory/messages/list`
 
 #### `GetContextSize() int`
+
 Returns the approximate token count of the current context.
 
-**HTTP:** `GET /memory/messages/tokens`
+**HTTP:** `GET /memory/messages/context-size`
 
 #### `AddMessage(role roles.Role, content string)`
+
 No-op for remote agent. Messages are managed server-side.
 
 #### `ResetMessages()`
+
 Clears all messages except system instruction on the server.
 
 **HTTP:** `POST /memory/reset`
@@ -145,19 +164,24 @@ Clears all messages except system instruction on the server.
 ### Completion Generation
 
 #### `GenerateCompletion(userMessages []messages.Message) (*CompletionResult, error)`
+
 Sends messages and returns the complete response (non-streaming).
 
 **Parameters:**
+
 - `userMessages`: Array of messages to send
 
 **Returns:** `*CompletionResult` containing:
+
 - `Response`: Complete response text
 - `FinishReason`: Reason completion ended
 
 #### `GenerateStreamCompletion(userMessages []messages.Message, callback StreamCallback) (*CompletionResult, error)`
+
 Sends messages and streams the response via callback.
 
 **Parameters:**
+
 - `userMessages`: Array of messages to send
 - `callback`: Function called for each chunk: `func(chunk string, finishReason string) error`
 
@@ -166,18 +190,22 @@ Sends messages and streams the response via callback.
 **HTTP:** `POST /completion` (Server-Sent Events)
 
 **Callback receives:**
+
 - `chunk`: Text chunk (empty for tool call notifications)
 - `finishReason`: "stop" when complete, "" otherwise
 
 #### `GenerateCompletionWithReasoning(userMessages []messages.Message) (*ReasoningResult, error)`
+
 Similar to `GenerateCompletion` but returns reasoning (not yet fully supported by server).
 
 #### `GenerateStreamCompletionWithReasoning(userMessages []messages.Message, reasoningCallback StreamCallback, responseCallback StreamCallback) (*ReasoningResult, error)`
+
 Similar to `GenerateStreamCompletion` but with separate callbacks for reasoning and response.
 
 ### Stream Control
 
 #### `StopStream()`
+
 Interrupts the current streaming operation.
 
 **HTTP:** `POST /completion/stop`
@@ -185,6 +213,7 @@ Interrupts the current streaming operation.
 ### Export
 
 #### `ExportMessagesToJSON() (string, error)`
+
 Exports the conversation history to JSON format.
 
 **Returns:** JSON string of all messages
@@ -194,14 +223,17 @@ Exports the conversation history to JSON format.
 These methods allow programmatic control of tool call operations.
 
 ### `ValidateOperation(operationID string) error`
+
 Approves a pending tool call operation, allowing it to execute.
 
 **Parameters:**
+
 - `operationID`: The operation ID (e.g., "op_0x14000126020")
 
 **HTTP:** `POST /operation/validate`
 
 **Example:**
+
 ```go
 err := agent.ValidateOperation("op_0x14000126020")
 if err != nil {
@@ -210,14 +242,17 @@ if err != nil {
 ```
 
 ### `CancelOperation(operationID string) error`
+
 Cancels a pending tool call operation, preventing execution.
 
 **Parameters:**
+
 - `operationID`: The operation ID
 
 **HTTP:** `POST /operation/cancel`
 
 **Example:**
+
 ```go
 err := agent.CancelOperation("op_0x14000126020")
 if err != nil {
@@ -226,11 +261,13 @@ if err != nil {
 ```
 
 ### `ResetOperations() error`
+
 Cancels all pending tool call operations at once.
 
 **HTTP:** `POST /operation/reset`
 
 **Example:**
+
 ```go
 err := agent.ResetOperations()
 if err != nil {
@@ -241,6 +278,7 @@ if err != nil {
 ## Type Definitions
 
 ### CompletionResult
+
 ```go
 type CompletionResult struct {
     Response     string  // Complete response text
@@ -249,6 +287,7 @@ type CompletionResult struct {
 ```
 
 ### ReasoningResult
+
 ```go
 type ReasoningResult struct {
     Response     string  // Complete response text
@@ -258,6 +297,7 @@ type ReasoningResult struct {
 ```
 
 ### ModelsInfo
+
 ```go
 type ModelsInfo struct {
     Status           string  // Server status
@@ -268,6 +308,7 @@ type ModelsInfo struct {
 ```
 
 ### HealthStatus
+
 ```go
 type HealthStatus struct {
     Status string  // Server health status ("ok" if healthy)
@@ -275,21 +316,25 @@ type HealthStatus struct {
 ```
 
 ### StreamCallback
+
 ```go
 type StreamCallback func(chunk string, finishReason string) error
 ```
 
 Callback function for streaming responses:
+
 - Called for each chunk of text
 - Called with finishReason when complete
 - Return error to stop streaming
 
 ### ToolCallCallback
+
 ```go
 type ToolCallCallback func(operationID string, message string) error
 ```
 
 Callback function for tool call notifications:
+
 - Called when a tool call is detected during streaming
 - `operationID`: Unique identifier for the operation
 - `message`: Description of the tool call
@@ -299,6 +344,7 @@ Callback function for tool call notifications:
 ## Usage Patterns
 
 ### Basic Streaming
+
 ```go
 result, err := agent.GenerateStreamCompletion(messages, func(chunk string, finishReason string) error {
     if chunk != "" {
@@ -309,6 +355,7 @@ result, err := agent.GenerateStreamCompletion(messages, func(chunk string, finis
 ```
 
 ### Auto-Validate Tool Calls
+
 ```go
 // Set up callback to auto-validate
 agent.SetToolCallCallback(func(operationID string, message string) error {
@@ -321,6 +368,7 @@ agent.GenerateStreamCompletion(messages, streamCallback)
 ```
 
 ### Conditional Approval
+
 ```go
 // Whitelist of safe operations
 safeOps := map[string]bool{
@@ -343,6 +391,7 @@ agent.SetToolCallCallback(func(operationID string, message string) error {
 ```
 
 ### Timeout-based Auto-Cancel
+
 ```go
 go func() {
     time.Sleep(30 * time.Second)
@@ -372,12 +421,13 @@ if err := agent.ValidateOperation(opID); err != nil {
 ## Server Requirements
 
 The remote agent requires a server implementing these endpoints:
+
 - `GET /models` - Get models information
 - `GET /health` - Health check
 - `POST /completion` - Streaming completions (SSE)
 - `POST /completion/stop` - Stop streaming
 - `GET /memory/messages/list` - List messages
-- `GET /memory/messages/tokens` - Token count
+- `GET /memory/messages/context-size` - Token count
 - `POST /memory/reset` - Reset conversation
 - `POST /operation/validate` - Validate operation
 - `POST /operation/cancel` - Cancel operation
@@ -390,4 +440,3 @@ See [50-server-agent-with-tools](../50-server-agent-with-tools) for reference im
 - [50-server-agent-with-tools](../50-server-agent-with-tools) - Server implementation
 - [52-remote-interactive](../52-remote-interactive) - Interactive CLI
 - [53-remote-programmatic](../53-remote-programmatic) - Automated handling
-

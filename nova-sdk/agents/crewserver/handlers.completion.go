@@ -110,7 +110,7 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 	// NOTE: Tool calls detection and execution if toolsAgent is set
 	// ------------------------------------------------------------
 	// Tool calls detection and execution if toolsAgent is set
-	toolExecution := false
+	//toolExecution := false
 	if agent.ToolsAgent != nil {
 
 		agent.ToolsAgent.ResetMessages()
@@ -146,14 +146,17 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		// if toolCallsResult != nil && len(toolCallsResult.Results) == 0 {
-		// 	fmt.Println(strings.Repeat("=", 40))
-		// 	agent.Log.Warn("🅰️ "+ toolCallsResult.FinishReason)
-		// 	fmt.Println(strings.Repeat("=", 40))
-		// }
+		finishReasonOfExecution := agent.ToolsAgent.GetLastStateToolCalls().ExecutionResult.ExecFinishReason
+
+		if finishReasonOfExecution == "" {
+			agent.Log.Info("1️⃣ finishReasonOfExecution: %s", "empty")
+		} else {
+			agent.Log.Info("1️⃣ finishReasonOfExecution: %s", finishReasonOfExecution)
+		}
 
 		// Add tool results to chat agent context
-		if len(toolCallsResult.Results) > 0 && toolCallsResult.LastAssistantMessage != "" {
+		//if len(toolCallsResult.Results) > 0 && toolCallsResult.LastAssistantMessage != "" {
+		if len(toolCallsResult.Results) > 0 && finishReasonOfExecution == "function_executed" {
 
 			agent.Log.Info("✅ Tool calls executed successfully.")
 			agent.Log.Info("📝 Tool calls results: %s", toolCallsResult.Results)
@@ -169,18 +172,6 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 
 			flusher.Flush()
 
-			toolExecution = true
-			//agent.ToolsAgent.ResetMessages()
-
-			/*
-				data := map[string]string{"message": chunk}
-				jsonData, _ := json.Marshal(data)
-				if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-					agent.Log.Error("Failed to write chunk: %v", err)
-				}
-				flusher.Flush()
-			*/
-
 		}
 	} else {
 		// Close notification channel and cleanup
@@ -192,8 +183,21 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 		agent.NotificationChanMutex.Unlock()
 	}
 
-	if !toolExecution { // IMPORTANT: only generate completion if no tool execution was done
-		agent.Log.Info("No tool execution was performed.")
+	lastExecConfirmation := agent.ToolsAgent.GetLastStateToolCalls().Confirmation
+	lastExecFinishReason := agent.ToolsAgent.GetLastStateToolCalls().ExecutionResult.ExecFinishReason
+
+	agent.Log.Info("2️⃣ lastExecConfirmation: %v", lastExecConfirmation)
+	agent.Log.Info("3️⃣ lastExecFinishReason: %v", lastExecFinishReason)
+
+	// TODO: check about lastExecConfirmation value == 0???
+	if ((lastExecConfirmation == 0) &&
+		(lastExecFinishReason == "user_quit" ||
+			lastExecFinishReason == "user_denied" ||
+			lastExecFinishReason == "")) {
+
+		// IMPORTANT: only generate completion if no tool execution was done
+
+		agent.Log.Info("👋 No tool execution was performed.")
 
 		// ------------------------------------------------------------
 		// NOTE: Similarity search and add to context if RAG agent is set
@@ -284,5 +288,8 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 			flusher.Flush()
 		}
 	}
+	// reset last tool calls state
+	agent.ToolsAgent.ResetLastStateToolCalls()
+	agent.ToolsAgent.ResetMessages()
 
 }

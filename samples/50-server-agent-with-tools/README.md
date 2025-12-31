@@ -26,6 +26,7 @@ The server will start on `http://localhost:8080`
 ## API Endpoints
 
 ### Chat Completion (Streaming)
+
 ```bash
 POST /completion
 Content-Type: application/json
@@ -38,14 +39,16 @@ Content-Type: application/json
 ```
 
 ### Control Endpoints
+
 - `POST /completion/stop` - Stop current streaming
 - `POST /memory/reset` - Reset conversation history
 - `GET /memory/messages/list` - Get all messages
-- `GET /memory/messages/tokens` - Get token count
+- `GET /memory/messages/context-size` - Get token count
 - `GET /models` - Get model information
 - `GET /health` - Health check
 
 ### Tool Call Operations
+
 - `POST /operation/validate` - Validate a pending tool call
 - `POST /operation/cancel` - Cancel a pending tool call
 - `POST /operation/reset` - Cancel all pending operations

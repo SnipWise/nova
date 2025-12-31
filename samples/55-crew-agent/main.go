@@ -410,8 +410,8 @@ func GetToolsIndex() []*tools.Tool {
 		AddParameter("a", "number", "The first number", true).
 		AddParameter("b", "number", "The second number", true)
 
-	writeFileTool := tools.NewTool("write_file").
-		SetDescription("Write content to a file").
+	saveSnippettoFileTool := tools.NewTool("save_snippet").
+		SetDescription("Save snippet content to a file").
 		AddParameter("file_path", "string", "The path of the file to write to", true).
 		AddParameter("content", "string", "The content to write to the file", true)
 
@@ -431,7 +431,7 @@ func GetToolsIndex() []*tools.Tool {
 		calculateSumTool,
 		//sayHelloTool,
 		//getHistoryMessagesOfAgentByIdTool,
-		writeFileTool,
+		saveSnippettoFileTool,
 	}
 }
 
@@ -440,7 +440,7 @@ func executeFunction(functionName string, arguments string) (string, error) {
 
 	switch functionName {
 
-	case "write_file":
+	case "save_snippet":
 		var args struct {
 			FilePath string `json:"file_path"`
 			Content  string `json:"content"`
@@ -450,8 +450,9 @@ func executeFunction(functionName string, arguments string) (string, error) {
 		}
 
 		display.Colorln(args.Content, display.ColorBrightGreen)
-
+		
 		return fmt.Sprintf(`{"message": "%s"}`, "file is saved"), nil
+
 
 	case "say_hello":
 		var args struct {

@@ -178,6 +178,7 @@ curl -N -X POST http://localhost:8080/completion \
 ```
 
 The server will:
+
 1. Search for relevant documents about "Nova SDK features"
 2. Inject top matching documents into context
 3. Generate response based on retrieved information
@@ -293,7 +294,7 @@ sentences := strings.Split(content, ". ")
 
 ```bash
 # Check token count (includes retrieved documents)
-curl http://localhost:8080/memory/messages/tokens
+curl http://localhost:8080/memory/messages/context-size
 
 # View conversation with injected context
 curl http://localhost:8080/memory/messages/list

@@ -29,7 +29,7 @@ func (agent *CrewAgent) StreamCompletion(
 	// NOTE: Tool calls detection and execution if toolsAgent is set
 	// ------------------------------------------------------------
 	// Tool calls detection and execution if toolsAgent is set
-	toolExecution := false
+	//toolExecution := false
 	if agent.toolsAgent != nil {
 
 		agent.toolsAgent.ResetMessages()
@@ -52,19 +52,18 @@ func (agent *CrewAgent) StreamCompletion(
 			return nil, err
 		}
 
-		// Check if user cancelled/quit the execution
-		// if toolCallsResult != nil && toolCallsResult.FinishReason == "user_quit" {
-		// 	agent.log.Warn("🛑 User cancelled tool execution")
-		// 	return &chat.CompletionResult{
-		// 		Response:     "Tool execution cancelled by user",
-		// 		FinishReason: "user_quit",
-		// 	}, nil
-		// }
+		finishReasonOfExecution := agent.toolsAgent.GetLastStateToolCalls().ExecutionResult.ExecFinishReason
+
+		if finishReasonOfExecution == "" {
+			agent.log.Info("1️⃣ finishReasonOfExecution: %s", "empty")
+		} else {
+			agent.log.Info("1️⃣ finishReasonOfExecution: %s", finishReasonOfExecution)
+		}
 
 		// Stream the final response after tool calls
 
 		// Add tool results to chat agent context
-		if len(toolCallsResult.Results) > 0 && toolCallsResult.LastAssistantMessage != "" {
+		if len(toolCallsResult.Results) > 0 && finishReasonOfExecution == "function_executed" {
 
 			agent.log.Info("✅ Tool calls executed successfully.")
 			agent.log.Info("📝 Tool calls results: %s", toolCallsResult.Results)
@@ -73,7 +72,6 @@ func (agent *CrewAgent) StreamCompletion(
 			agent.currentChatAgent.AddMessage(roles.System, toolCallsResult.LastAssistantMessage)
 
 			callback(toolCallsResult.LastAssistantMessage, "tool_calls_completed")
-			toolExecution = true
 
 			//agent.toolsAgent.ResetMessages()
 		}
@@ -81,7 +79,20 @@ func (agent *CrewAgent) StreamCompletion(
 		// Do nothing
 	}
 
-	if !toolExecution { // IMPORTANT: only generate completion if no tool execution was done
+	lastExecConfirmation := agent.toolsAgent.GetLastStateToolCalls().Confirmation
+	lastExecFinishReason := agent.toolsAgent.GetLastStateToolCalls().ExecutionResult.ExecFinishReason
+
+	agent.log.Info("2️⃣ lastExecConfirmation: %v", lastExecConfirmation)
+	agent.log.Info("3️⃣ lastExecFinishReason: %v", lastExecFinishReason)
+
+	// TODO: check about lastExecConfirmation value == 0???
+	if (lastExecConfirmation == 0) &&
+		(lastExecFinishReason == "user_quit" ||
+			lastExecFinishReason == "user_denied" ||
+			lastExecFinishReason == "") {
+
+		// IMPORTANT: only generate completion if no tool execution was done
+
 		agent.log.Info("No tool execution was performed.")
 
 		// ------------------------------------------------------------
@@ -145,6 +156,9 @@ func (agent *CrewAgent) StreamCompletion(
 		}
 		return completionResult, nil
 	}
+	// reset last tool calls state
+	agent.toolsAgent.ResetLastStateToolCalls()
+	agent.toolsAgent.ResetMessages()
 
 	return &chat.CompletionResult{}, nil
 

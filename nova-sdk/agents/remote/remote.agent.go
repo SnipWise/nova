@@ -187,7 +187,7 @@ func (agent *Agent) GetMessages() []messages.Message {
 
 // GetContextSize returns the approximate size of the current context from the server
 func (agent *Agent) GetContextSize() int {
-	resp, err := agent.client.Get(agent.baseURL + "/memory/messages/tokens")
+	resp, err := agent.client.Get(agent.baseURL + "/memory/messages/context-size")
 	if err != nil {
 		agent.log.Error("Failed to get context size: %v", err)
 		return 0

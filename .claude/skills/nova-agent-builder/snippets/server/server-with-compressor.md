@@ -213,7 +213,7 @@ curl -N -X POST http://localhost:8080/completion \
   -d '{"data": {"message": "Hello!"}}'
 
 # Check token count
-curl http://localhost:8080/memory/messages/tokens
+curl http://localhost:8080/memory/messages/context-size
 # Response: {"tokens": 150}
 ```
 
@@ -226,7 +226,7 @@ curl -N -X POST http://localhost:8080/completion \
   -d '{"data": {"message": "What did we discuss earlier?"}}'
 
 # Check token count after compression
-curl http://localhost:8080/memory/messages/tokens
+curl http://localhost:8080/memory/messages/context-size
 # Response: {"tokens": 1500}  (reduced from 3100)
 ```
 
@@ -300,7 +300,7 @@ models.Config{
 ### Check Current Token Count
 
 ```bash
-curl http://localhost:8080/memory/messages/tokens
+curl http://localhost:8080/memory/messages/context-size
 ```
 
 ### View Conversation History
@@ -320,11 +320,11 @@ curl -X POST http://localhost:8080/memory/reset
 ## Compression vs. Context Window
 
 | Model Context | Recommended Limit | Warning (80%) | Compress (90%) |
-|---------------|-------------------|---------------|----------------|
-| 2K tokens     | 1500             | 1200          | 1350           |
-| 4K tokens     | 3000             | 2400          | 2700           |
-| 8K tokens     | 7000             | 5600          | 6300           |
-| 16K tokens    | 14000            | 11200         | 12600          |
+| ------------- | ----------------- | ------------- | -------------- |
+| 2K tokens     | 1500              | 1200          | 1350           |
+| 4K tokens     | 3000              | 2400          | 2700           |
+| 8K tokens     | 7000              | 5600          | 6300           |
+| 16K tokens    | 14000             | 11200         | 12600          |
 
 ## Important Notes
 
@@ -342,7 +342,7 @@ curl -X POST http://localhost:8080/memory/reset
 
 1. **Set appropriate limits**: Based on your model's context window
 2. **Use deterministic compression**: Temperature 0.0 for consistency
-3. **Monitor token counts**: Use `/memory/messages/tokens` endpoint
+3. **Monitor token counts**: Use `/memory/messages/context-size` endpoint
 4. **Choose compression strategy**: Minimalist vs. Detailed based on use case
 5. **Test compression quality**: Verify important context is preserved
 

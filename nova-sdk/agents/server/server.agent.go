@@ -25,7 +25,7 @@ type (
 	CompletionRequest    = serverbase.CompletionRequest
 	OperationRequest     = serverbase.OperationRequest
 	MemoryResponse       = serverbase.MemoryResponse
-	TokensResponse       = serverbase.TokensResponse
+	TokensResponse       = serverbase.ContextSizeResponse
 )
 
 // NewAgent creates a new server agent
@@ -157,7 +157,7 @@ func (agent *ServerAgent) StartServer() error {
 	mux.HandleFunc("POST /completion/stop", agent.handleCompletionStop)
 	mux.HandleFunc("POST /memory/reset", agent.HandleMemoryReset)
 	mux.HandleFunc("GET /memory/messages/list", agent.HandleMessagesList)
-	mux.HandleFunc("GET /memory/messages/tokens", agent.HandleTokensCount)
+	mux.HandleFunc("GET /memory/messages/context-size", agent.HandleContextSize)
 	mux.HandleFunc("POST /operation/validate", agent.HandleOperationValidate)
 	mux.HandleFunc("POST /operation/cancel", agent.HandleOperationCancel)
 	mux.HandleFunc("POST /operation/reset", agent.HandleOperationReset)

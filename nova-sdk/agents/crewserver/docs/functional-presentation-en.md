@@ -127,9 +127,11 @@ The Crew Server Agent orchestrates five types of agents:
 ### Completion
 
 #### `POST /completion`
+
 Stream a chat completion with intelligent agent routing and SSE.
 
 **Request:**
+
 ```json
 {
   "data": {
@@ -139,6 +141,7 @@ Stream a chat completion with intelligent agent routing and SSE.
 ```
 
 **Response:** SSE stream with text chunks
+
 ```
 data: {"message": "text chunk"}
 data: {"message": "more text"}
@@ -146,6 +149,7 @@ data: {"message": "", "finish_reason": "stop"}
 ```
 
 **Tool notifications (if tools agent configured):**
+
 ```json
 data: {
   "kind": "tool_call",
@@ -156,14 +160,17 @@ data: {
 ```
 
 #### `POST /completion/stop`
+
 Stop the current streaming operation.
 
 ### Memory Management
 
 #### `POST /memory/reset`
+
 Clear conversation history.
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -172,22 +179,26 @@ Clear conversation history.
 ```
 
 #### `GET /memory/messages/list`
+
 Retrieve all messages from history.
 
 **Response:**
+
 ```json
 {
   "messages": [
-    {"role": "user", "content": "..."},
-    {"role": "assistant", "content": "..."}
+    { "role": "user", "content": "..." },
+    { "role": "assistant", "content": "..." }
   ]
 }
 ```
 
-#### `GET /memory/messages/tokens`
+#### `GET /memory/messages/context-size`
+
 Get token count and statistics.
 
 **Response:**
+
 ```json
 {
   "context_size": 1234,
@@ -198,9 +209,11 @@ Get token count and statistics.
 ### Tool Operation Management
 
 #### `POST /operation/validate`
+
 Approve a pending tool call.
 
 **Request:**
+
 ```json
 {
   "operation_id": "op_0x140003dcbe0"
@@ -208,6 +221,7 @@ Approve a pending tool call.
 ```
 
 **Response:**
+
 ```json
 {
   "status": "validated",
@@ -216,9 +230,11 @@ Approve a pending tool call.
 ```
 
 #### `POST /operation/cancel`
+
 Reject a pending tool call.
 
 **Request:**
+
 ```json
 {
   "operation_id": "op_0x140003dcbe0"
@@ -226,6 +242,7 @@ Reject a pending tool call.
 ```
 
 **Response:**
+
 ```json
 {
   "status": "cancelled",
@@ -234,9 +251,11 @@ Reject a pending tool call.
 ```
 
 #### `POST /operation/reset`
+
 Cancel all pending operations.
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -247,9 +266,11 @@ Cancel all pending operations.
 ### Information
 
 #### `GET /models`
+
 Information about used models.
 
 **Response:**
+
 ```json
 {
   "chat_models": {
@@ -264,9 +285,11 @@ Information about used models.
 ```
 
 #### `GET /health`
+
 Server health check.
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -422,6 +445,7 @@ func main() {
 ```
 
 **Usage:**
+
 ```bash
 # Programming question - routed to coder agent
 curl -X POST http://localhost:8080/completion \
@@ -496,6 +520,7 @@ Possible topics: programming, cooking, philosophy, psychology, general.`,
 ```
 
 **How it works:**
+
 1. User sends: "What's the best way to implement a REST API?"
 2. Orchestrator detects topic: "programming"
 3. `matchAgentFunction` maps "programming" to "coder"
@@ -612,6 +637,7 @@ func main() {
 ## Configuration Methods
 
 ### Crew Management
+
 ```go
 agent.AddChatAgentToCrew("expert", expertAgent)    // Add new agent
 agent.RemoveChatAgentFromCrew("expert")            // Remove agent
@@ -620,12 +646,14 @@ agent.SetChatAgents(newAgentMap)                   // Replace all agents
 ```
 
 ### Server Configuration
+
 ```go
 agent.SetPort(":8080")
 port := agent.GetPort()
 ```
 
 ### Agent Configuration
+
 ```go
 agent.SetOrchestratorAgent(orchestratorAgent)  // Enable intelligent routing
 agent.SetToolsAgent(toolsAgent)
@@ -634,12 +662,14 @@ agent.SetCompressorAgent(compressorAgent)
 ```
 
 ### RAG Configuration
+
 ```go
 agent.SetSimilarityLimit(0.6)      // Similarity threshold (0.0 - 1.0)
 agent.SetMaxSimilarities(3)        // Max number of documents to retrieve
 ```
 
 ### Compression Configuration
+
 ```go
 agent.SetContextSizeLimit(8000)    // Token limit
 agent.CompressChatAgentContext()   // Force compression
@@ -647,6 +677,7 @@ agent.CompressChatAgentContextIfOverLimit() // Conditional compression
 ```
 
 ### Memory Management
+
 ```go
 agent.ResetMessages()              // Clear history
 agent.AddMessage(role, content)    // Add a message
@@ -656,6 +687,7 @@ json := agent.ExportMessagesToJSON() // Export to JSON
 ```
 
 ### Custom Execute Function
+
 ```go
 agent.SetExecuteFunction(func(functionName, arguments string) (string, error) {
     // Your execution logic
@@ -666,11 +698,13 @@ agent.SetExecuteFunction(func(functionName, arguments string) (string, error) {
 ## SSE Message Format
 
 ### Regular text chunk
+
 ```
 data: {"message": "text chunk"}
 ```
 
 ### Tool call notification
+
 ```json
 data: {
   "kind": "tool_call",
@@ -683,11 +717,13 @@ data: {
 ```
 
 ### Finish response
+
 ```
 data: {"message": "", "finish_reason": "stop"}
 ```
 
 ### Error
+
 ```
 data: {"error": "error message"}
 ```
@@ -746,12 +782,14 @@ matchAgentFunction := func(topic string) string {
 ## Security and Concurrency
 
 ### Thread-safety
+
 - **Mutex-protected operations map** for concurrent tool calls
 - **Channel-based communication** for operation responses
 - **Notification channel locking** to prevent race conditions
 - **Safe crew management** with concurrent request handling
 
 ### Operation Management
+
 - Each tool call receives a unique ID
 - Pending operations are stored in a thread-safe map
 - Response channels enable asynchronous communication
@@ -768,14 +806,14 @@ export NOVA_LOG_LEVEL=DEBUG  # DEBUG, INFO, WARN, ERROR
 
 ## Default Values
 
-| Parameter | Default Value | Description |
-|-----------|---------------|-------------|
-| Port | Set at creation | HTTP server port |
-| Similarity Limit | 0.6 | RAG similarity threshold (0.0-1.0) |
-| Max Similarities | 3 | Max number of RAG documents |
-| Context Size Limit | 8000 | Token limit before compression |
-| Compression Warning | 80% | Warning for approaching limit |
-| Compression Reset | 90% | Forced reset |
+| Parameter           | Default Value   | Description                        |
+| ------------------- | --------------- | ---------------------------------- |
+| Port                | Set at creation | HTTP server port                   |
+| Similarity Limit    | 0.6             | RAG similarity threshold (0.0-1.0) |
+| Max Similarities    | 3               | Max number of RAG documents        |
+| Context Size Limit  | 8000            | Token limit before compression     |
+| Compression Warning | 80%             | Warning for approaching limit      |
+| Compression Reset   | 90%             | Forced reset                       |
 
 ## Test Scripts
 
@@ -797,19 +835,19 @@ Complete examples are available in `/samples`:
 
 ## Comparison: Server Agent vs Crew Server Agent
 
-| Feature | Server Agent | Crew Server Agent |
-|---------|--------------|-------------------|
-| **Chat Agents** | Single agent | Multiple specialized agents |
-| **Agent Switching** | No | Yes - dynamic based on topic |
-| **Orchestration** | No | Yes - with structured agent |
-| **Topic Detection** | No | Yes - automatic routing |
-| **Agent Management** | Static | Dynamic add/remove agents |
-| **Routing Logic** | N/A | Customizable matching function |
-| **Use Case** | Single-purpose chatbot | Multi-domain intelligent assistant |
-| **Tool Calling** | Yes | Yes |
-| **RAG** | Yes | Yes |
-| **Compression** | Yes | Yes |
-| **SSE Streaming** | Yes | Yes |
+| Feature              | Server Agent           | Crew Server Agent                  |
+| -------------------- | ---------------------- | ---------------------------------- |
+| **Chat Agents**      | Single agent           | Multiple specialized agents        |
+| **Agent Switching**  | No                     | Yes - dynamic based on topic       |
+| **Orchestration**    | No                     | Yes - with structured agent        |
+| **Topic Detection**  | No                     | Yes - automatic routing            |
+| **Agent Management** | Static                 | Dynamic add/remove agents          |
+| **Routing Logic**    | N/A                    | Customizable matching function     |
+| **Use Case**         | Single-purpose chatbot | Multi-domain intelligent assistant |
+| **Tool Calling**     | Yes                    | Yes                                |
+| **RAG**              | Yes                    | Yes                                |
+| **Compression**      | Yes                    | Yes                                |
+| **SSE Streaming**    | Yes                    | Yes                                |
 
 ## Advantages of Crew Orchestration
 

@@ -3,9 +3,11 @@
 ## What Was Created
 
 ### 1. Core Implementation
+
 **File:** `nova-sdk/agents/remote/remote.agent.go`
 
 Added three new methods to the Remote Agent:
+
 - ✅ `ValidateOperation(operationID string) error`
 - ✅ `CancelOperation(operationID string) error`
 - ✅ `ResetOperations() error`
@@ -15,17 +17,20 @@ These methods provide programmatic control over tool call operations via HTTP AP
 ### 2. Examples
 
 #### main.go (Basic Usage)
+
 - Simple streaming and non-streaming completions
 - Tool calls with manual validation via curl/scripts
 - Conversation history management
 - Export to JSON
 
 #### interactive-example.go (Interactive CLI)
+
 - Command-line interface for operation management
 - Commands: validate, cancel, validate-all, reset, quit
 - Real-time operation handling
 
 #### programmatic-example.go (Automation)
+
 - Auto-validation example
 - Auto-cancellation example
 - Template for building custom approval logic
@@ -33,40 +38,49 @@ These methods provide programmatic control over tool call operations via HTTP AP
 ### 3. Helper Scripts
 
 #### validate-operation.sh
+
 Quick script to validate an operation:
+
 ```bash
 ./validate-operation.sh op_0x12345
 ```
 
 #### cancel-operation.sh
+
 Quick script to cancel an operation:
+
 ```bash
 ./cancel-operation.sh op_0x12345
 ```
 
 #### run-demo.sh
+
 Checks server health and runs main.go
 
 ### 4. Documentation
 
 #### README.md
+
 - Complete guide to remote agent usage
 - API overview
 - Tool call flow explanation
 - Validation examples
 
 #### USAGE.md
+
 - Quick start guide
 - Step-by-step instructions
 - Example flow
 - Testing tips
 
 #### EXAMPLES.md
+
 - Overview of all examples
 - Use cases for each example
 - Custom implementation guide
 
 #### API.md
+
 - Complete API reference
 - Method signatures
 - Parameters and return values
@@ -76,6 +90,7 @@ Checks server health and runs main.go
 ## Key Features
 
 ### Programmatic Operation Control
+
 Previously, operations had to be validated/cancelled manually via curl or server console. Now you can:
 
 ```go
@@ -90,7 +105,9 @@ agent.ResetOperations()
 ```
 
 ### Automatic Operation Detection
+
 The remote agent automatically detects tool calls during streaming and logs:
+
 - Operation ID
 - Tool call message
 - Ready-to-use curl commands for validation/cancellation
@@ -104,7 +121,9 @@ The remote agent automatically detects tool calls during streaming and logs:
 ## Use Cases
 
 ### Development & Testing
+
 Use `main.go` with helper scripts:
+
 ```bash
 # Terminal 1: Server
 cd samples/50-server-agent-with-tools && go run main.go
@@ -117,7 +136,9 @@ cd samples/51-remote-agent-stream && go run main.go
 ```
 
 ### Interactive Control
+
 Use `interactive-example.go`:
+
 ```bash
 go run interactive-example.go
 > v op_0x12345  # validate
@@ -126,7 +147,9 @@ go run interactive-example.go
 ```
 
 ### Production Automation
+
 Build on `programmatic-example.go`:
+
 ```go
 // Auto-approve safe operations
 if isSafeOperation(opID) {
@@ -141,13 +164,15 @@ if isSafeOperation(opID) {
 The remote agent interacts with these server endpoints:
 
 **Basic Operations:**
+
 - `POST /completion` - Streaming completions (SSE)
 - `POST /completion/stop` - Stop stream
 - `GET /memory/messages/list` - Get messages
-- `GET /memory/messages/tokens` - Get token count
+- `GET /memory/messages/context-size` - Get token count
 - `POST /memory/reset` - Reset conversation
 
 **Operation Management (NEW):**
+
 - `POST /operation/validate` - Approve tool call
 - `POST /operation/cancel` - Reject tool call
 - `POST /operation/reset` - Cancel all pending
@@ -155,17 +180,20 @@ The remote agent interacts with these server endpoints:
 ## Benefits
 
 ### 1. Better Developer Experience
+
 - No need to copy/paste operation IDs
 - Clear logging with ready-to-use commands
 - Helper scripts for common operations
 
 ### 2. Automation Potential
+
 - Build custom approval workflows
 - Implement role-based access control
 - Create timeout-based auto-cancellation
 - Add audit logging
 
 ### 3. Flexibility
+
 - Choose your preferred workflow (manual/interactive/programmatic)
 - Integrate with existing systems
 - Extend with custom logic
@@ -173,17 +201,20 @@ The remote agent interacts with these server endpoints:
 ## Next Steps
 
 ### For Development
+
 1. Start server: `cd samples/50-server-agent-with-tools && go run main.go`
 2. Start client: `cd samples/51-remote-agent-stream && go run main.go`
 3. Follow on-screen instructions to validate operations
 
 ### For Production
+
 1. Review `programmatic-example.go` for automation patterns
 2. Implement custom approval logic based on your requirements
 3. Add error handling and retry logic
 4. Consider adding operation logging/audit trail
 
 ### For Integration
+
 1. Use `remote.Agent` in your existing applications
 2. Implement custom `shouldApprove()` functions
 3. Add webhook notifications for pending operations
@@ -215,6 +246,7 @@ nova-sdk/agents/remote/
 ## Testing
 
 All examples compile successfully:
+
 ```bash
 ✅ main.go
 ✅ interactive-example.go
@@ -222,6 +254,7 @@ All examples compile successfully:
 ```
 
 All scripts are executable:
+
 ```bash
 ✅ run-demo.sh
 ✅ validate-operation.sh

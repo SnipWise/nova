@@ -120,7 +120,7 @@ func main() {
 	mux.HandleFunc("POST /completion/stop", handleCompletionStop)
 	mux.HandleFunc("POST /memory/reset", handleMemoryReset)
 	mux.HandleFunc("GET /memory/messages/list", handleMessagesList)
-	mux.HandleFunc("GET /memory/messages/tokens", handleTokensCount)
+	mux.HandleFunc("GET /memory/messages/context-size", handleTokensCount)
 	mux.HandleFunc("POST /operation/validate", handleOperationValidate)
 	mux.HandleFunc("POST /operation/cancel", handleOperationCancel)
 	mux.HandleFunc("POST /operation/reset", handleOperationReset)

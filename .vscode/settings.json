@@ -3,7 +3,7 @@
   "workbench.colorTheme": "GitHub Light Monochrome Focused",
   //"workbench.colorTheme": "Catppuccin Macchiato",
   //"workbench.colorTheme": "Idea intellij light theme",
-  "editor.fontSize": 13,
+  "editor.fontSize": 14,
   "terminal.integrated.fontSize": 13,
   "editor.insertSpaces": true,
   "editor.tabSize": 4,
@@ -52,7 +52,7 @@
     "editor.fontSize": 14
   },
   "[go]": {
-    "editor.fontSize": 13,
+    "editor.fontSize": 14,
     "editor.defaultFormatter": "golang.go",
     "editor.codeActionsOnSave": {
       "source.organizeImports": "explicit"
@@ -180,6 +180,14 @@
       "isWholeLine": false
     },    
     {
+      "text": "GOAL:",
+      "color": "#ffffff",
+      "backgroundColor": "#065AAE",
+      "border": "1px solid #065AAE",
+      "borderRadius": "3px",
+      "isWholeLine": false
+    },     
+    {
       "text": "[TODO]",
       "color": "#ffffff",
       "backgroundColor": "#149C11",
@@ -211,6 +219,14 @@
       "borderRadius": "3px",
       "isWholeLine": false
     },
+    {
+      "text": "USEFUL:",
+      "color": "#ffffff",
+      "backgroundColor": "#F48803",
+      "border": "1px solid #F48803",
+      "borderRadius": "3px",
+      "isWholeLine": false
+    },    
     {
       "text": "INFO:",
       "color": "#ffffff",
