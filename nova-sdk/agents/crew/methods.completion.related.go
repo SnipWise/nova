@@ -79,17 +79,34 @@ func (agent *CrewAgent) StreamCompletion(
 		// Do nothing
 	}
 
-	lastExecConfirmation := agent.toolsAgent.GetLastStateToolCalls().Confirmation
-	lastExecFinishReason := agent.toolsAgent.GetLastStateToolCalls().ExecutionResult.ExecFinishReason
+	// ------------------------------------------------------------
+	// NOTE: Decide if we should run completion
+	// ------------------------------------------------------------
+	shouldIRunCompletion := func() bool {
 
-	agent.log.Info("2️⃣ lastExecConfirmation: %v", lastExecConfirmation)
-	agent.log.Info("3️⃣ lastExecFinishReason: %v", lastExecFinishReason)
+		if agent.toolsAgent != nil {
+			lastExecConfirmation := agent.toolsAgent.GetLastStateToolCalls().Confirmation
+			lastExecFinishReason := agent.toolsAgent.GetLastStateToolCalls().ExecutionResult.ExecFinishReason
 
-	// TODO: check about lastExecConfirmation value == 0???
-	if (lastExecConfirmation == 0) &&
-		(lastExecFinishReason == "user_quit" ||
-			lastExecFinishReason == "user_denied" ||
-			lastExecFinishReason == "") {
+			agent.log.Info("2️⃣ lastExecConfirmation: %v", lastExecConfirmation)
+			agent.log.Info("3️⃣ lastExecFinishReason: %v", lastExecFinishReason)
+
+			// TODO: check about lastExecConfirmation value == 0???
+			if (lastExecConfirmation == 0) &&
+				(lastExecFinishReason == "user_quit" ||
+					lastExecFinishReason == "user_denied" ||
+					lastExecFinishReason == "") {
+				return true
+			} else {
+				return false
+			}
+
+		} else {
+			return true
+		}
+	}
+
+	if shouldIRunCompletion() {
 
 		// IMPORTANT: only generate completion if no tool execution was done
 
