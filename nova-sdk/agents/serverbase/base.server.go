@@ -35,6 +35,9 @@ type BaseServerAgent struct {
 
 	// Custom function executor
 	ExecuteFn func(string, string) (string, error)
+
+	// Custom confirmation prompt function (for CLI mode)
+	ConfirmationPromptFn func(string, string) tools.ConfirmationResponse
 }
 
 // NewBaseServerAgent creates a new base server agent

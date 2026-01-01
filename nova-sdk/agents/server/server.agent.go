@@ -7,6 +7,7 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
 	"github.com/snipwise/nova/nova-sdk/agents/serverbase"
+	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 	"github.com/snipwise/nova/nova-sdk/models"
@@ -60,6 +61,9 @@ func NewAgent(
 		agent.ExecuteFn = agent.executeFunction
 	}
 
+	// Set confirmationPromptFn to default CLI confirmation
+	agent.ConfirmationPromptFn = agent.cliConfirmationPrompt
+
 	return agent, nil
 }
 
@@ -71,6 +75,11 @@ func (agent *ServerAgent) SetPort(port string) {
 // GetPort returns the HTTP port
 func (agent *ServerAgent) GetPort() string {
 	return agent.Port
+}
+
+// SetConfirmationPromptFn sets the confirmation prompt function for CLI mode
+func (agent *ServerAgent) SetConfirmationPromptFn(fn func(string, string) tools.ConfirmationResponse) {
+	agent.ConfirmationPromptFn = fn
 }
 
 // Kind returns the agent type
