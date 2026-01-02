@@ -32,7 +32,6 @@ type StreamCallback func(chunk string) error
 
 // Agent represents a simplified tools agent that hides OpenAI SDK details
 type Agent struct {
-	ctx            context.Context
 	config         agents.Config
 	modelConfig    models.Config
 	internalAgent  *BaseAgent
@@ -91,7 +90,6 @@ func NewAgent(
 	}
 
 	agent := &Agent{
-		ctx:            ctx,
 		config:         agentConfig,
 		modelConfig:    modelConfig,
 		internalAgent:  internalAgent,
@@ -450,4 +448,14 @@ func (agent *Agent) GetLastStateToolCalls() LastToolCallsState {
 }
 func (agent *Agent) ResetLastStateToolCalls() {
 	agent.internalAgent.lastState = LastToolCallsState{}
+}
+
+// GetContext returns the agent's context
+func (agent *Agent) GetContext() context.Context {
+	return agent.internalAgent.GetContext()
+}
+
+// SetContext updates the agent's context
+func (agent *Agent) SetContext(ctx context.Context) {
+	agent.internalAgent.SetContext(ctx)
 }

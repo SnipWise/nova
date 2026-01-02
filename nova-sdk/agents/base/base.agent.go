@@ -562,3 +562,13 @@ func (agent *Agent) GetLastRequestSON() (string, error) {
 func (agent *Agent) GetLastResponseJSON() (string, error) {
 	return conversion.PrettyPrint(agent.lastResponseJSON)
 }
+
+// GetContext returns the agent's context
+func (agent *Agent) GetContext() context.Context {
+	return agent.Ctx
+}
+
+// SetContext updates the agent's context
+func (agent *Agent) SetContext(ctx context.Context) {
+	agent.Ctx = ctx
+}

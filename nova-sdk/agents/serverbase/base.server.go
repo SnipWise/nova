@@ -277,3 +277,13 @@ func JSONEscape(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
 }
+
+// GetContext returns the base server agent's context
+func (agent *BaseServerAgent) GetContext() context.Context {
+	return agent.Ctx
+}
+
+// SetContext updates the base server agent's context
+func (agent *BaseServerAgent) SetContext(ctx context.Context) {
+	agent.Ctx = ctx
+}

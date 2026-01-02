@@ -23,7 +23,6 @@ type StructuredResult[Output any] struct {
 
 // Agent represents a simplified structured data agent that hides OpenAI SDK details
 type Agent[Output any] struct {
-	ctx           context.Context
 	config        agents.Config
 	modelConfig   models.Config
 	internalAgent *BaseAgent[Output]
@@ -76,7 +75,6 @@ func NewAgent[Output any](
 	}
 
 	agent := &Agent[Output]{
-		ctx:           ctx,
 		config:        agentConfig,
 		modelConfig:   modelConfig,
 		internalAgent: internalAgent,
@@ -197,4 +195,14 @@ func (agent *Agent[Output]) GetLastRequestJSON() (string, error) {
 
 func (agent *Agent[Output]) GetLastResponseJSON() (string, error) {
 	return agent.internalAgent.GetLastResponseJSON()
+}
+
+// GetContext returns the agent's context
+func (agent *Agent[Output]) GetContext() context.Context {
+	return agent.internalAgent.GetContext()
+}
+
+// SetContext updates the agent's context
+func (agent *Agent[Output]) SetContext(ctx context.Context) {
+	agent.internalAgent.SetContext(ctx)
 }
