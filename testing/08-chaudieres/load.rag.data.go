@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/snipwise/nova/nova-sdk/agents/rag"
 	"github.com/snipwise/nova/nova-sdk/agents/rag/chunks"
@@ -98,7 +97,7 @@ func LoadData(dataPath, storePathFile string, ragAgent *rag.Agent, metadataExtra
 				} else {
 					display.Infof("✅ Indexed file: %s chunk %d/%d", fileName, cidx+1, len(docChunks))
 				}
-				time.Sleep(500 * time.Millisecond) // To avoid rate limits
+				//time.Sleep(500 * time.Millisecond) // To avoid rate limits
 
 			}
 

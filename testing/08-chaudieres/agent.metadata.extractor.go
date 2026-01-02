@@ -2,9 +2,8 @@ package main
 
 import (
 	"context"
-	"text/template"
 	"strings"
-	"time"
+	"text/template"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/structured"
@@ -22,10 +21,10 @@ type SheetFactMetadata struct {
 	Brand       string   `json:"brand"`
 	Symptoms    []string `json:"symptoms"`
 
-	Keywords         []string `json:"keywords"`
-	//ShortDescription string   `json:"short_description"`
+	Keywords []string `json:"keywords"`
+	ShortDescription string   `json:"short_description"`
 	//Language         string   `json:"language"`
-	//FileName string `json:"file_name,omitempty"`
+	FileName string `json:"file_name,omitempty"`
 }
 
 /*
@@ -53,42 +52,20 @@ func GetMetaDataExtractorAgent(ctx context.Context, engineURL, dataExtractorMode
 	if err != nil {
 		return nil, err
 	}
+	
 
 	return metaDataExtractorAgent, nil
 }
 
 func ExtractMetaData(content string, metadataExtractorAgent *structured.Agent[SheetFactMetadata]) (*SheetFactMetadata, error) {
-	// Créer un contexte avec timeout de 30 secondes
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// Canal pour recevoir le résultat
-	type result struct {
-		metaData *SheetFactMetadata
-		err      error
+	metaData, _, err := metadataExtractorAgent.GenerateStructuredData([]messages.Message{
+		{Role: roles.User, Content: content},
+	})
+	if err != nil {
+		display.Errorf("❌ Error extracting metadata: %v", err)
+		return nil, err
 	}
-	resultChan := make(chan result, 1)
-
-	// Exécuter l'extraction dans une goroutine
-	go func() {
-		metaData, _, err := metadataExtractorAgent.GenerateStructuredData([]messages.Message{
-			{Role: roles.User, Content: content},
-		})
-		resultChan <- result{metaData: metaData, err: err}
-	}()
-
-	// Attendre soit le résultat, soit le timeout
-	select {
-	case <-ctx.Done():
-		display.Errorf("⏱️  Timeout extracting metadata after 30s")
-		return nil, ctx.Err()
-	case res := <-resultChan:
-		if res.err != nil {
-			display.Errorf("❌ Error extracting metadata: %v", res.err)
-			return nil, res.err
-		}
-		return res.metaData, nil
-	}
+	return metaData, nil
 }
 
 var metaDataTemplate = `[METADATA]
@@ -104,6 +81,8 @@ Keywords:
 {{- range .Keywords}}
   - {{.}}
 {{- end}}
+Short Description: {{.ShortDescription}}
+File Name: {{.FileName}}
 [/METADATA]
 `
 
@@ -139,6 +118,8 @@ var metaDataTemplateXML = `<?xml version="1.0" encoding="UTF-8"?>
         <keyword>{{.}}</keyword>
 {{- end}}
     </keywords>
+	<short_description>{{.ShortDescription}}</short_description>
+	<file_name>{{.FileName}}</file_name>
 </metadata>
 `
 
