@@ -31,7 +31,7 @@ func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
         - Follow best practices for the language
         - Explain your approach briefly
 	`
-	coderAgentModel := "hf.co/quantfactory/deepseek-coder-7b-instruct-v1.5-gguf:q4_k_m"
+	coderAgentModel := "hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m"
 
 	coderAgent, err := chat.NewAgent(
 		ctx,
@@ -258,7 +258,7 @@ func main() {
 			EngineURL: engineURL,
 		},
 		models.Config{
-			Name: "ai/mxbai-embed-large",
+			Name: "ai/mxbai-embed-large:latest",
 		},
 	)
 	if err != nil {

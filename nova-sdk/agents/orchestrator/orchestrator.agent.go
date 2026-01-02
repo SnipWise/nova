@@ -15,7 +15,6 @@ import (
 // Agent represents an orchestrator agent that identifies topics/intents from user input
 // It's a specialized structured agent that uses agents.Intent as its output type
 type Agent struct {
-	ctx                 context.Context
 	config              agents.Config
 	modelConfig         models.Config
 	internalStructAgent *structured.Agent[agents.Intent]
@@ -37,7 +36,6 @@ func NewAgent(
 	}
 
 	agent := &Agent{
-		ctx:                 ctx,
 		config:              agentConfig,
 		modelConfig:         modelConfig,
 		internalStructAgent: structAgent,
@@ -151,4 +149,14 @@ func (agent *Agent) GetLastRequestJSON() (string, error) {
 
 func (agent *Agent) GetLastResponseJSON() (string, error) {
 	return agent.internalStructAgent.GetLastResponseJSON()
+}
+
+// GetContext returns the agent's context
+func (agent *Agent) GetContext() context.Context {
+	return agent.internalStructAgent.GetContext()
+}
+
+// SetContext updates the agent's context
+func (agent *Agent) SetContext(ctx context.Context) {
+	agent.internalStructAgent.SetContext(ctx)
 }

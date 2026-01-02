@@ -147,6 +147,68 @@ func NewAgent(
 	return agent, nil
 }
 
+func NewSimpleAgent(
+	ctx context.Context,
+	agentCrew map[string]*chat.Agent,
+	selectedAgentId string,
+) (*CrewAgent, error) {
+
+	firstSelectedAgent, exists := agentCrew[selectedAgentId]
+	if !exists {
+		return nil, fmt.Errorf("selected agent ID %s does not exist in the provided crew", selectedAgentId)
+	}
+
+	agent := &CrewAgent{
+		chatAgents:       agentCrew,
+		currentChatAgent: firstSelectedAgent,
+		selectedAgentId:  selectedAgentId,
+		toolsAgent:       nil,
+		ragAgent:         nil,
+		similarityLimit:  0.6,
+		maxSimilarities:  3,
+		contextSizeLimit: 8000,
+		compressorAgent:  nil,
+		ctx:              ctx,
+		log:              logger.GetLoggerFromEnv(),
+	}
+
+	agent.log.Info("👥 CrewAgent initialized with chat agents, starting with agent ID: %s", selectedAgentId)
+
+	// Set matchAgentIdToTopicFn
+	// if matchAgentIdToTopicFn != nil {
+	// 	agent.matchAgentIdToTopicFn = matchAgentIdToTopicFn
+	// } else {
+	// 	// Default function: return the first agent ID in the map ignoring the topic if no function is provided
+	// 	agent.matchAgentIdToTopicFn = func(currentAgent, topic string) string {
+	// 		var agentId string
+	// 		for key := range agent.chatAgents {
+	// 			agentId = key
+	// 			break
+	// 		}
+	// 		return agentId
+	// 	}
+	// }
+
+	// Set executeFunction (use provided or default)
+	// if executeFn != nil {
+	// 	agent.executeFn = executeFn
+	// } else {
+	// 	// executeFunction is a placeholder that should be overridden by the user
+	// 	agent.executeFn = agent.executeFunction
+	// }
+
+	// Set confirmationPromptFunction (use provided or default)
+	// if confirmationPromptFn != nil {
+	// 	agent.confirmationPromptFn = confirmationPromptFn
+	// } else {
+	// 	agent.confirmationPromptFn = agent.confirmationPrompt
+	// }
+
+	return agent, nil
+}
+
+
+
 // GetChatAgents returns the map of chat agents
 func (agent *CrewAgent) GetChatAgents() map[string]*chat.Agent {
 	return agent.chatAgents
@@ -275,4 +337,14 @@ func (agent *CrewAgent) SetSelectedAgentId(agentId string) error {
 	agent.currentChatAgent = chatAgent
 	agent.log.Info("🔀 Switched to agent ID: %s", agentId)
 	return nil
+}
+
+// GetContext returns the crew agent's context
+func (agent *CrewAgent) GetContext() context.Context {
+	return agent.ctx
+}
+
+// SetContext updates the crew agent's context
+func (agent *CrewAgent) SetContext(ctx context.Context) {
+	agent.ctx = ctx
 }

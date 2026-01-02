@@ -592,3 +592,13 @@ func (agent *Agent) ResetOperations() error {
 	agent.log.Info("🔄 All pending operations reset successfully")
 	return nil
 }
+
+// GetContext returns the remote agent's context
+func (agent *Agent) GetContext() context.Context {
+	return agent.ctx
+}
+
+// SetContext updates the remote agent's context
+func (agent *Agent) SetContext(ctx context.Context) {
+	agent.ctx = ctx
+}
