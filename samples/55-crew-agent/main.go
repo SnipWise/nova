@@ -213,18 +213,6 @@ func main() {
 		return agentId
 	}
 
-	// Create the server agent
-	crewAgent, err := crew.NewAgent(
-		ctx,
-		agentCrew,
-		"generic",
-		matchAgentFunction,
-		executeFunction,
-		confirmationPromptFunction,
-	)
-	if err != nil {
-		panic(err)
-	}
 
 	// Create the tools agent
 	toolsAgent, err := tools.NewAgent(
@@ -250,8 +238,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// Attach the tools agent to the server agent
-	crewAgent.SetToolsAgent(toolsAgent)
 
 	// Create the RAG agent
 	ragAgent, err := rag.NewAgent(
@@ -288,8 +274,7 @@ func main() {
 		}
 	}
 
-	// Attach the RAG agent to the server agent
-	crewAgent.SetRagAgent(ragAgent)
+
 
 	compressorAgent, err := compressor.NewAgent(
 		ctx,
@@ -308,10 +293,7 @@ func main() {
 		panic(err)
 	}
 
-	// Attach the compressor agent to the server agent
-	crewAgent.SetCompressorAgent(compressorAgent)
 
-	crewAgent.SetContextSizeLimit(8500)
 
 	orchestratorAgentSystemInstructions := `
         You are good at identifying the topic of a conversation.
@@ -337,7 +319,23 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	_ = orchestratorAgent
+
+	// Create the server agent
+	crewAgent, err := crew.NewAgent(
+		ctx,
+		crew.WithAgentCrew(agentCrew, "generic"),
+		crew.WithMatchAgentIdToTopicFn(matchAgentFunction),
+		crew.WithExecuteFn(executeFunction),
+		crew.WithConfirmationPromptFn(confirmationPromptFunction),
+		crew.WithToolsAgent(toolsAgent),
+		crew.WithRagAgentAndSimilarityConfig(ragAgent, 0.4,7),
+		crew.WithCompressorAgentAndContextSize(compressorAgent, 8500),
+		crew.WithOrchestratorAgent(orchestratorAgent),
+		
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	// Attach the orchestrator agent to the server agent
 	//crewAgent.SetOrchestratorAgent(orchestratorAgent)
@@ -364,6 +362,22 @@ func main() {
 				display.Infof("Message %d - Role: %s, Content: \n%s", i, msg.Role, msg.Content)
 				display.Separator()
 			}
+			continue
+		}
+
+		if strings.HasPrefix(question, "/select-agent") {
+			parts := strings.SplitN(question, " ", 2)
+			if len(parts) != 2 {
+				display.Errorf("Usage: /select-agent <agent_id>")
+				continue
+			}
+			agentId := strings.TrimSpace(parts[1])
+			err := crewAgent.SetSelectedAgentId(agentId)
+			if err != nil {
+				display.Errorf("failed to select agent %s: %v", agentId, err)
+				continue
+			}
+			display.Infof("✅ Selected agent: %s", agentId)
 			continue
 		}
 

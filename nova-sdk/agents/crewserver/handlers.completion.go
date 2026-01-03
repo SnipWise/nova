@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
@@ -360,6 +361,42 @@ func (agent *CrewServerAgent) streamCompletionResponse(
 	flusher http.Flusher,
 ) {
 	agent.Log.Info("🚀 Generating streaming completion for question: %s", question)
+
+	// NOTE: hooks/hacks to add some commands
+	// BEGIN: hacks
+	if strings.HasPrefix(question, "[select-agent") {
+		parts := strings.Split(question, " ")
+		if len(parts) >= 2 {
+			agentId := strings.Split(parts[1], "]")[0]
+
+			if _, exists := agent.chatAgents[agentId]; exists {
+				agent.currentChatAgent = agent.chatAgents[agentId]
+				agent.selectedAgentId = agentId
+				agent.Log.Info("💡 Manually switched to agent ID: %s", agentId)
+				agent.writeSSEChunk(w, flusher, fmt.Sprintf("<b>Switched to agent: %s.</b><br>", agentId))
+				agent.writeSSEFinish(w, flusher)
+
+				agent.Log.Info("✅ Current agent ID is now: %s", agent.GetModelID())
+				//return
+			} else {
+				agent.Log.Info("❌ Agent ID %s does not exist", agentId)
+				agent.writeSSEChunk(w, flusher, fmt.Sprintf("<b>Agent ID %s does not exist.</b><br>", agentId))
+				agent.writeSSEFinish(w, flusher)
+				//return
+			}
+		}
+	}
+	if strings.HasPrefix(question, "[agent-list]") {
+		agentList := "Available agents:<br>"
+		for id := range agent.chatAgents {
+			agentList += fmt.Sprintf("- %s<br>", id)
+		}
+		agent.writeSSEChunk(w, flusher, agentList)
+		agent.writeSSEFinish(w, flusher)
+		return
+	}
+
+	// END: hacks
 
 	stopped := false
 	_, errCompletion := agent.currentChatAgent.GenerateStreamCompletion(

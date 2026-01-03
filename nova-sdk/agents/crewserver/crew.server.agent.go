@@ -7,7 +7,10 @@ import (
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
+	"github.com/snipwise/nova/nova-sdk/agents/compressor"
+	"github.com/snipwise/nova/nova-sdk/agents/rag"
 	"github.com/snipwise/nova/nova-sdk/agents/serverbase"
+	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 )
@@ -28,6 +31,16 @@ type CrewServerAgent struct {
 
 	// Retrieval function: from a topic determine which agent to use
 	matchAgentIdToTopicFn func(string, string) string
+
+	// Temporary fields to store config before BaseServerAgent is created
+	portConfig             string
+	executeFnConfig        func(string, string) (string, error)
+	toolsAgentConfig       *tools.Agent
+	ragAgentConfig         *rag.Agent
+	compressorAgentConfig  *compressor.Agent
+	similarityLimitConfig  float64
+	maxSimilaritiesConfig  int
+	contextSizeLimitConfig int
 }
 
 // Re-export types from serverbase for backward compatibility
@@ -40,35 +53,180 @@ type (
 	TokensResponse       = serverbase.ContextSizeResponse
 )
 
-// NewAgent creates a new crew server agent
-func NewAgent(
-	ctx context.Context,
-	agentCrew map[string]*chat.Agent,
-	selectedAgentId string,
-	port string,
-	matchAgentIdToTopicFn func(string, string) string,
-	executeFn func(string, string) (string, error),
-) (*CrewServerAgent, error) {
+// CrewServerAgentOption is a function that configures a CrewServerAgent
+type CrewServerAgentOption func(*CrewServerAgent) error
 
-	firstSelectedAgent, exists := agentCrew[selectedAgentId]
-	if !exists {
-		return nil, fmt.Errorf("selected agent ID %s does not exist in the provided crew", selectedAgentId)
+// WithAgentCrew sets the crew of agents and the selected agent ID
+func WithAgentCrew(agentCrew map[string]*chat.Agent, selectedAgentId string) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		if agentCrew == nil || len(agentCrew) == 0 {
+			return fmt.Errorf("agent crew cannot be nil or empty")
+		}
+		if selectedAgentId == "" {
+			return fmt.Errorf("selected agent ID cannot be empty")
+		}
+		firstSelectedAgent, exists := agentCrew[selectedAgentId]
+		if !exists {
+			return fmt.Errorf("selected agent ID %s does not exist in the provided crew", selectedAgentId)
+		}
+		agent.chatAgents = agentCrew
+		agent.selectedAgentId = selectedAgentId
+		agent.currentChatAgent = firstSelectedAgent
+		return nil
 	}
+}
 
-	baseAgent := serverbase.NewBaseServerAgent(ctx, port, firstSelectedAgent, executeFn)
+// WithSingleAgent creates a crew with a single agent with the key "single"
+func WithSingleAgent(chatAgent *chat.Agent) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		if chatAgent == nil {
+			return fmt.Errorf("chat agent cannot be nil")
+		}
+		agent.chatAgents = map[string]*chat.Agent{"single": chatAgent}
+		agent.selectedAgentId = "single"
+		agent.currentChatAgent = chatAgent
+		return nil
+	}
+}
 
+// WithPort sets the HTTP server port (default: 3500)
+func WithPort(port int) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.portConfig = fmt.Sprintf(":%d", port)
+		return nil
+	}
+}
+
+// WithMatchAgentIdToTopicFn sets the function to match agent ID to topic
+func WithMatchAgentIdToTopicFn(fn func(string, string) string) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.matchAgentIdToTopicFn = fn
+		return nil
+	}
+}
+
+// WithExecuteFn sets the custom function executor
+func WithExecuteFn(fn func(string, string) (string, error)) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.executeFnConfig = fn
+		return nil
+	}
+}
+
+// WithToolsAgent sets the tools agent
+func WithToolsAgent(toolsAgent *tools.Agent) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.toolsAgentConfig = toolsAgent
+		return nil
+	}
+}
+
+// WithCompressorAgent sets the compressor agent
+func WithCompressorAgent(compressorAgent *compressor.Agent) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.compressorAgentConfig = compressorAgent
+		return nil
+	}
+}
+
+// WithCompressorAgentAndContextSize sets the compressor agent and context size limit
+func WithCompressorAgentAndContextSize(compressorAgent *compressor.Agent, contextSizeLimit int) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.compressorAgentConfig = compressorAgent
+		agent.contextSizeLimitConfig = contextSizeLimit
+		return nil
+	}
+}
+
+// WithRagAgent sets the RAG agent
+func WithRagAgent(ragAgent *rag.Agent) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.ragAgentConfig = ragAgent
+		return nil
+	}
+}
+
+// WithRagAgentAndSimilarityConfig sets the RAG agent, similarity limit and max similarities
+func WithRagAgentAndSimilarityConfig(ragAgent *rag.Agent, similarityLimit float64, maxSimilarities int) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.ragAgentConfig = ragAgent
+		agent.similarityLimitConfig = similarityLimit
+		agent.maxSimilaritiesConfig = maxSimilarities
+		return nil
+	}
+}
+
+// WithOrchestratorAgent sets the orchestrator agent for routing/topic detection
+func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.orchestratorAgent = orchestratorAgent
+		return nil
+	}
+}
+
+// NewAgent creates a new crew server agent with options
+//
+// Available options:
+//   - WithAgentCrew(agentCrew, selectedAgentId) - Sets the crew of agents and the selected agent ID
+//   - WithSingleAgent(chatAgent) - Creates a crew with a single agent (key: "single", selectedAgentId: "single")
+//   - WithPort(port) - Sets the HTTP server port as int (default: 3500)
+//   - WithMatchAgentIdToTopicFn(fn) - Sets the function to match agent ID to topic for routing
+//   - WithExecuteFn(fn) - Sets the custom function executor for tool execution
+//   - WithToolsAgent(toolsAgent) - Attaches a tools agent for function calling capabilities
+//   - WithCompressorAgent(compressorAgent) - Attaches a compressor agent for context compression
+//   - WithCompressorAgentAndContextSize(compressorAgent, contextSizeLimit) - Attaches a compressor agent and sets the context size limit
+//   - WithRagAgent(ragAgent) - Attaches a RAG agent for document retrieval
+//   - WithRagAgentAndSimilarityConfig(ragAgent, similarityLimit, maxSimilarities) - Attaches a RAG agent and configures similarity settings
+//   - WithOrchestratorAgent(orchestratorAgent) - Attaches an orchestrator agent for routing/topic detection
+//
+// At least one of WithAgentCrew or WithSingleAgent must be provided.
+func NewAgent(ctx context.Context, options ...CrewServerAgentOption) (*CrewServerAgent, error) {
+	// Create agent with defaults
 	agent := &CrewServerAgent{
-		BaseServerAgent:  baseAgent,
-		chatAgents:       agentCrew,
-		currentChatAgent: firstSelectedAgent,
-		selectedAgentId:  selectedAgentId,
+		chatAgents:       nil,
+		currentChatAgent: nil,
+		selectedAgentId:  "",
+		portConfig:       ":3500", // Default port
 	}
 
-	// Set matchAgentIdToTopicFn
-	if matchAgentIdToTopicFn != nil {
-		agent.matchAgentIdToTopicFn = matchAgentIdToTopicFn
-	} else {
-		// Default function: return the first agent ID in the map ignoring the topic if no function is provided
+	// Apply all options
+	for _, option := range options {
+		if err := option(agent); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate that agent crew was set
+	if agent.chatAgents == nil || len(agent.chatAgents) == 0 {
+		return nil, fmt.Errorf("agent crew must be set using WithAgentCrew or WithSingleAgent option")
+	}
+
+	// Create base server agent with the configured port and executeFn
+	baseAgent := serverbase.NewBaseServerAgent(ctx, agent.portConfig, agent.currentChatAgent, agent.executeFnConfig)
+	agent.BaseServerAgent = baseAgent
+
+	// Apply configuration from temporary fields to BaseServerAgent
+	if agent.toolsAgentConfig != nil {
+		agent.ToolsAgent = agent.toolsAgentConfig
+	}
+	if agent.ragAgentConfig != nil {
+		agent.RagAgent = agent.ragAgentConfig
+		if agent.similarityLimitConfig != 0 {
+			agent.SimilarityLimit = agent.similarityLimitConfig
+		}
+		if agent.maxSimilaritiesConfig != 0 {
+			agent.MaxSimilarities = agent.maxSimilaritiesConfig
+		}
+	}
+	if agent.compressorAgentConfig != nil {
+		agent.CompressorAgent = agent.compressorAgentConfig
+		if agent.contextSizeLimitConfig != 0 {
+			agent.ContextSizeLimit = agent.contextSizeLimitConfig
+		}
+	}
+
+	// Set default matchAgentIdToTopicFn if not provided
+	if agent.matchAgentIdToTopicFn == nil {
 		agent.matchAgentIdToTopicFn = func(currentAgent, topic string) string {
 			var agentId string
 			for key := range agent.chatAgents {
@@ -79,12 +237,12 @@ func NewAgent(
 		}
 	}
 
-	// Set executeFunction to default if not provided
-	if executeFn == nil {
+	// Set default executeFn if not provided
+	if agent.ExecuteFn == nil {
 		agent.ExecuteFn = agent.executeFunction
 	}
 
-	agent.Log.Info("👥 CrewServerAgent initialized with chat agents, starting with agent ID: %s", selectedAgentId)
+	agent.Log.Info("👥 CrewServerAgent initialized with chat agents, starting with agent ID: %s", agent.selectedAgentId)
 
 	return agent, nil
 }
