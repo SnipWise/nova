@@ -210,18 +210,6 @@ func main() {
 		return agentId
 	}
 
-	// Create the server agent
-	crewServerAgent, err := crewserver.NewAgent(
-		ctx,
-		agentCrew,
-		"generic",
-		":8080",
-		matchAgentFunction,
-		executeFunction,
-	)
-	if err != nil {
-		panic(err)
-	}
 
 	// Create the tools agent
 	toolsAgent, err := tools.NewAgent(
@@ -247,8 +235,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// Attach the tools agent to the server agent
-	crewServerAgent.SetToolsAgent(toolsAgent)
 
 	// Create the RAG agent
 	ragAgent, err := rag.NewAgent(
@@ -285,8 +271,6 @@ func main() {
 		}
 	}
 
-	// Attach the RAG agent to the server agent
-	crewServerAgent.SetRagAgent(ragAgent)
 
 	compressorAgent, err := compressor.NewAgent(
 		ctx,
@@ -305,11 +289,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	// Attach the compressor agent to the server agent
-	crewServerAgent.SetCompressorAgent(compressorAgent)
-
-	crewServerAgent.SetContextSizeLimit(8500)
 
 	orchestratorAgentSystemInstructions := `
         You are good at identifying the topic of a conversation.
@@ -336,8 +315,29 @@ func main() {
 		panic(err)
 	}
 
-	// Attach the orchestrator agent to the server agent
-	crewServerAgent.SetOrchestratorAgent(orchestratorAgent)
+	// Create the server agent
+	crewServerAgent, err := crewserver.NewAgent(
+		ctx,
+		crewserver.WithAgentCrew(agentCrew, "generic"),
+		crewserver.WithPort(8080),
+		crewserver.WithMatchAgentIdToTopicFn(matchAgentFunction),
+		//crewserver.WithExecuteFn(executeFunction),
+		//crewserver.WithToolsAgent(toolsAgent),
+		crewserver.WithRagAgentAndSimilarityConfig(ragAgent, 0.4,7),
+		crewserver.WithCompressorAgentAndContextSize(compressorAgent, 8500),
+		crewserver.WithOrchestratorAgent(orchestratorAgent),
+		
+	)
+
+	_ = toolsAgent
+
+	if err != nil {
+		panic(err)
+	}
+
+
+
+
 
 	// Display server start message
 

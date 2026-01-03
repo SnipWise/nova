@@ -12,7 +12,6 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/crew"
 	"github.com/snipwise/nova/nova-sdk/agents/rag"
 	"github.com/snipwise/nova/nova-sdk/agents/rag/chunks"
-	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/models"
 	"github.com/snipwise/nova/nova-sdk/toolbox/files"
 	"github.com/snipwise/nova/nova-sdk/ui/display"
@@ -72,26 +71,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	agentCrew["coder"] = coderAgent
-
-	// Create the server agent
-	crewAgent, err := crew.NewAgent(
-		ctx,
-		agentCrew,
-		"coder",
-		func(currentAgentId, topic string) string {
-			return ""
-		},
-		func(functionName string, arguments string) (string, error) {
-			return "", nil
-		},
-		func(functionName string, arguments string) tools.ConfirmationResponse {
-			return tools.Confirmed
-		},
-	)
-	if err != nil {
-		panic(err)
-	}
 
 	// Create the RAG agent
 	ragAgent, err := rag.NewAgent(
@@ -101,7 +80,7 @@ func main() {
 			EngineURL: engineURL,
 		},
 		models.Config{
-			Name: "ai/mxbai-embed-large",
+			Name: "ai/mxbai-embed-large:latest",
 		},
 	)
 	if err != nil {
@@ -128,9 +107,6 @@ func main() {
 		}
 	}
 
-	// Attach the RAG agent to the server agent
-	crewAgent.SetRagAgent(ragAgent)
-
 	compressorAgent, err := compressor.NewAgent(
 		ctx,
 		agents.Config{
@@ -148,12 +124,17 @@ func main() {
 		panic(err)
 	}
 
-	// Attach the compressor agent to the server agent
-	crewAgent.SetCompressorAgent(compressorAgent)
 
-	crewAgent.SetContextSizeLimit(8500)
-
-	fmt.Println("🅰️", crewAgent.GetToolsAgent())
+	// Create the server agent
+	crewAgent, err := crew.NewAgent(
+		ctx,
+		crew.WithSingleAgent(coderAgent),
+		crew.WithCompressorAgentAndContextSize(compressorAgent, 8500),
+		crew.WithRagAgent(ragAgent),
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	for {
 
