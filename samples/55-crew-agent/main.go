@@ -213,7 +213,6 @@ func main() {
 		return agentId
 	}
 
-
 	// Create the tools agent
 	toolsAgent, err := tools.NewAgent(
 		ctx,
@@ -247,7 +246,8 @@ func main() {
 			EngineURL: engineURL,
 		},
 		models.Config{
-			Name: "ai/mxbai-embed-large:latest",
+			//Name: "ai/mxbai-embed-large:latest",
+			Name: "ai/mxbai-embed-large",
 		},
 	)
 	if err != nil {
@@ -274,8 +274,6 @@ func main() {
 		}
 	}
 
-
-
 	compressorAgent, err := compressor.NewAgent(
 		ctx,
 		agents.Config{
@@ -292,8 +290,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-
 
 	orchestratorAgentSystemInstructions := `
         You are good at identifying the topic of a conversation.
@@ -320,6 +316,10 @@ func main() {
 		panic(err)
 	}
 
+	
+	//genericAgent.SetUserMessagePreDirectives("say hello with 👋")
+	//genericAgent.SetUserMessagePostDirectives("say goodbye with 😢")
+
 	// Create the server agent
 	crewAgent, err := crew.NewAgent(
 		ctx,
@@ -328,10 +328,9 @@ func main() {
 		crew.WithExecuteFn(executeFunction),
 		crew.WithConfirmationPromptFn(confirmationPromptFunction),
 		crew.WithToolsAgent(toolsAgent),
-		crew.WithRagAgentAndSimilarityConfig(ragAgent, 0.4,7),
+		crew.WithRagAgentAndSimilarityConfig(ragAgent, 0.4, 7),
 		crew.WithCompressorAgentAndContextSize(compressorAgent, 8500),
 		crew.WithOrchestratorAgent(orchestratorAgent),
-		
 	)
 	if err != nil {
 		panic(err)
@@ -408,7 +407,7 @@ func main() {
 			display.Errorf("[%s][%v]failed to get completion: %v", crewAgent.GetName(), crewAgent.GetContextSize(), err)
 			return
 		}
-		
+
 		display.NewLine()
 		display.Separator()
 		display.KeyValue("Finish reason", result.FinishReason)
@@ -464,9 +463,8 @@ func executeFunction(functionName string, arguments string) (string, error) {
 		}
 
 		display.Colorln(args.Content, display.ColorBrightGreen)
-		
-		return fmt.Sprintf(`{"message": "%s"}`, "file is saved"), nil
 
+		return fmt.Sprintf(`{"message": "%s"}`, "file is saved"), nil
 
 	case "say_hello":
 		var args struct {
