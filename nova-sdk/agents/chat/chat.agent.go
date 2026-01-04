@@ -34,6 +34,10 @@ type Agent struct {
 	modelConfig   models.Config
 	internalAgent *BaseAgent
 	log           logger.Logger
+
+	// User message pre and post directives
+	userMessagePreDirectives  string
+	userMessagePostDirectives string
 }
 
 // NewAgent creates a new simplified chat agent
@@ -76,6 +80,32 @@ func (agent *Agent) GetName() string {
 
 func (agent *Agent) GetModelID() string {
 	return agent.modelConfig.Name
+}
+
+/* IMPORTANT:
+Why having user message pre and post directives?
+These directives can be used to consistently frame user messages,
+providing context or instructions that apply to every user input.
+This helps guide the agent's responses in a more controlled manner.
+*/
+// SetUserMessagePreDirectives sets the user message pre-directives
+func (agent *Agent) SetUserMessagePreDirectives(directives string) {
+	agent.userMessagePreDirectives = directives
+}
+
+// GetUserMessagePreDirectives returns the user message pre-directives
+func (agent *Agent) GetUserMessagePreDirectives() string {
+	return agent.userMessagePreDirectives
+}
+
+// SetUserMessagePostDirectives sets the user message post-directives
+func (agent *Agent) SetUserMessagePostDirectives(directives string) {
+	agent.userMessagePostDirectives = directives
+}
+
+// GetUserMessagePostDirectives returns the user message post-directives
+func (agent *Agent) GetUserMessagePostDirectives() string {
+	return agent.userMessagePostDirectives
 }
 
 // GetMessages returns all conversation messages
@@ -135,6 +165,23 @@ func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*Comple
 		return nil, errors.New("no messages provided")
 	}
 
+	/* Pre and Post Directives
+	Why having user message pre and post directives?
+	These directives can be used to consistently frame user messages,
+	providing context or instructions that apply to every user input.
+	This helps guide the agent's responses in a more controlled manner.
+	*/
+	if len(userMessages) > 0 {
+		lastMsgContent := userMessages[len(userMessages)-1].Content
+		if agent.userMessagePreDirectives != "" {
+			lastMsgContent = agent.userMessagePreDirectives + "\n\n" + lastMsgContent
+		}
+		if agent.userMessagePostDirectives != "" {
+			lastMsgContent = lastMsgContent + "\n\n" + agent.userMessagePostDirectives
+		}
+		userMessages[len(userMessages)-1].Content = lastMsgContent 
+	}
+
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
@@ -154,6 +201,23 @@ func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*Comple
 func (agent *Agent) GenerateCompletionWithReasoning(userMessages []messages.Message) (*ReasoningResult, error) {
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
+	}
+
+	/* Pre and Post Directives
+	Why having user message pre and post directives?
+	These directives can be used to consistently frame user messages,
+	providing context or instructions that apply to every user input.
+	This helps guide the agent's responses in a more controlled manner.
+	*/
+	if len(userMessages) > 0 {
+		lastMsgContent := userMessages[len(userMessages)-1].Content
+		if agent.userMessagePreDirectives != "" {
+			lastMsgContent = agent.userMessagePreDirectives + "\n\n" + lastMsgContent
+		}
+		if agent.userMessagePostDirectives != "" {
+			lastMsgContent = lastMsgContent + "\n\n" + agent.userMessagePostDirectives
+		}
+		userMessages[len(userMessages)-1].Content = lastMsgContent
 	}
 
 	// Convert to OpenAI format
@@ -179,6 +243,23 @@ func (agent *Agent) GenerateStreamCompletion(
 ) (*CompletionResult, error) {
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
+	}
+
+	/* Pre and Post Directives
+	Why having user message pre and post directives?
+	These directives can be used to consistently frame user messages,
+	providing context or instructions that apply to every user input.
+	This helps guide the agent's responses in a more controlled manner.
+	*/
+	if len(userMessages) > 0 {
+		lastMsgContent := userMessages[len(userMessages)-1].Content
+		if agent.userMessagePreDirectives != "" {
+			lastMsgContent = agent.userMessagePreDirectives + "\n\n" + lastMsgContent
+		}
+		if agent.userMessagePostDirectives != "" {
+			lastMsgContent = lastMsgContent + "\n\n" + agent.userMessagePostDirectives
+		}
+		userMessages[len(userMessages)-1].Content = lastMsgContent
 	}
 
 	// Convert to OpenAI format
@@ -207,6 +288,23 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 ) (*ReasoningResult, error) {
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
+	}
+
+	/* Pre and Post Directives
+	Why having user message pre and post directives?
+	These directives can be used to consistently frame user messages,
+	providing context or instructions that apply to every user input.
+	This helps guide the agent's responses in a more controlled manner.
+	*/
+	if len(userMessages) > 0 {
+		lastMsgContent := userMessages[len(userMessages)-1].Content
+		if agent.userMessagePreDirectives != "" {
+			lastMsgContent = agent.userMessagePreDirectives + "\n\n" + lastMsgContent
+		}
+		if agent.userMessagePostDirectives != "" {
+			lastMsgContent = lastMsgContent + "\n\n" + agent.userMessagePostDirectives
+		}
+		userMessages[len(userMessages)-1].Content = lastMsgContent
 	}
 
 	// Add user messages to history
