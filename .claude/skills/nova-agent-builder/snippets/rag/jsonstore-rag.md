@@ -286,11 +286,114 @@ Réponds en utilisant uniquement le contexte fourni.`,
 }
 ```
 
+## API Persistence Complete
+
+### Key Methods
+
+```go
+// Check if store file exists
+exists := agent.StoreFileExists("./store/knowledge.json")
+
+// Load existing store (fast - no re-indexing)
+err := agent.LoadStore("./store/knowledge.json")
+
+// Persist store to file
+err := agent.PersistStore("./store/knowledge.json")
+
+// Search similar (works with loaded or in-memory store)
+similarities, err := agent.SearchSimilar(query, 0.7)
+```
+
+### Complete Persistence Workflow
+
+```go
+func setupRAGAgent(ctx context.Context, storeFile, dataDir string) (*rag.Agent, error) {
+    agent, err := rag.NewAgent(
+        ctx,
+        agents.Config{
+            EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+        },
+        models.Config{
+            Name: "ai/mxbai-embed-large",
+        },
+    )
+    if err != nil {
+        return nil, err
+    }
+
+    // Load or create store
+    if agent.StoreFileExists(storeFile) {
+        // Store exists - load it (fast)
+        err := agent.LoadStore(storeFile)
+        if err != nil {
+            return nil, fmt.Errorf("failed to load store: %w", err)
+        }
+        fmt.Printf("Loaded existing store from %s\n", storeFile)
+    } else {
+        // Store doesn't exist - index documents
+        fmt.Printf("Creating new store...\n")
+
+        filesContent, err := files.GetContentFilesWithNames(dataDir, ".md")
+        if err != nil {
+            return nil, fmt.Errorf("failed to read files: %w", err)
+        }
+
+        for idx, content := range filesContent {
+            contentPieces := chunks.SplitMarkdownBySections(content.Content)
+
+            for _, piece := range contentPieces {
+                if err := agent.SaveEmbedding(piece); err != nil {
+                    fmt.Printf("Error indexing doc %d: %v\n", idx, err)
+                } else {
+                    fmt.Printf("Indexed: %s\n", content.FileName)
+                }
+            }
+        }
+
+        // Save store for future use
+        if err := agent.PersistStore(storeFile); err != nil {
+            return nil, fmt.Errorf("failed to persist store: %w", err)
+        }
+        fmt.Printf("Store saved to %s\n", storeFile)
+    }
+
+    return agent, nil
+}
+```
+
 ## Notes Importantes
 
-- Le store JSON contient les embeddings et les textes originaux
-- Créer le dossier `store/` avant la première exécution ou laisser le SDK le créer
-- La taille du store dépend du nombre de documents indexés
-- Pour de très gros volumes, considérer une base vectorielle dédiée
-- Le seuil de similarité (0.7) est ajustable selon vos besoins
-- `SplitMarkdownBySections` est préférable pour les fichiers .md bien structurés
+### DO:
+- Use `agent.StoreFileExists()` to check before loading
+- Use `agent.LoadStore()` on startup to avoid re-indexing
+- Use `agent.PersistStore()` after indexing to save embeddings
+- Set appropriate similarity threshold (0.6-0.8 recommended)
+- Use `chunks.SplitMarkdownBySections()` for markdown files
+- Use `files.GetContentFilesWithNames()` to track filenames
+- Create `store/` directory or let SDK create it automatically
+
+### DON'T:
+- Don't re-index documents every time (use LoadStore instead)
+- Don't forget to persist after initial indexing
+- Don't use very low thresholds (< 0.5) - too many irrelevant results
+- Don't use very high thresholds (> 0.9) - too few results
+- Don't index without chunking for large documents
+- Don't forget error handling for LoadStore/PersistStore
+
+### Store File Format:
+- **Format**: JSON file containing embeddings + original text
+- **Size**: Depends on number of chunks and embedding dimensions
+- **Location**: Can be anywhere (relative or absolute path)
+- **Portability**: Can be copied between machines (model-dependent)
+
+### Performance:
+- **First run** (no store): Slow - indexes all documents
+- **Subsequent runs** (with store): Fast - loads pre-computed embeddings
+- **Search time**: O(n) where n = number of chunks (fast with ~1000s of chunks)
+- **Benefit**: 100x faster startup for pre-indexed documents
+
+### Production Considerations:
+- For < 10,000 documents: JSON store is fine
+- For > 10,000 documents: Consider vector database (Pinecone, Qdrant, Weaviate)
+- For distributed systems: Use shared vector store
+- For updates: Incremental indexing (load + add + persist)

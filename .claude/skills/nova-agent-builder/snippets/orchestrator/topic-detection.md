@@ -273,12 +273,45 @@ orchestratorAgent.SetTelemetryCallback(func(event base.TelemetryEvent) {
 
 ## Important Notes
 
-- **Temperature**: Always use 0.0 for consistent topic classification
-- **System Instructions**: Be very specific about allowed topics
-- **Response Format**: Always specify JSON with `topic_discussion` field
-- **Model Choice**: Smaller models work well for simple topic detection
-- **Integration**: Designed to work seamlessly with crew agents
-- **Performance**: Topic detection should be fast (<100ms)
+### DO:
+- Use `orchestrator.NewAgent()` for topic detection agents
+- Set `Temperature: 0.0` for deterministic classification
+- Set `KeepConversationHistory: true` for context-aware routing
+- Define specific topics in system instructions
+- Use JSON format: `{"topic_discussion": "TopicName"}`
+- Use `IdentifyTopicFromText()` for simple text-based detection
+- Use `IdentifyIntent()` for message-based detection with history
+- Choose small, fast models: `hf.co/menlo/lucy-gguf:q4_k_m` (recommended)
+- Test topic detection with edge cases
+- Monitor performance (should be < 100ms)
+
+### DON'T:
+- Don't use high temperature (> 0.1) for topic detection
+- Don't skip defining allowed topics in system instructions
+- Don't use large models (overkill for classification)
+- Don't assume perfect classification - handle "unknown" topic
+- Don't forget to integrate with crew using `SetOrchestratorAgent()`
+- Don't use stateless mode (`KeepConversationHistory: false`) for crew integration
+- Don't ignore the finish reason - check for errors
+
+### API Methods:
+```go
+// Simple text-based detection
+topic, err := orchestratorAgent.IdentifyTopicFromText(query)
+
+// Message-based detection with history
+intent, finishReason, err := orchestratorAgent.IdentifyIntent(messages)
+
+// Get detected topic from intent
+topicName := intent.TopicDiscussion
+```
+
+### Intent Structure:
+```go
+type Intent struct {
+    TopicDiscussion string `json:"topic_discussion"`
+}
+```
 
 ## Common Patterns
 

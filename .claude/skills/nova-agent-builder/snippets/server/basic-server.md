@@ -220,16 +220,60 @@ evtSource.onmessage = (event) => {
 
 ## Important Notes
 
-- The server agent wraps a chat agent and exposes it via HTTP
-- SSE (Server-Sent Events) provides real-time streaming
-- The `executeFunction` parameter is optional - uses default if omitted
-- Conversation history is maintained in server memory
-- Use `/memory/reset` to clear history between conversations
-- Port must include the colon prefix (e.g., `:3500`)
+### DO:
+- Use `server.NewAgent()` to create HTTP API agents
+- Set `KeepConversationHistory: true` for stateful conversations
+- Call `agent.StartServer()` to start HTTP server (blocking)
+- Use SSE endpoints for streaming responses
+- Set appropriate temperature (0.0-0.8 depending on use case)
+- Enable logging with `NOVA_LOG_LEVEL=INFO` or `DEBUG`
+- Use `/memory/reset` to clear history between sessions
+- Include colon in port format: `:3500` not `3500`
+
+### DON'T:
+- Don't forget the colon prefix for ports (`:3500`)
+- Don't use very high temperature (> 0.9) for consistent responses
+- Don't ignore errors from `StartServer()` (use `log.Fatal()`)
+- Don't skip health check endpoint for production monitoring
+- Don't forget to handle graceful shutdown in production
+- Don't expose server without authentication in production
+
+### Dual-Mode Pattern:
+The `server.Agent` can run in **two modes**:
+1. **HTTP Mode**: Call `agent.StartServer()` for REST API
+2. **CLI Mode**: Call `agent.StreamCompletion()` for interactive terminal
+
+See `dual-mode-server.md` for complete dual-mode implementation.
+
+### Production Deployment:
+```go
+// Use environment variables for configuration
+import "github.com/snipwise/nova/nova-sdk/toolbox/env"
+
+engineURL := env.GetEnvOrDefault("ENGINE_URL", "http://localhost:12434/engines/llama.cpp/v1")
+modelName := env.GetEnvOrDefault("MODEL_NAME", "hf.co/menlo/jan-nano-gguf:q4_k_m")
+port := env.GetEnvOrDefault("SERVER_PORT", ":3500")
+```
+
+### Key Methods:
+```go
+// Start HTTP server (blocking)
+agent.StartServer()
+
+// Get current port
+port := agent.GetPort()
+
+// Set custom port
+agent.SetPort(":8080")
+
+// Stream completion (CLI mode)
+agent.StreamCompletion(question, callbackFunc)
+```
 
 ## Related Patterns
 
-- For tools support: See `server-with-tools.md`
-- For RAG support: See `server-with-rag.md`
-- For context compression: See `server-with-compressor.md`
-- For full-featured server: See `server-full-featured.md`
+- **Dual-mode agent**: See `dual-mode-server.md` (CLI + HTTP modes)
+- **Tools support**: See `server-with-tools.md`
+- **RAG support**: See `server-with-rag.md`
+- **Context compression**: See `server-with-compressor.md`
+- **Full-featured server**: See `server-full-featured.md` (tools + RAG + compression)

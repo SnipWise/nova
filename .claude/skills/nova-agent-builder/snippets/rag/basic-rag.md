@@ -166,33 +166,72 @@ result, _ := chatAgent.GenerateCompletion([]messages.Message{
 })
 ```
 
-### With Document Chunking
+### With Document Chunking (Built-in Utilities)
 
 ```go
-func chunkDocument(text string, chunkSize int, overlap int) []string {
-    words := strings.Fields(text)
-    var chunks []string
-    
-    for i := 0; i < len(words); i += chunkSize - overlap {
-        end := i + chunkSize
-        if end > len(words) {
-            end = len(words)
-        }
-        chunk := strings.Join(words[i:end], " ")
-        chunks = append(chunks, chunk)
-        
-        if end == len(words) {
-            break
-        }
-    }
-    
-    return chunks
+import "github.com/snipwise/nova/nova-sdk/agents/rag/chunks"
+
+// METHOD 1: Split by markdown sections (RECOMMENDED for .md files)
+// Preserves document structure and semantic boundaries
+markdownContent := `
+# Introduction
+This is the intro...
+
+## Features
+- Feature 1
+- Feature 2
+`
+
+// Split at section level (h2 by default)
+sections := chunks.SplitMarkdownBySections(markdownContent)
+for _, section := range sections {
+    agent.SaveEmbedding(section)
 }
 
-// Use
-chunks := chunkDocument(longDocument, 100, 20)
-for _, chunk := range chunks {
+// Split at specific heading level
+sections := chunks.SplitMarkdownBySection(2, markdownContent) // h2 level
+```
+
+```go
+// METHOD 2: Character-based chunking with overlap
+// Good for plain text or when structure doesn't matter
+longText := "Your long document content..."
+
+textChunks := chunks.ChunkText(
+    longText,
+    512,  // chunk size in characters
+    64,   // overlap size in characters
+)
+
+for _, chunk := range textChunks {
     agent.SaveEmbedding(chunk)
+}
+```
+
+```go
+// METHOD 3: Load and chunk files automatically
+import "github.com/snipwise/nova/nova-sdk/toolbox/files"
+
+// Get all markdown files from directory
+contents, err := files.GetContentFiles("./data", ".md")
+if err != nil {
+    panic(err)
+}
+
+// Index with automatic chunking
+for idx, content := range contents {
+    // Split by sections for better semantic chunks
+    piecesOfDoc := chunks.SplitMarkdownBySections(content)
+
+    for chunkIdx, piece := range piecesOfDoc {
+        fmt.Printf("Indexing doc %d/%d, chunk %d/%d\n",
+            idx+1, len(contents), chunkIdx+1, len(piecesOfDoc))
+
+        err := agent.SaveEmbedding(piece)
+        if err != nil {
+            fmt.Printf("Error indexing: %v\n", err)
+        }
+    }
 }
 ```
 
@@ -216,8 +255,32 @@ func indexWithMeta(agent *rag.Agent, doc DocumentWithMeta) {
 
 ## Important Notes
 
-- The embedding model must be compatible (text-to-vector)
-- Similarity threshold: 0.5 is a good starting point
-- Chunk large documents for better retrieval
-- RAG quality depends on chunk quality and size
-- Consider persistence for production (database)
+### DO:
+- Use `chunks.SplitMarkdownBySections()` for markdown documents (preserves structure)
+- Use `chunks.ChunkText()` for plain text with consistent chunk sizes
+- Use `files.GetContentFiles()` to load all files from a directory
+- Set similarity threshold to 0.5-0.7 for balanced retrieval
+- Choose embedding model carefully: `ai/mxbai-embed-large` (recommended)
+- Chunk large documents before indexing (512-1024 chars per chunk)
+- Use overlap (64-128 chars) to avoid losing context at boundaries
+- Index chunks with metadata for better traceability
+
+### DON'T:
+- Don't index entire large documents without chunking
+- Don't use overly small chunks (< 100 chars) - loses context
+- Don't use overly large chunks (> 2000 chars) - loses precision
+- Don't ignore chunk overlap - it preserves semantic continuity
+- Don't mix different chunking strategies in same index
+- Don't forget to test different chunk sizes for your use case
+
+### Chunking Best Practices:
+- **Markdown files**: Use `chunks.SplitMarkdownBySections()` - preserves document structure
+- **Plain text**: Use `chunks.ChunkText(text, 512, 64)` - 512 chars, 64 overlap
+- **Code files**: Use `chunks.SplitMarkdownBySections()` if well-commented
+- **Long articles**: Combine both - split by sections, then chunk large sections
+
+### Recommended Chunk Sizes:
+- **Short FAQs**: 200-300 chars (one Q&A per chunk)
+- **Documentation**: 512-1024 chars (one concept per chunk)
+- **Articles/Blogs**: 1024-1536 chars (one paragraph or section)
+- **Technical docs**: Use section-based splitting (adaptive size)

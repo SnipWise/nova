@@ -262,8 +262,40 @@ func aggregateResults(results []string) string {
 
 ## Important Notes
 
-- `ParallelToolCalls: true` must be set in model config
-- Model must support parallel function calling
-- Tools should be independent (no dependencies between them)
-- Parallel execution significantly reduces total time
-- Handle individual tool failures gracefully
+### DO:
+- Set `ParallelToolCalls: models.Bool(true)` in model config
+- Set `Temperature: 0.0` for deterministic tool calling
+- Set `KeepConversationHistory: true` for context-aware tool usage
+- Use `agent.DetectToolCallsLoop()` for automatic parallel execution
+- Handle each tool's errors individually
+- Use independent tools (no dependencies between parallel calls)
+- Test with real latency to see parallel benefits
+
+### DON'T:
+- Don't use parallel tools if they have dependencies
+- Don't forget to enable `ParallelToolCalls` flag
+- Don't use high temperature for tool calling (causes inconsistency)
+- Don't assume all models support parallel calling
+- Don't ignore individual tool failures
+- Don't use parallel calls for very fast tools (overhead > benefit)
+
+### Model Requirements:
+- **Recommended**: `hf.co/menlo/jan-nano-gguf:q4_k_m` (supports parallel calls)
+- **Alternative**: `hf.co/menlo/lucy-gguf:q4_k_m`
+- **Check**: Model must support function calling and parallel execution
+
+### Performance:
+- **Sequential**: Tool1(100ms) + Tool2(100ms) + Tool3(100ms) = 300ms
+- **Parallel**: max(Tool1, Tool2, Tool3) = 100ms
+- **Benefit**: 3x faster for 3 independent tools
+
+### Detecting Parallel Calls:
+The SDK automatically detects when tools can be executed in parallel. Use `DetectToolCallsLoop()` with a single executor function - the SDK handles parallelism internally.
+
+```go
+// SDK handles parallelism automatically
+result, err := agent.DetectToolCallsLoop(
+    messages,
+    executeSingleTool, // Called concurrently for parallel tools
+)
+```
