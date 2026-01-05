@@ -31,7 +31,7 @@ func main() {
 			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
 			Temperature: models.Float64(0.4),
 		},
-		":3500",
+		server.WithPort(3500),
 		// No executeFunction parameter - will use default!
 	)
 	if err != nil {

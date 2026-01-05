@@ -23,24 +23,6 @@ func main() {
 
 	ctx := context.Background()
 
-	// Create the server agent (can be used in both CLI and server modes)
-	agent, err := server.NewAgent(
-		ctx,
-		agents.Config{
-			Name:               "bob-cli-agent",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are Bob, a helpful AI assistant.",
-		},
-		models.Config{
-			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
-			Temperature: models.Float64(0.4),
-		},
-		":3500", // Port (not used in CLI mode)
-		executeFunction,
-	)
-	if err != nil {
-		panic(err)
-	}
 
 	// Create and set the tools agent
 	toolsAgent, err := tools.NewAgent(
@@ -56,13 +38,11 @@ func main() {
 			ParallelToolCalls: models.Bool(true),
 		},
 		tools.WithTools(GetToolsIndex()),
+		
 	)
 	if err != nil {
 		panic(err)
 	}
-
-	// Set the tools agent
-	agent.SetToolsAgent(toolsAgent)
 
 	// Optional: Set custom confirmation prompt for tool execution
 	// By default, it auto-confirms in CLI mode
@@ -103,7 +83,27 @@ func main() {
 		}
 	}
 
-	agent.SetRagAgent(ragAgent)
+
+	// Create the server agent (can be used in both CLI and server modes)
+	agent, err := server.NewAgent(
+		ctx,
+		agents.Config{
+			Name:               "bob-cli-agent",
+			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: "You are Bob, a helpful AI assistant.",
+		},
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature: models.Float64(0.4),
+		},
+		server.WithRagAgent(ragAgent),
+		server.WithToolsAgent(toolsAgent),
+		server.WithExecuteFn(executeFunction),
+	)
+	if err != nil {
+		panic(err)
+	}
+
 
 	fmt.Println("🤖 Server Agent in CLI Mode with StreamCompletion")
 	fmt.Println("Type 'exit' to quit")

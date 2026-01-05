@@ -2,7 +2,7 @@
 SERVICE_URL=${SERVICE_URL:-http://localhost:3500/completion}
 
 read -r -d '' USER_CONTENT <<- EOM
-How to use switch case statements in Golang
+Explain the Option pattern in Go with an example.
 EOM
 
 read -r -d '' DATA <<- EOM
