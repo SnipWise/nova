@@ -52,6 +52,7 @@ agent, err := server.NewAgent(
 |--------|-------------|
 | `WithPort(port int)` | Sets the HTTP port (default: 8080) |
 | `WithExecuteFn(fn)` | Custom function executor for tools |
+| `WithConfirmationPromptFn(fn)` | Custom confirmation function for human-in-the-loop |
 | `WithToolsAgent(toolsAgent)` | Adds an agent for function execution |
 | `WithRagAgent(ragAgent)` | Adds a RAG agent for document retrieval |
 | `WithRagAgentAndSimilarityConfig(ragAgent, limit, max)` | RAG with similarity configuration |
@@ -227,8 +228,40 @@ For direct command-line usage.
 ```go
 result, err := agent.StreamCompletion(question, callback)
 ```
-- Tool calls are auto-confirmed
+- By default, tool calls are auto-confirmed
+- Use `WithConfirmationPromptFn` to enable human-in-the-loop
 - Streaming via callback
+
+**Example with user confirmation (CLI)** :
+```go
+// Custom confirmation function
+confirmationPrompt := func(functionName string, arguments string) tools.ConfirmationResponse {
+    fmt.Printf("Execute %s with args %s? (y/n/q): ", functionName, arguments)
+    var response string
+    fmt.Scanln(&response)
+
+    switch response {
+    case "y":
+        return tools.Confirmed
+    case "n":
+        return tools.Denied
+    case "q":
+        return tools.Quit
+    default:
+        return tools.Denied
+    }
+}
+
+// Create agent with confirmation
+agent, _ := server.NewAgent(
+    ctx,
+    agentConfig,
+    modelConfig,
+    server.WithToolsAgent(toolsAgent),
+    server.WithExecuteFn(executeFunction),
+    server.WithConfirmationPromptFn(confirmationPrompt),
+)
+```
 
 ## Tool Call Notifications
 

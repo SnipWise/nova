@@ -44,9 +44,8 @@ func main() {
 		panic(err)
 	}
 
-	// Optional: Set custom confirmation prompt for tool execution
-	// By default, it auto-confirms in CLI mode
-	// agent.SetConfirmationPromptFunction(customConfirmationPrompt)
+	// Uncomment this line to enable human-in-the-loop confirmation
+	// confirmationPrompt := customConfirmationPrompt
 
 	// Create the RAG agent
 	ragAgent, err := rag.NewAgent(
@@ -99,6 +98,8 @@ func main() {
 		server.WithRagAgent(ragAgent),
 		server.WithToolsAgent(toolsAgent),
 		server.WithExecuteFn(executeFunction),
+		// Uncomment to enable human-in-the-loop confirmation for tool calls
+		// server.WithConfirmationPromptFn(customConfirmationPrompt),
 	)
 	if err != nil {
 		panic(err)
@@ -198,11 +199,12 @@ func executeFunction(functionName string, arguments string) (string, error) {
 	}
 }
 
-// Optional: Custom confirmation prompt (commented out by default)
+// Optional: Custom confirmation prompt for human-in-the-loop
+// Uncomment the function below and add server.WithConfirmationPromptFn(customConfirmationPrompt) to enable
 /*
 func customConfirmationPrompt(functionName string, arguments string) tools.ConfirmationResponse {
-	display.Colorf(display.ColorYellow, "⚠️  Tool call detected: %s\n", functionName)
-	display.Infof("Arguments: %s", arguments)
+	display.Colorf(display.ColorYellow, "\n⚠️  Tool call detected: %s\n", functionName)
+	display.Infof("Arguments: %s\n", arguments)
 
 	choice := prompt.HumanConfirmation(fmt.Sprintf("Execute %s?", functionName))
 	return choice
