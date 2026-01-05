@@ -56,8 +56,9 @@ func main() {
 			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",    // Model to use
 			Temperature: models.Float64(0.4),                    // Creativity level
 		},
-		":3500",  // HTTP port
-		// executeFunction is optional - omitted here, will use default
+		// Optional configuration via functional options
+		server.WithPort(":3500"),  // HTTP port (default: ":8080")
+		// server.WithExecuteFn(executeFunction), // Optional: for tool execution
 	)
 	if err != nil {
 		panic(err)

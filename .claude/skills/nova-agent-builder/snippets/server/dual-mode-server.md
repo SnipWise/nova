@@ -53,27 +53,7 @@ func main() {
 
 	ctx := context.Background()
 
-	// === CREATE SERVER AGENT ===
-	// Works in both CLI and HTTP modes
-	agent, err := server.NewAgent(
-		ctx,
-		agents.Config{
-			Name:               "bob-agent",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are Bob, a helpful AI assistant.",
-		},
-		models.Config{
-			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
-			Temperature: models.Float64(0.4),
-		},
-		":3500",         // Port for HTTP mode (ignored in CLI mode)
-		executeFunction, // Tool executor
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	// === OPTIONAL: ADD TOOLS AGENT ===
+	// === OPTIONAL: CREATE TOOLS AGENT ===
 	toolsAgent, err := tools.NewAgent(
 		ctx,
 		agents.Config{
@@ -91,9 +71,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	agent.SetToolsAgent(toolsAgent)
 
-	// === OPTIONAL: ADD RAG AGENT ===
+	// === OPTIONAL: CREATE RAG AGENT ===
 	ragAgent, err := rag.NewAgent(
 		ctx,
 		agents.Config{
@@ -129,7 +108,31 @@ func main() {
 			}
 		}
 	}
-	agent.SetRagAgent(ragAgent)
+
+	// === CREATE SERVER AGENT ===
+	// Works in both CLI and HTTP modes
+	agent, err := server.NewAgent(
+		ctx,
+		agents.Config{
+			Name:               "bob-agent",
+			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: "You are Bob, a helpful AI assistant.",
+		},
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature: models.Float64(0.4),
+		},
+		// Optional configuration via functional options
+		server.WithPort(":3500"),
+		server.WithExecuteFn(executeFunction),
+		server.WithToolsAgent(toolsAgent),
+		server.WithRagAgent(ragAgent),
+		// Uncomment to enable human-in-the-loop in CLI mode:
+		// server.WithConfirmationPromptFn(customConfirmationPrompt),
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	// === CLI MODE EXECUTION ===
 	// Interactive loop using StreamCompletion
@@ -262,7 +265,7 @@ TOOLS_TEMPERATURE: 0.0
 ```go
 import "github.com/snipwise/nova/nova-sdk/agents/server"
 
-// Create dual-mode agent
+// Create dual-mode agent with functional options
 agent, err := server.NewAgent(
     ctx,
     agents.Config{
@@ -274,8 +277,12 @@ agent, err := server.NewAgent(
         Name:        modelName,
         Temperature: models.Float64(0.4),
     },
-    ":3500",         // HTTP port (ignored in CLI mode)
-    executeFunction, // Tool executor function
+    // Optional configuration
+    server.WithPort(":3500"),
+    server.WithExecuteFn(executeFunction),
+    server.WithToolsAgent(toolsAgent),
+    server.WithRagAgent(ragAgent),
+    server.WithConfirmationPromptFn(customConfirmationPrompt), // CLI mode only
 )
 ```
 
@@ -376,16 +383,34 @@ func runCLILoop(agent *server.Agent) {
 ### Custom Confirmation Prompt (CLI Only)
 
 ```go
-// Optional: Set custom confirmation for tool execution in CLI mode
-agent.SetConfirmationPromptFunction(customConfirmationPrompt)
-
+// Define confirmation function
 func customConfirmationPrompt(functionName string, arguments string) tools.ConfirmationResponse {
     display.Colorf(display.ColorYellow, "⚠️  Tool call: %s\n", functionName)
-    display.Infof("Arguments: %s", arguments)
+    display.Infof("Arguments: %s\n", arguments)
 
-    choice := prompt.HumanConfirmation(fmt.Sprintf("Execute %s?", functionName))
-    return choice
+    fmt.Print("Execute this tool? (y/n/q): ")
+    var response string
+    fmt.Scanln(&response)
+
+    switch response {
+    case "y":
+        return tools.Confirmed
+    case "n":
+        return tools.Denied
+    case "q":
+        return tools.Quit
+    default:
+        return tools.Denied
+    }
 }
+
+// Use with server.NewAgent
+agent, err := server.NewAgent(
+    ctx,
+    agentConfig,
+    modelConfig,
+    server.WithConfirmationPromptFn(customConfirmationPrompt),
+)
 ```
 
 ### Docker Deployment
@@ -437,9 +462,12 @@ services:
 
 ```go
 // Create multiple specialized agents
-chatAgent, _ := server.NewAgent(ctx, chatConfig, chatModel, ":3501", nil)
-toolsAgent, _ := server.NewAgent(ctx, toolsConfig, toolsModel, ":3502", executeTools)
-ragAgent, _ := server.NewAgent(ctx, ragConfig, ragModel, ":3503", nil)
+chatAgent, _ := server.NewAgent(ctx, chatConfig, chatModel, server.WithPort(":3501"))
+toolsAgent, _ := server.NewAgent(ctx, toolsConfig, toolsModel,
+    server.WithPort(":3502"),
+    server.WithExecuteFn(executeTools),
+)
+ragAgent, _ := server.NewAgent(ctx, ragConfig, ragModel, server.WithPort(":3503"))
 
 // Run in separate goroutines
 go chatAgent.StartServer()

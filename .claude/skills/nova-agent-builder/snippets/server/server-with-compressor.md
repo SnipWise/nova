@@ -46,25 +46,6 @@ func main() {
 
 	ctx := context.Background()
 
-	// === SERVER AGENT CONFIGURATION ===
-	serverAgent, err := server.NewAgent(
-		ctx,
-		agents.Config{
-			Name:               "Bob",                                           // Agent name
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",  // LLM Engine URL
-			SystemInstructions: "You are Bob, a helpful AI assistant.",         // System instructions
-		},
-		models.Config{
-			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",    // Model for chat
-			Temperature: models.Float64(0.4),
-		},
-		":8080",  // HTTP port
-		// executeFunction is optional - omitted here
-	)
-	if err != nil {
-		panic(err)
-	}
-
 	// === COMPRESSOR AGENT CONFIGURATION ===
 	// Best practice: Use Effective instructions and UltraShort prompts
 	compressorAgent, err := compressor.NewAgent(
@@ -86,8 +67,25 @@ func main() {
 		panic(err)
 	}
 
-	// === ATTACH COMPRESSOR AGENT ===
-	serverAgent.SetCompressorAgent(compressorAgent)
+	// === SERVER AGENT CONFIGURATION ===
+	serverAgent, err := server.NewAgent(
+		ctx,
+		agents.Config{
+			Name:               "Bob",                                           // Agent name
+			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",  // LLM Engine URL
+			SystemInstructions: "You are Bob, a helpful AI assistant.",         // System instructions
+		},
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",    // Model for chat
+			Temperature: models.Float64(0.4),
+		},
+		// Optional configuration via functional options
+		server.WithPort(":8080"),
+		server.WithCompressorAgent(compressorAgent),
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	// === CONFIGURE COMPRESSION THRESHOLD ===
 	serverAgent.SetContextSizeLimit(3000)  // Compress when context exceeds 3000 tokens

@@ -48,26 +48,6 @@ func main() {
 
 	ctx := context.Background()
 
-	// === SERVER AGENT CONFIGURATION ===
-	serverAgent, err := server.NewAgent(
-		ctx,
-		agents.Config{
-			Name:                    "Bob",                                           // Agent name
-			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",  // LLM Engine URL
-			SystemInstructions:      "You are Bob, a helpful AI assistant.",         // System instructions
-			KeepConversationHistory: true,                                           // Keep conversation context
-		},
-		models.Config{
-			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",    // Model for chat
-			Temperature: models.Float64(0.4),
-		},
-		":8080",  // HTTP port
-		// executeFunction is optional - omitted here
-	)
-	if err != nil {
-		panic(err)
-	}
-
 	// === RAG AGENT CONFIGURATION ===
 	ragAgent, err := rag.NewAgent(
 		ctx,
@@ -108,8 +88,26 @@ func main() {
 		}
 	}
 
-	// === ATTACH RAG AGENT ===
-	serverAgent.SetRagAgent(ragAgent)
+	// === SERVER AGENT CONFIGURATION ===
+	serverAgent, err := server.NewAgent(
+		ctx,
+		agents.Config{
+			Name:                    "Bob",                                           // Agent name
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",  // LLM Engine URL
+			SystemInstructions:      "You are Bob, a helpful AI assistant.",         // System instructions
+			KeepConversationHistory: true,                                           // Keep conversation context
+		},
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",    // Model for chat
+			Temperature: models.Float64(0.4),
+		},
+		// Optional configuration via functional options
+		server.WithPort(":8080"),
+		server.WithRagAgent(ragAgent),
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	// Optional: Configure RAG behavior
 	serverAgent.SetSimilarityLimit(0.6)   // Minimum similarity threshold

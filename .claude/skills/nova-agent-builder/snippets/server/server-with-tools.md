@@ -46,26 +46,6 @@ func main() {
 
 	ctx := context.Background()
 
-	// === SERVER AGENT CONFIGURATION ===
-	agent, err := server.NewAgent(
-		ctx,
-		agents.Config{
-			Name:                    "bob-server-agent",                              // Agent name
-			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",   // LLM Engine URL
-			SystemInstructions:      "You are Bob, a helpful AI assistant.",          // System instructions
-			KeepConversationHistory: true,                                            // Keep conversation context
-		},
-		models.Config{
-			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",    // Model for chat
-			Temperature: models.Float64(0.4),
-		},
-		":3500",          // HTTP port
-		executeFunction,  // Custom execute function for tools
-	)
-	if err != nil {
-		panic(err)
-	}
-
 	// === TOOLS AGENT CONFIGURATION ===
 	toolsAgent, err := tools.NewAgent(
 		ctx,
@@ -86,8 +66,27 @@ func main() {
 		panic(err)
 	}
 
-	// Attach tools agent to server agent
-	agent.SetToolsAgent(toolsAgent)
+	// === SERVER AGENT CONFIGURATION ===
+	agent, err := server.NewAgent(
+		ctx,
+		agents.Config{
+			Name:                    "bob-server-agent",                              // Agent name
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",   // LLM Engine URL
+			SystemInstructions:      "You are Bob, a helpful AI assistant.",          // System instructions
+			KeepConversationHistory: true,                                            // Keep conversation context
+		},
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",    // Model for chat
+			Temperature: models.Float64(0.4),
+		},
+		// Optional configuration via functional options
+		server.WithPort(":3500"),
+		server.WithExecuteFn(executeFunction),
+		server.WithToolsAgent(toolsAgent),
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	// Start the HTTP server
 	fmt.Printf("🚀 Starting server agent on http://localhost%s\n", agent.GetPort())

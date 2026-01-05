@@ -48,27 +48,7 @@ func main() {
 	os.Setenv("NOVA_LOG_LEVEL", "INFO")
 	ctx := context.Background()
 
-	// === 1. SERVER AGENT (Main Chat) ===
-	serverAgent, err := server.NewAgent(
-		ctx,
-		agents.Config{
-			Name:                    "Bob",
-			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions:      "You are Bob, a helpful AI assistant.",
-			KeepConversationHistory: true,
-		},
-		models.Config{
-			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
-			Temperature: models.Float64(0.4),
-		},
-		":8080",
-		executeFunction,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	// === 2. TOOLS AGENT ===
+	// === 1. TOOLS AGENT ===
 	toolsAgent, err := tools.NewAgent(
 		ctx,
 		agents.Config{
@@ -87,9 +67,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	serverAgent.SetToolsAgent(toolsAgent)
 
-	// === 3. RAG AGENT ===
+	// === 2. RAG AGENT ===
 	ragAgent, err := rag.NewAgent(
 		ctx,
 		agents.Config{
@@ -118,9 +97,8 @@ func main() {
 			ragAgent.SaveEmbedding(piece)
 		}
 	}
-	serverAgent.SetRagAgent(ragAgent)
 
-	// === 4. COMPRESSOR AGENT ===
+	// === 3. COMPRESSOR AGENT ===
 	// Best practice: Use Effective instructions and UltraShort prompts
 	compressorAgent, err := compressor.NewAgent(
 		ctx,
@@ -140,7 +118,30 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	serverAgent.SetCompressorAgent(compressorAgent)
+
+	// === 4. SERVER AGENT (Main Chat) ===
+	serverAgent, err := server.NewAgent(
+		ctx,
+		agents.Config{
+			Name:                    "Bob",
+			EngineURL:               "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions:      "You are Bob, a helpful AI assistant.",
+			KeepConversationHistory: true,
+		},
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature: models.Float64(0.4),
+		},
+		// Optional configuration via functional options
+		server.WithPort(":8080"),
+		server.WithExecuteFn(executeFunction),
+		server.WithToolsAgent(toolsAgent),
+		server.WithRagAgent(ragAgent),
+		server.WithCompressorAgent(compressorAgent),
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	// === 5. CONFIGURE ===
 	serverAgent.SetContextSizeLimit(3000)

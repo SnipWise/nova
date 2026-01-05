@@ -610,6 +610,7 @@ HTTP/REST API agent with SSE streaming.
 ### Creation
 
 ```go
+// New Functional Options Pattern (Recommended)
 agent, err := server.NewAgent(
     ctx,
     agents.Config{
@@ -621,15 +622,42 @@ agent, err := server.NewAgent(
         Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
         Temperature: models.Float64(0.4),
     },
-    ":3500",         // Port
-    executeFunction, // Optional: for tools
+    // Optional configuration via functional options
+    server.WithPort(":8080"),
+    server.WithExecuteFn(executeFunction),
+    server.WithToolsAgent(toolsAgent),
+    server.WithRagAgent(ragAgent),
+    server.WithCompressorAgent(compressorAgent),
+    server.WithConfirmationPromptFn(confirmationCallback),
 )
+```
 
-// Attach optional capabilities
-agent.SetToolsAgent(toolsAgent)
-agent.SetRagAgent(ragAgent)
-agent.SetCompressorAgent(compressorAgent)
-agent.SetConfirmationPromptFn(confirmationCallback)
+### Available Options
+
+```go
+// Port configuration (default: ":8080")
+server.WithPort(":3500")
+
+// Function executor for tool calls
+server.WithExecuteFn(func(functionName, arguments string) (string, error) {
+    // Custom tool execution logic
+    return result, nil
+})
+
+// Tools agent for function calling
+server.WithToolsAgent(toolsAgent)
+
+// RAG agent for context enrichment
+server.WithRagAgent(ragAgent)
+
+// Compressor agent for context compression
+server.WithCompressorAgent(compressorAgent)
+
+// Custom confirmation prompt (CLI mode only)
+server.WithConfirmationPromptFn(func(functionName, arguments string) tools.ConfirmationResponse {
+    // Ask user for confirmation
+    return tools.Confirmed // or tools.Denied, tools.Quit
+})
 ```
 
 ### HTTP Endpoints
