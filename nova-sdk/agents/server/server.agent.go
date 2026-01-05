@@ -22,14 +22,15 @@ type ServerAgent struct {
 	chatAgent *chat.Agent
 
 	// Temporary fields to store config before BaseServerAgent is created
-	portConfig             string
-	executeFnConfig        func(string, string) (string, error)
-	toolsAgentConfig       *tools.Agent
-	ragAgentConfig         *rag.Agent
-	compressorAgentConfig  *compressor.Agent
-	similarityLimitConfig  float64
-	maxSimilaritiesConfig  int
-	contextSizeLimitConfig int
+	portConfig               string
+	executeFnConfig          func(string, string) (string, error)
+	confirmationPromptFnConfig func(string, string) tools.ConfirmationResponse
+	toolsAgentConfig         *tools.Agent
+	ragAgentConfig           *rag.Agent
+	compressorAgentConfig    *compressor.Agent
+	similarityLimitConfig    float64
+	maxSimilaritiesConfig    int
+	contextSizeLimitConfig   int
 }
 
 // Re-export types from serverbase for backward compatibility
@@ -57,6 +58,14 @@ func WithPort(port int) ServerAgentOption {
 func WithExecuteFn(fn func(string, string) (string, error)) ServerAgentOption {
 	return func(agent *ServerAgent) error {
 		agent.executeFnConfig = fn
+		return nil
+	}
+}
+
+// WithConfirmationPromptFn sets the confirmation prompt function
+func WithConfirmationPromptFn(fn func(string, string) tools.ConfirmationResponse) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.confirmationPromptFnConfig = fn
 		return nil
 	}
 }
@@ -107,8 +116,9 @@ func WithRagAgentAndSimilarityConfig(ragAgent *rag.Agent, similarityLimit float6
 // NewAgent creates a new server agent with options
 //
 // Available options:
-//   - WithPort(port) - Sets the HTTP server port as int (default: 3500)
+//   - WithPort(port) - Sets the HTTP server port as int (default: 8080)
 //   - WithExecuteFn(fn) - Sets the custom function executor for tool execution
+//   - WithConfirmationPromptFn(fn) - Sets the confirmation prompt function for human-in-the-loop
 //   - WithToolsAgent(toolsAgent) - Attaches a tools agent for function calling capabilities
 //   - WithCompressorAgent(compressorAgent) - Attaches a compressor agent for context compression
 //   - WithCompressorAgentAndContextSize(compressorAgent, contextSizeLimit) - Attaches a compressor agent and sets the context size limit
@@ -135,7 +145,7 @@ func NewAgent(
 	// Create agent with defaults
 	agent := &ServerAgent{
 		chatAgent:  chatAgent,
-		portConfig: ":3500", // Default port
+		portConfig: ":8080", // Default port
 	}
 
 	// Apply all options
@@ -174,8 +184,12 @@ func NewAgent(
 		agent.ExecuteFn = agent.executeFunction
 	}
 
-	// Set confirmationPromptFn to default CLI confirmation
-	agent.ConfirmationPromptFn = agent.cliConfirmationPrompt
+	// Set confirmationPromptFn to provided or default CLI confirmation
+	if agent.confirmationPromptFnConfig != nil {
+		agent.ConfirmationPromptFn = agent.confirmationPromptFnConfig
+	} else {
+		agent.ConfirmationPromptFn = agent.cliConfirmationPrompt
+	}
 
 	return agent, nil
 }
