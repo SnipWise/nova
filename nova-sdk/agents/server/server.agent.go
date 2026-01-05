@@ -2,10 +2,13 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
+	"github.com/snipwise/nova/nova-sdk/agents/compressor"
+	"github.com/snipwise/nova/nova-sdk/agents/rag"
 	"github.com/snipwise/nova/nova-sdk/agents/serverbase"
 	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
@@ -17,6 +20,16 @@ import (
 type ServerAgent struct {
 	*serverbase.BaseServerAgent
 	chatAgent *chat.Agent
+
+	// Temporary fields to store config before BaseServerAgent is created
+	portConfig             string
+	executeFnConfig        func(string, string) (string, error)
+	toolsAgentConfig       *tools.Agent
+	ragAgentConfig         *rag.Agent
+	compressorAgentConfig  *compressor.Agent
+	similarityLimitConfig  float64
+	maxSimilaritiesConfig  int
+	contextSizeLimitConfig int
 }
 
 // Re-export types from serverbase for backward compatibility
@@ -29,35 +42,135 @@ type (
 	TokensResponse       = serverbase.ContextSizeResponse
 )
 
-// NewAgent creates a new server agent
-// executeFn is optional - if not provided, uses the default executeFunction method
+// ServerAgentOption is a function that configures a ServerAgent
+type ServerAgentOption func(*ServerAgent) error
+
+// WithPort sets the HTTP server port
+func WithPort(port int) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.portConfig = fmt.Sprintf(":%d", port)
+		return nil
+	}
+}
+
+// WithExecuteFn sets the custom function executor
+func WithExecuteFn(fn func(string, string) (string, error)) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.executeFnConfig = fn
+		return nil
+	}
+}
+
+// WithToolsAgent sets the tools agent
+func WithToolsAgent(toolsAgent *tools.Agent) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.toolsAgentConfig = toolsAgent
+		return nil
+	}
+}
+
+// WithCompressorAgent sets the compressor agent
+func WithCompressorAgent(compressorAgent *compressor.Agent) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.compressorAgentConfig = compressorAgent
+		return nil
+	}
+}
+
+// WithCompressorAgentAndContextSize sets the compressor agent and context size limit
+func WithCompressorAgentAndContextSize(compressorAgent *compressor.Agent, contextSizeLimit int) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.compressorAgentConfig = compressorAgent
+		agent.contextSizeLimitConfig = contextSizeLimit
+		return nil
+	}
+}
+
+// WithRagAgent sets the RAG agent
+func WithRagAgent(ragAgent *rag.Agent) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.ragAgentConfig = ragAgent
+		return nil
+	}
+}
+
+// WithRagAgentAndSimilarityConfig sets the RAG agent, similarity limit and max similarities
+func WithRagAgentAndSimilarityConfig(ragAgent *rag.Agent, similarityLimit float64, maxSimilarities int) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.ragAgentConfig = ragAgent
+		agent.similarityLimitConfig = similarityLimit
+		agent.maxSimilaritiesConfig = maxSimilarities
+		return nil
+	}
+}
+
+// NewAgent creates a new server agent with options
+//
+// Available options:
+//   - WithPort(port) - Sets the HTTP server port as int (default: 3500)
+//   - WithExecuteFn(fn) - Sets the custom function executor for tool execution
+//   - WithToolsAgent(toolsAgent) - Attaches a tools agent for function calling capabilities
+//   - WithCompressorAgent(compressorAgent) - Attaches a compressor agent for context compression
+//   - WithCompressorAgentAndContextSize(compressorAgent, contextSizeLimit) - Attaches a compressor agent and sets the context size limit
+//   - WithRagAgent(ragAgent) - Attaches a RAG agent for document retrieval
+//   - WithRagAgentAndSimilarityConfig(ragAgent, similarityLimit, maxSimilarities) - Attaches a RAG agent and configures similarity settings
+//
+// Example:
+//   agent, err := NewAgent(ctx, agentConfig, modelConfig,
+//       WithPort(8080),
+//       WithToolsAgent(toolsAgent),
+//       WithRagAgent(ragAgent),
+//   )
 func NewAgent(
 	ctx context.Context,
 	agentConfig agents.Config,
 	modelConfig models.Config,
-	port string,
-	executeFn ...func(string, string) (string, error),
+	options ...ServerAgentOption,
 ) (*ServerAgent, error) {
 	chatAgent, err := chat.NewAgent(ctx, agentConfig, modelConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	// Use provided executeFn or nil (will be set to default later)
-	var execFn func(string, string) (string, error)
-	if len(executeFn) > 0 && executeFn[0] != nil {
-		execFn = executeFn[0]
+	// Create agent with defaults
+	agent := &ServerAgent{
+		chatAgent:  chatAgent,
+		portConfig: ":3500", // Default port
 	}
 
-	baseAgent := serverbase.NewBaseServerAgent(ctx, port, chatAgent, execFn)
+	// Apply all options
+	for _, option := range options {
+		if err := option(agent); err != nil {
+			return nil, err
+		}
+	}
 
-	agent := &ServerAgent{
-		BaseServerAgent: baseAgent,
-		chatAgent:       chatAgent,
+	// Create base server agent with the configured port and executeFn
+	baseAgent := serverbase.NewBaseServerAgent(ctx, agent.portConfig, chatAgent, agent.executeFnConfig)
+	agent.BaseServerAgent = baseAgent
+
+	// Apply configuration from temporary fields to BaseServerAgent
+	if agent.toolsAgentConfig != nil {
+		agent.ToolsAgent = agent.toolsAgentConfig
+	}
+	if agent.ragAgentConfig != nil {
+		agent.RagAgent = agent.ragAgentConfig
+		if agent.similarityLimitConfig != 0 {
+			agent.SimilarityLimit = agent.similarityLimitConfig
+		}
+		if agent.maxSimilaritiesConfig != 0 {
+			agent.MaxSimilarities = agent.maxSimilaritiesConfig
+		}
+	}
+	if agent.compressorAgentConfig != nil {
+		agent.CompressorAgent = agent.compressorAgentConfig
+		if agent.contextSizeLimitConfig != 0 {
+			agent.ContextSizeLimit = agent.contextSizeLimitConfig
+		}
 	}
 
 	// Set executeFunction to default if not provided
-	if execFn == nil {
+	if agent.ExecuteFn == nil {
 		agent.ExecuteFn = agent.executeFunction
 	}
 

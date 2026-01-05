@@ -26,25 +26,6 @@ func main() {
 
 	ctx := context.Background()
 
-	// Create the server agent
-	serverAgent, err := server.NewAgent(
-		ctx,
-		agents.Config{
-			Name:               "Bob",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are Bob, a helpful AI assistant.",
-		},
-		models.Config{
-			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
-			Temperature: models.Float64(0.4),
-		},
-		":3500",
-		executeFunction,
-	)
-	if err != nil {
-		panic(err)
-	}
-
 	// Create the tools agent
 	toolsAgent, err := tools.NewAgent(
 		ctx,
@@ -63,8 +44,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// Attach the tools agent to the server agent
-	serverAgent.SetToolsAgent(toolsAgent)
 
 	// Create the RAG agent
 	ragAgent, err := rag.NewAgent(
@@ -101,9 +80,6 @@ func main() {
 		}
 	}
 
-	// Attach the RAG agent to the server agent
-	serverAgent.SetRagAgent(ragAgent)
-
 	compressorAgent, err := compressor.NewAgent(
 		ctx,
 		agents.Config{
@@ -121,10 +97,28 @@ func main() {
 		panic(err)
 	}
 
-	// Attach the compressor agent to the server agent
-	serverAgent.SetCompressorAgent(compressorAgent)
 
-	serverAgent.SetContextSizeLimit(3000)
+	// Create the server agent
+	serverAgent, err := server.NewAgent(
+		ctx,
+		agents.Config{
+			Name:               "Bob",
+			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: "You are Bob, a helpful AI assistant.",
+		},
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature: models.Float64(0.4),
+		},
+		server.WithPort(3500),
+		server.WithToolsAgent(toolsAgent),
+		server.WithRagAgentAndSimilarityConfig(ragAgent, 0.5, 3),
+		server.WithCompressorAgentAndContextSize(compressorAgent, 3000),
+		server.WithExecuteFn(executeFunction),
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	display.Colorf(display.ColorCyan, "🚀 Server starting on http://localhost%s\n", serverAgent.GetPort())
 

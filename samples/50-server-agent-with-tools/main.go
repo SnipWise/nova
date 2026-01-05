@@ -22,25 +22,6 @@ func main() {
 
 	ctx := context.Background()
 
-	// Create the server agent
-	serverAgent, err := server.NewAgent(
-		ctx,
-		agents.Config{
-			Name:               "Bob",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are Bob, a helpful AI assistant.",
-		},
-		models.Config{
-			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
-			Temperature: models.Float64(0.4),
-		},
-		":8080",
-		executeFunction,
-	)
-	if err != nil {
-		panic(err)
-	}
-
 	// Create the tools agent
 	toolsAgent, err := tools.NewAgent(
 		ctx,
@@ -60,8 +41,27 @@ func main() {
 		panic(err)
 	}
 
-	// Attach the tools agent to the server agent
-	serverAgent.SetToolsAgent(toolsAgent)
+
+	// Create the server agent
+	serverAgent, err := server.NewAgent(
+		ctx,
+		agents.Config{
+			Name:               "Bob",
+			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: "You are Bob, a helpful AI assistant.",
+		},
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature: models.Float64(0.4),
+		},
+		server.WithPort(8080),
+		server.WithToolsAgent(toolsAgent),
+		server.WithExecuteFn(executeFunction),
+	)
+	if err != nil {
+		panic(err)
+	}
+
 
 	display.Colorf(display.ColorCyan, "🚀 Server starting on http://localhost%s\n", serverAgent.GetPort())
 	display.Colorf(display.ColorYellow, "📡 Endpoints:\n")

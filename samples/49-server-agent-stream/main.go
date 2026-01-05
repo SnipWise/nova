@@ -20,26 +20,7 @@ func main() {
 
 	ctx := context.Background()
 
-	// Create the server agent with HTTP server capabilities
-	agent, err := server.NewAgent(
-		ctx,
-		agents.Config{
-			Name:               "bob-server-agent",
-			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
-			SystemInstructions: "You are Bob, a helpful AI assistant.",
-		},
-		models.Config{
-			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
-			Temperature: models.Float64(0.4),
-		},
-		":3500",
-		executeFunction, // Custom execute function for tools
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	// Create and set the tools agent
+		// Create and set the tools agent
 	toolsAgent, err := tools.NewAgent(
 		ctx,
 		agents.Config{
@@ -58,8 +39,26 @@ func main() {
 		panic(err)
 	}
 
-	// Set the tools agent
-	agent.SetToolsAgent(toolsAgent)
+
+	// Create the server agent with HTTP server capabilities
+	agent, err := server.NewAgent(
+		ctx,
+		agents.Config{
+			Name:               "bob-server-agent",
+			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: "You are Bob, a helpful AI assistant.",
+		},
+		models.Config{
+			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature: models.Float64(0.4),
+		},
+		server.WithPort(3500),
+		server.WithToolsAgent(toolsAgent),
+		server.WithExecuteFn(executeFunction), // Custom execute function for tools
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	// Start the HTTP server
 	fmt.Printf("🚀 Starting server agent on http://localhost%s\n", agent.GetPort())
