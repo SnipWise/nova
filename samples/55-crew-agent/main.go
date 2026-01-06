@@ -169,6 +169,13 @@ func main() {
 	// ------------------------------------------------
 	//agentCrew := make(map[string]*chat.Agent)
 
+	agentCrew := map[string]*chat.Agent{
+		"coder":   nil,
+		"thinker": nil,
+		"cook":    nil,
+		"generic": nil,
+	}
+
 	coderAgent, err := getCoderAgent(ctx, engineURL)
 	if err != nil {
 		panic(err)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
@@ -47,6 +48,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Println(response.Name)
+	fmt.Println(response.Capital)
+	fmt.Println(response.Population)
+	fmt.Println(response.Languages)
+
+
 
 	display.NewLine()
 	display.Separator()
