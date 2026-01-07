@@ -13,7 +13,7 @@ const InputBar = {
         }
     },
 
-    emits: ['send', 'stop', 'reset-memory', 'show-messages', 'show-models', 'reset-operations'],
+    emits: ['send', 'stop', 'reset-memory', 'show-messages', 'show-models', 'reset-operations', 'copy-last-response'],
 
     setup(props, { emit }) {
         const userInput = Vue.ref('');
@@ -46,6 +46,10 @@ const InputBar = {
             emit('reset-operations');
         };
 
+        const handleCopyLastResponse = (event) => {
+            emit('copy-last-response', event);
+        };
+
         const handleKeyDown = (event) => {
             // Send on Enter (without Shift)
             if (event.key === 'Enter' && !event.shiftKey) {
@@ -66,6 +70,7 @@ const InputBar = {
             handleShowMessages,
             handleShowModels,
             handleResetOperations,
+            handleCopyLastResponse,
             handleKeyDown,
             canSend
         };
@@ -129,6 +134,15 @@ const InputBar = {
                     :disabled="isLoading"
                 >
                     🔄 Reset Operations
+                </button>
+
+                <button
+                    class="info"
+                    @click="handleCopyLastResponse"
+                    :disabled="isLoading"
+                    title="Copy last assistant response to clipboard"
+                >
+                    📋 Copy Response
                 </button>
             </div>
         </div>

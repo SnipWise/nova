@@ -32,7 +32,12 @@ const ChatMessage = {
         });
 
         const messageClass = Vue.computed(() => {
-            return `message ${props.message.role}`;
+            let classes = `message ${props.message.role}`;
+            // Ajouter la classe 'processing' pour les messages information non complétés
+            if (props.message.role === 'information' && !props.message.completed) {
+                classes += ' processing';
+            }
+            return classes;
         });
 
         const roleDisplay = Vue.computed(() => {
@@ -41,7 +46,9 @@ const ChatMessage = {
         });
 
         const showLoader = Vue.computed(() => {
-            return props.isStreaming && props.message.role === 'assistant';
+            // Afficher le loader pour assistant en streaming OU information en cours
+            return (props.isStreaming && props.message.role === 'assistant') ||
+                   (props.message.role === 'information' && !props.message.completed);
         });
 
         return {

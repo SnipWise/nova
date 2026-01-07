@@ -145,6 +145,15 @@ class CrewServerAPI {
                                 continue;
                             }
 
+                            // Handle information messages (e.g., compression notifications)
+                            if (parsed.role === 'information') {
+                                console.log('ℹ️ Information:', parsed.content);
+                                if (onNotification) {
+                                    onNotification(parsed);
+                                }
+                                continue;
+                            }
+
                             // Handle message chunks
                             if (parsed.message !== undefined) {
                                 const chunk = parsed.message;
