@@ -40,16 +40,24 @@ const ChatMessage = {
             return role.charAt(0).toUpperCase() + role.slice(1);
         });
 
+        const showLoader = Vue.computed(() => {
+            return props.isStreaming && props.message.role === 'assistant';
+        });
+
         return {
             renderContent,
             messageClass,
-            roleDisplay
+            roleDisplay,
+            showLoader
         };
     },
 
     template: `
         <div :class="messageClass">
-            <div class="message-role">{{ roleDisplay }}</div>
+            <div class="message-role">
+                {{ roleDisplay }}
+                <span v-if="showLoader" class="role-loader"></span>
+            </div>
             <div
                 class="message-content"
                 v-html="renderContent"

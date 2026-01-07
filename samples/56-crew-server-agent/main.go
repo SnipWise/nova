@@ -322,7 +322,7 @@ func main() {
 		crewserver.WithPort(8080),
 		crewserver.WithMatchAgentIdToTopicFn(matchAgentFunction),
 		crewserver.WithExecuteFn(executeFunction),
-		//crewserver.WithToolsAgent(toolsAgent),
+		crewserver.WithToolsAgent(toolsAgent),
 		crewserver.WithRagAgentAndSimilarityConfig(ragAgent, 0.4, 7),
 		crewserver.WithCompressorAgentAndContextSize(compressorAgent, 8500),
 		//crewserver.WithOrchestratorAgent(orchestratorAgent),
