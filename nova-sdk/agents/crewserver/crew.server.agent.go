@@ -2,6 +2,7 @@ package crewserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -31,6 +32,9 @@ type CrewServerAgent struct {
 
 	// Retrieval function: from a topic determine which agent to use
 	matchAgentIdToTopicFn func(string, string) string
+
+	// HTTP server multiplexer for custom routes
+	Mux *http.ServeMux
 
 	// Temporary fields to store config before BaseServerAgent is created
 	portConfig             string
@@ -386,9 +390,38 @@ func (agent *CrewServerAgent) GetSelectedAgentId() string {
 	return agent.selectedAgentId
 }
 
+// corsMiddleware adds CORS headers to all responses
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow all origins (can be restricted to specific origins if needed)
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		// Allowed HTTP methods
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+
+		// Allowed headers
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
+
+		// Allow credentials (cookies, auth)
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		// Preflight request (OPTIONS) - return 200 OK without calling next handler
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Continue to the next handler
+		next.ServeHTTP(w, r)
+	})
+}
+
 // StartServer starts the HTTP server with all routes
 func (agent *CrewServerAgent) StartServer() error {
 	mux := http.NewServeMux()
+
+	// Expose mux for custom routes
+	agent.Mux = mux
 
 	// Routes using base handlers
 	mux.HandleFunc("POST /completion", agent.handleCompletion)
@@ -401,9 +434,29 @@ func (agent *CrewServerAgent) StartServer() error {
 	mux.HandleFunc("POST /operation/reset", agent.HandleOperationReset)
 	mux.HandleFunc("GET /models", agent.HandleModelsInformation)
 	mux.HandleFunc("GET /health", agent.HandleHealth)
+	mux.HandleFunc("GET /current-agent", agent.handleCurrentAgent)
+
+	// Apply CORS middleware
+	handler := corsMiddleware(mux)
 
 	agent.Log.Info("🚀 Server started on http://localhost%s", agent.Port)
-	return http.ListenAndServe(agent.Port, mux)
+	return http.ListenAndServe(agent.Port, handler)
+}
+
+// handleCurrentAgent returns information about the currently selected agent
+func (agent *CrewServerAgent) handleCurrentAgent(w http.ResponseWriter, r *http.Request) {
+	agentId := agent.GetSelectedAgentId()
+	modelId := agent.GetModelID()
+
+	response := map[string]string{
+		"agent_id": agentId,
+		"model_id": modelId,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // Helper functions

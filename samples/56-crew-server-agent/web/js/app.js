@@ -74,6 +74,14 @@ const App = {
                 const modelsData = await api.getModels();
                 models.value = modelsData;
 
+                // Load current agent
+                const currentAgent = await api.getCurrentAgent();
+                selectedAgent.value = currentAgent.agent_id;
+                // Update models.chat_model with the current agent's model
+                if (currentAgent.model_id) {
+                    models.value.chat_model = currentAgent.model_id;
+                }
+
                 // Load context size
                 const size = await api.getContextSize();
                 contextSize.value = size;
@@ -89,11 +97,18 @@ const App = {
         let contextSizeInterval = null;
 
         const startContextSizePolling = () => {
-            // Update context size every 2 seconds
+            // Update context size and current agent every 2 seconds
             contextSizeInterval = setInterval(async () => {
                 try {
                     const size = await api.getContextSize();
                     contextSize.value = size;
+
+                    // Update current agent info
+                    const currentAgent = await api.getCurrentAgent();
+                    selectedAgent.value = currentAgent.agent_id;
+                    if (currentAgent.model_id) {
+                        models.value.chat_model = currentAgent.model_id;
+                    }
                 } catch (err) {
                     console.error('Failed to update context size:', err);
                 }

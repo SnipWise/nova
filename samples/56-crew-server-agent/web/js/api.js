@@ -4,7 +4,7 @@
  * Improved SSE streaming handling
  */
 
-const API_BASE_URL = 'http://localhost:8081';
+const API_BASE_URL = 'http://localhost:8080';
 
 class CrewServerAPI {
     constructor(baseURL = API_BASE_URL) {
@@ -372,6 +372,19 @@ class CrewServerAPI {
             return await response.json();
         } catch (error) {
             console.error('Health check failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get current agent information
+     */
+    async getCurrentAgent() {
+        try {
+            const response = await fetch(`${this.baseURL}/current-agent`);
+            return await response.json();
+        } catch (error) {
+            console.error('Failed to get current agent:', error);
             throw error;
         }
     }

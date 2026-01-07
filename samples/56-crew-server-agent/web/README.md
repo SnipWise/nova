@@ -1,239 +1,444 @@
-# Nova Crew Server - Web Chat Interface
+# Nova Crew Server - Web UI
 
-A modern, responsive web interface for interacting with the Nova Crew Server Agent.
+Interface web moderne pour interagir avec le Nova Crew Server Agent.
 
-## Features
+## 🎯 Fonctionnalités
 
-- **Real-time Streaming**: SSE (Server-Sent Events) based streaming for instant responses
-- **Markdown Rendering**: Full markdown support with syntax highlighting for code blocks
-- **Multi-Agent Support**: Automatic routing between specialized agents (coder, thinker, cook, generic)
-- **Function Calling**: Visual controls for validating/canceling tool calls (human-in-the-loop)
-- **RAG Integration**: Context retrieval from document embeddings
-- **Context Management**: Real-time context size monitoring
-- **Memory Controls**: Reset conversation, view messages, manage operations
+### Chat & Streaming
+- ✅ **SSE Streaming** - Réponses en temps réel
+- ✅ **Markdown** - Rendu formaté avec highlight.js
+- ✅ **Code Highlighting** - Coloration syntaxique automatique
+- ✅ **Multi-Agent** - Support de plusieurs agents (coder, thinker, cook, generic)
 
-## Technology Stack
+### Human-in-the-Loop
+- ✅ **Tool Validation** - Approbation des appels de fonction
+- ✅ **Operation Cancel** - Annulation des opérations en attente
+- ✅ **Real-time Notifications** - Alertes visuelles pour les tools
 
-- **Vue.js 3**: Progressive JavaScript framework (CDN-based, no build required)
-- **Marked.js**: Markdown parsing
-- **Highlight.js**: Syntax highlighting for code blocks
-- **Vanilla CSS**: Custom responsive styles
+### Gestion de la Mémoire
+- ✅ **Context Size** - Suivi de la taille du contexte
+- ✅ **Clear Memory** - Réinitialisation de la conversation
+- ✅ **View Messages** - Historique complet des messages
+- ✅ **Export** - Export JSON de la conversation
 
-## Project Structure
+### Interface
+- ✅ **Design Moderne** - Dark theme, responsive
+- ✅ **Modal System** - Confirmations élégantes
+- ✅ **Auto-scroll** - Suit automatiquement la conversation
+- ✅ **Loading States** - États visuels clairs
+
+## 🏗️ Architecture v4 (Actuelle)
+
+### Direct Connection
 
 ```
-web/
-├── index.html                      # Main HTML entry point
-├── js/
-│   ├── api.js                      # API service layer
-│   ├── markdown.js                 # Markdown rendering utilities
-│   ├── app.js                      # Main Vue application
-│   └── components/
-│       ├── ChatMessage.js          # Message component
-│       ├── InputBar.js             # Input and action buttons
-│       ├── StatusBar.js            # Context and model info
-│       └── OperationControls.js    # Tool call validation controls
-└── README.md                       # This file
+┌─────────────────────────────────────┐
+│  Browser (localhost:3000)           │
+│  - Vue.js 3 (CDN)                  │
+│  - SSE Client                       │
+└─────────────────┬───────────────────┘
+                  │
+                  │ HTTP/SSE
+                  │ Port 8080
+                  ↓
+┌─────────────────────────────────────┐
+│  Nova Crew Server                   │
+│  - CORS Middleware ✅               │
+│  - Multiple Chat Agents             │
+│  - Tools Agent (optional)           │
+│  - RAG Agent (optional)             │
+│  - Compressor Agent (optional)      │
+└─────────────────────────────────────┘
 ```
 
-## Setup
+**Nouveautés v4:**
+- ❌ Proxy CORS supprimé
+- ✅ CORS intégré au SDK
+- ✅ Connexion directe au serveur
+- ✅ Routes personnalisées via `agent.Mux`
 
-### Prerequisites
+## 🚀 Quick Start
 
-1. **Go Server Running**: Make sure the Nova Crew Server Agent is running:
-   ```bash
-   cd samples/56-crew-server-agent
-   go run main.go
-   ```
+### Prérequis
 
-   The server should start on `http://localhost:8080`
+- Go 1.22+
+- Docker Desktop (avec Agentic Compose)
+- Navigateur moderne (Chrome, Firefox, Safari)
 
-### Option 1: Serve via Go Server (Recommended)
-
-Update your Go server to serve static files (see main.go modifications below).
-
-### Option 2: Simple HTTP Server
-
-Use any static file server:
+### 1. Démarrer le Serveur Nova
 
 ```bash
-# Python 3
+cd samples/56-crew-server-agent
+go run main.go
+```
+
+Vérifier les logs:
+```
+🚀 Server started on http://localhost:8080
+```
+
+### 2. Ouvrir le Navigateur
+
+**Option A: Serveur Web Local (Recommandé)**
+```bash
+# Python
 cd web
 python3 -m http.server 3000
 
-# Node.js (http-server)
-npx http-server web -p 3000
-
-# PHP
-cd web
-php -S localhost:3000
+# OU Node.js
+npx serve -p 3000
 ```
 
-Then open `http://localhost:3000` in your browser.
+Puis ouvrir: http://localhost:3000
 
-## Usage
+**Option B: Direct (File Protocol)**
+```bash
+open web/index.html
+```
 
-### Sending Messages
+⚠️ Note: Certaines fonctionnalités peuvent être limitées en file://
 
-1. Type your message in the input area
-2. Press **Enter** to send (or click "Send" button)
-3. Use **Shift+Enter** for new lines
-4. Watch responses stream in real-time with markdown formatting
+### 3. Tester la Connexion
 
-### Agent Routing
+1. Ouvrir DevTools (F12)
+2. Onglet Console
+3. Vérifier: Pas d'erreurs CORS
+4. Envoyer un message de test
 
-The system automatically routes your question to specialized agents:
+## 📁 Structure des Fichiers
 
-- **Coder Agent**: Programming, coding, debugging questions
-- **Thinker Agent**: Philosophy, math, science, psychology
-- **Cook Agent**: Cooking, recipes, food-related queries
-- **Generic Agent**: Everything else
+```
+web/
+├── index.html                          # Page principale
+├── js/
+│   ├── api.js                         # Client API (SSE, fetch)
+│   ├── markdown.js                    # Rendering markdown
+│   ├── app.js                         # Vue.js app principale
+│   └── components/
+│       ├── ChatMessage.js             # Composant message
+│       ├── StatusBar.js               # Barre de statut
+│       ├── InputBar.js                # Zone de saisie
+│       ├── OperationControls.js       # Notifications tools
+│       └── Modal.js                   # Système de modals
+├── docs/
+│   ├── MIGRATION-TO-DIRECT-CONNECTION.md
+│   ├── CUSTOM-ROUTES-EXAMPLES.md
+│   ├── REMOVING-CORS-PROXY.md
+│   ├── CACHE-BUSTING.md
+│   └── CHANGELOG-v4.md
+├── testing/
+│   └── test-full-validation-cycle.sh   # Tests curl
+└── README.md                           # Ce fichier
+```
 
-### Function Calling
+## 💬 Utilisation
 
-When the agent wants to call a tool:
+### Envoyer des Messages
 
-1. A notification appears with the operation details
-2. Click **Validate** to approve the operation
-3. Click **Cancel** to reject it
-4. The agent proceeds based on your choice
+1. Taper votre message dans la zone de saisie
+2. Appuyer sur **Enter** pour envoyer (ou cliquer "Send")
+3. Utiliser **Shift+Enter** pour nouvelle ligne
+4. Regarder les réponses streamer en temps réel
 
-### Action Buttons
+### Routing d'Agents
 
-- **📤 Send**: Send your message
-- **⏹ Stop**: Stop current streaming response
-- **🗑 Clear Memory**: Reset conversation (keeps system instruction)
-- **💬 View Messages**: Show all messages in console
-- **🤖 View Models**: Display model information
-- **🔄 Reset Operations**: Clear all pending operations
+Le système route automatiquement vers des agents spécialisés:
 
-### Status Bar
+- **Coder Agent**: Programmation, code, debugging
+- **Thinker Agent**: Philosophie, math, science, psychologie
+- **Cook Agent**: Cuisine, recettes, nourriture
+- **Generic Agent**: Tout le reste
 
-Real-time information display:
+### Validation de Tools
 
-- **Agent**: Currently active agent
-- **Context Size**: Current conversation context size
-- **Chat Model**: Model used for chat
-- **Tools**: Model used for function calling
-- **RAG**: Embedding model for retrieval
+Quand l'agent veut appeler un tool:
 
-## API Endpoints Used
+1. Une notification apparaît avec les détails
+2. Cliquer **Validate** pour approuver
+3. Cliquer **Cancel** pour rejeter
+4. L'agent procède selon votre choix
 
-The web interface communicates with these endpoints:
+### Boutons d'Action
 
-- `POST /completion` - Send message and receive streaming response
-- `POST /completion/stop` - Stop current streaming
-- `POST /memory/reset` - Clear conversation memory
-- `GET /memory/messages/list` - Get all messages
-- `GET /memory/messages/context-size` - Get context size
-- `POST /operation/validate` - Approve tool call
-- `POST /operation/cancel` - Reject tool call
-- `POST /operation/reset` - Clear all pending operations
-- `GET /models` - Get model information
-- `GET /health` - Health check
+- **📤 Send**: Envoyer le message
+- **⏹ Stop**: Arrêter le streaming
+- **🗑 Clear Memory**: Réinitialiser la conversation
+- **💬 View Messages**: Afficher l'historique
+- **🤖 View Models**: Informations sur les modèles
+- **🔄 Reset Operations**: Vider les opérations en attente
 
-## Customization
+### Barre de Statut
 
-### Styling
+Informations en temps réel:
 
-All styles are in `index.html` within the `<style>` tag. Key CSS classes:
+- **Agent**: Agent actuellement actif
+- **Context Size**: Taille du contexte
+- **Chat Model**: Modèle utilisé pour le chat
+- **Tools**: Modèle pour function calling
+- **RAG**: Modèle d'embeddings
 
-- `.message.user` - User messages
-- `.message.assistant` - AI responses
-- `.message.system` - System messages
-- `.operation-controls` - Tool call notifications
+## 🔌 API Endpoints
 
-### Colors
+### Endpoints Standards (Nova SDK)
 
-Current color scheme (dark theme):
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/completion` | POST | Streaming chat completion (SSE) |
+| `/completion/stop` | POST | Arrêter le streaming |
+| `/models` | GET | Info sur les modèles |
+| `/memory/reset` | POST | Réinitialiser la mémoire |
+| `/memory/messages/list` | GET | Liste des messages |
+| `/memory/messages/context-size` | GET | Taille du contexte |
+| `/operation/validate` | POST | Valider un tool call |
+| `/operation/cancel` | POST | Annuler un tool call |
+| `/operation/reset` | POST | Reset toutes les operations |
+| `/health` | GET | Health check |
 
+### Endpoints Personnalisés
+
+Vous pouvez ajouter vos propres routes! Voir [CUSTOM-ROUTES-EXAMPLES.md](docs/CUSTOM-ROUTES-EXAMPLES.md).
+
+## 🔧 Configuration
+
+### URL de l'API
+
+Par défaut: `http://localhost:8080`
+
+Pour modifier:
+
+```javascript
+// web/js/api.js (ligne 7)
+const API_BASE_URL = 'http://your-server:8080';
+```
+
+### Cache Busting
+
+Après modification des fichiers JS:
+
+```html
+<!-- web/index.html -->
+<script src="js/api.js?v=5"></script>  <!-- Incrémenter la version -->
+```
+
+Voir [CACHE-BUSTING.md](docs/CACHE-BUSTING.md) pour plus d'infos.
+
+### Personnalisation CSS
+
+Toutes les styles sont dans `index.html` dans le tag `<style>`.
+
+**Couleurs principales:**
 - Background: `#1a1a1a`
 - Cards: `#2d2d2d`
 - Primary: `#4fc3f7` (blue)
 - Success: `#43a047` (green)
 - Danger: `#e53935` (red)
-- Warning: `#fb8c00` (orange)
 
-### API Configuration
+## 🧪 Tests
 
-Change the API base URL in `js/api.js`:
+### Tests Manuels
 
-```javascript
-const API_BASE_URL = 'http://localhost:8080'; // Change to your server URL
+1. **Chat basique**
+   - Envoyer: "Hello"
+   - Vérifier: Réponse streaming
+
+2. **Tool Validation**
+   - Envoyer: "Calculate 5 + 3"
+   - Vérifier: Popup apparaît
+   - Cliquer: Validate
+   - Vérifier: Résultat "8"
+
+3. **Modals**
+   - Cliquer: "View Models"
+   - Vérifier: Modal s'ouvre
+
+### Tests Automatisés
+
+```bash
+cd web/testing
+./test-full-validation-cycle.sh
 ```
 
-## Troubleshooting
+### Tests CORS
 
-### Connection Failed
+```bash
+# Test preflight
+curl -I -X OPTIONS \
+  -H "Origin: http://localhost:3000" \
+  -H "Access-Control-Request-Method: POST" \
+  http://localhost:8080/models
 
-**Error**: "Failed to connect to server"
+# Test GET
+curl -H "Origin: http://localhost:3000" \
+  http://localhost:8080/health
+```
 
-**Solution**:
-1. Ensure Go server is running: `go run main.go`
-2. Check server is on port 8080
-3. Verify no CORS issues (Go server should allow CORS)
+## 📚 Documentation
 
-### Streaming Not Working
+- [**MIGRATION-TO-DIRECT-CONNECTION.md**](docs/MIGRATION-TO-DIRECT-CONNECTION.md) - Guide migration v3 → v4
+- [**CUSTOM-ROUTES-EXAMPLES.md**](docs/CUSTOM-ROUTES-EXAMPLES.md) - Exemples routes personnalisées
+- [**REMOVING-CORS-PROXY.md**](docs/REMOVING-CORS-PROXY.md) - Suppression du proxy
+- [**CACHE-BUSTING.md**](docs/CACHE-BUSTING.md) - Gestion cache navigateur
+- [**CHANGELOG-v4.md**](docs/CHANGELOG-v4.md) - Détails changements v4
 
-**Error**: Messages not streaming
+## 🐛 Dépannage
 
-**Solution**:
-1. Check browser console for errors
-2. Ensure SSE is supported (all modern browsers)
-3. Verify `/completion` endpoint is working
+### Erreur CORS
 
-### Code Blocks Not Highlighting
+**Symptômes:**
+```
+Access to fetch at 'http://localhost:8080/completion' blocked by CORS policy
+```
 
-**Error**: Code appears without syntax highlighting
+**Solutions:**
+1. Vérifier serveur démarre sur port 8080
+2. Vérifier `API_BASE_URL` pointe vers 8080
+3. Hard refresh (Cmd+Shift+R)
+4. Vérifier headers CORS avec curl
 
-**Solution**:
-1. Check highlight.js CDN is loaded
-2. Verify language is specified in code fence (```go, ```python, etc.)
-3. Check browser console for errors
+### UI Ne Se Met Pas à Jour
 
-### Markdown Not Rendering
+**Symptômes:**
+- Changements JS non visibles
 
-**Error**: Markdown appears as plain text
+**Solutions:**
+1. Incrémenter version (?v=4 → ?v=5)
+2. Hard refresh
+3. Vider cache navigateur
+4. DevTools → Network → Disable cache
 
-**Solution**:
-1. Check marked.js CDN is loaded
-2. Verify `js/markdown.js` is loaded before `js/app.js`
-3. Check browser console for errors
+### Tool Validation Ne Fonctionne Pas
 
-## Browser Support
+**Symptômes:**
+- Pas de popup de validation
 
-- Chrome/Edge: ✅ Full support
-- Firefox: ✅ Full support
-- Safari: ✅ Full support
-- Mobile browsers: ✅ Responsive design
+**Solutions:**
+1. Vérifier logs backend
+2. Console JS pour erreurs
+3. Tester avec curl (voir testing/)
 
-## Performance
+### Stream Bloqué
 
-- **Bundle Size**: ~250KB (all dependencies via CDN)
-- **Initial Load**: < 1 second
-- **Streaming Latency**: Real-time (SSE)
-- **Memory**: Efficient Vue.js 3 reactivity
+**Symptômes:**
+- Loading infini
 
-## Security Notes
+**Solutions:**
+1. Cliquer Stop
+2. Refresh page
+3. Vérifier logs backend
 
-- **Local Development**: This is designed for local development
-- **Production**: Add authentication, rate limiting, and HTTPS for production use
-- **CORS**: Ensure proper CORS configuration on the Go server
+## 🎨 Composants Vue.js
 
-## Future Enhancements
+### ChatMessage
 
-Potential improvements:
+Affiche un message avec markdown et code highlighting.
+
+### StatusBar
+
+Barre de statut avec infos agent/context/modèles.
+
+### InputBar
+
+Zone de saisie avec tous les boutons d'action.
+
+### OperationControls
+
+Notifications pour validation des tools.
+
+### Modal
+
+Système de modals réutilisable (info/confirm/list).
+
+## 🔐 Sécurité
+
+### CORS Production
+
+Restreindre les origines:
+
+```go
+// Modifier crew.server.agent.go
+allowedOrigins := map[string]bool{
+    "https://app.example.com": true,
+}
+```
+
+### HTTPS
+
+En production:
+
+```go
+http.ListenAndServeTLS(":443", "cert.pem", "key.pem", handler)
+```
+
+## 📈 Performance
+
+- **Bundle Size**: ~250KB (CDN)
+- **Initial Load**: < 1s
+- **Streaming**: Real-time (SSE)
+- **Memory**: Efficient Vue.js 3
+
+## 🌐 Compatibilité Navigateur
+
+- Chrome/Edge: ✅
+- Firefox: ✅
+- Safari: ✅
+- Mobile: ✅ Responsive
+
+## 📝 Changelog
+
+### v4.0.0 (2026-01-07)
+- ✅ CORS middleware SDK
+- ✅ Suppression proxy
+- ✅ Routes personnalisées (Mux)
+- ✅ Documentation complète
+
+### v3.0.0
+- ✅ Système modals
+- ✅ Cache busting
+- ✅ UI improvements
+
+### v2.0.0
+- ✅ SSE streaming fixes
+- ✅ Tool validation
+- ✅ CORS proxy
+
+### v1.0.0
+- ✅ Interface Vue.js 3
+- ✅ Chat streaming
+- ✅ Markdown rendering
+
+## 🚀 Fonctionnalités Futures
 
 - [ ] Dark/Light theme toggle
-- [ ] Message export (JSON, Markdown)
+- [ ] Message export (JSON, MD)
 - [ ] Multi-session support
 - [ ] Voice input
-- [ ] Copy code blocks to clipboard
-- [ ] Message search and filtering
-- [ ] Agent selection override
-- [ ] File upload support
+- [ ] Copy code blocks
+- [ ] Message search
+- [ ] File upload
 - [ ] Custom system instructions
 
-## License
+## 🚢 Déploiement
 
-Same as Nova SDK project.
+Voir le guide de déploiement Docker dans la documentation du SDK Nova.
+
+## 🤝 Contribution
+
+1. Créer nouveau composant dans `js/components/`
+2. Importer dans `index.html`
+3. Utiliser dans `app.js`
+4. Incrémenter cache version
+5. Documenter
+
+## 📞 Support
+
+- **Issues**: GitHub Issues
+- **Docs**: [/docs](./docs/)
+- **Examples**: [CUSTOM-ROUTES-EXAMPLES.md](./docs/CUSTOM-ROUTES-EXAMPLES.md)
+
+## 📄 License
+
+Voir LICENSE dans le répertoire racine du projet Nova.
+
+---
+
+**Made with ❤️ for Nova SDK**
