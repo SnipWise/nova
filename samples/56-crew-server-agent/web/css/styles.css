@@ -37,12 +37,41 @@ body {
     padding: 1rem 1.5rem;
     border-bottom: 1px solid #404040;
     flex-shrink: 0;            /* Ne rétrécit pas quand l'espace manque */
+    position: relative;        /* Pour le positionnement du theme switcher */
 }
 
 .header h1 {
     font-size: 1.5rem;
     color: #4fc3f7;            /* Bleu clair - couleur d'accent principale */
     margin-bottom: 0.5rem;
+}
+
+/* Theme switcher button */
+.theme-switcher {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+}
+
+.theme-toggle-btn {
+    background: #404040;
+    border: 1px solid #505050;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.25rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 0;
+}
+
+.theme-toggle-btn:hover {
+    background: #505050;
+    border-color: #606060;
+    transform: scale(1.05);
 }
 
 /* Barre de statut avec infos sur l'agent, contexte, modèles */
@@ -140,6 +169,30 @@ body {
     max-width: 95%;
 }
 
+/* Message information - centré, bleu-gris pour notifications système */
+.message.information {
+    align-self: center;
+    background: #2d3d4d;       /* Bleu-gris foncé */
+    border: 1px solid #4d5d6d;
+    max-width: 70%;
+}
+
+/* Animation pulse pour message information en cours de traitement */
+.message.information.processing {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.02);
+    }
+}
+
 /* ============================================================================
    MESSAGE ROLE - Label du rôle (USER, ASSISTANT, SYSTEM)
    ============================================================================ */
@@ -161,6 +214,10 @@ body {
 
 .message.system .message-role {
     color: #ffb74d;            /* Orange pour system */
+}
+
+.message.information .message-role {
+    color: #64b5f6;            /* Bleu clair pour information */
 }
 
 /* Loader animé dans le role (quand l'assistant répond) */
@@ -520,6 +577,17 @@ button.warning {
 button.warning:hover:not(:disabled) {
     background: #f57c00;
     border-color: #ef6c00;
+}
+
+/* Bouton info (bleu clair) - utilisé pour Copy Response */
+button.info {
+    background: #0288d1;
+    border-color: #0277bd;
+}
+
+button.info:hover:not(:disabled) {
+    background: #0277bd;
+    border-color: #01579b;
 }
 
 /* ============================================================================

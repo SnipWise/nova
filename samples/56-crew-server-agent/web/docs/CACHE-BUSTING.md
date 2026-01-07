@@ -1,46 +1,46 @@
-# Cache Busting - Gestion des Versions JavaScript
+# Cache Busting - JavaScript Version Management
 
-## Qu'est-ce que le Cache Busting?
+## What is Cache Busting?
 
-Le **cache busting** est une technique qui force le navigateur à télécharger la nouvelle version d'un fichier JavaScript/CSS au lieu d'utiliser la version en cache.
+**Cache busting** is a technique that forces the browser to download the new version of a JavaScript/CSS file instead of using the cached version.
 
-## Problème
+## Problem
 
-Lorsque vous modifiez un fichier JavaScript, le navigateur peut continuer à utiliser l'ancienne version mise en cache, ce qui empêche vos modifications d'apparaître immédiatement.
+When you modify a JavaScript file, the browser may continue using the old cached version, preventing your changes from appearing immediately.
 
-### Exemple du Problème
+### Example of the Problem
 
 ```javascript
-// Vous modifiez InputBar.js pour enlever confirm()
+// You modify InputBar.js to remove confirm()
 const handleResetMemory = () => {
-    emit('reset-memory');  // Nouvelle version
+    emit('reset-memory');  // New version
 };
 
-// Mais le navigateur utilise encore l'ancienne version en cache:
+// But the browser still uses the old cached version:
 const handleResetMemory = () => {
-    if (confirm('...')) {  // Ancienne version
+    if (confirm('...')) {  // Old version
         emit('reset-memory');
     }
 };
 ```
 
-## Solution: Query Parameters de Version
+## Solution: Version Query Parameters
 
 ### Concept
 
-Ajouter un numéro de version comme query parameter à l'URL du script:
+Add a version number as a query parameter to the script URL:
 
 ```html
-<!-- Sans version (peut utiliser le cache) -->
+<!-- Without version (may use cache) -->
 <script src="js/app.js"></script>
 
-<!-- Avec version (force le téléchargement) -->
+<!-- With version (forces download) -->
 <script src="js/app.js?v=1"></script>
 ```
 
-Pour le navigateur, `app.js?v=1` et `app.js?v=2` sont des URLs **différentes**, donc il télécharge le nouveau fichier.
+For the browser, `app.js?v=1` and `app.js?v=2` are **different** URLs, so it downloads the new file.
 
-## Implémentation dans Notre Application
+## Implementation in Our Application
 
 ### index.html
 
@@ -56,73 +56,73 @@ Pour le navigateur, `app.js?v=1` et `app.js?v=2` sont des URLs **différentes**,
 <script src="js/app.js?v=3"></script>
 ```
 
-### Quand Incrémenter la Version?
+### When to Increment the Version?
 
-#### ✅ Incrémenter Quand:
+#### ✅ Increment When:
 
-1. **Vous modifiez du code JavaScript**
+1. **You modify JavaScript code**
    ```javascript
-   // Avant modification: ?v=3
-   // Après modification: ?v=4
+   // Before modification: ?v=3
+   // After modification: ?v=4
    ```
 
-2. **Les utilisateurs ne voient pas vos changements**
-   - Symptôme: "J'ai corrigé le bug mais il est toujours là"
-   - Action: Incrémenter la version
+2. **Users don't see your changes**
+   - Symptom: "I fixed the bug but it's still there"
+   - Action: Increment the version
 
-3. **Vous déployez en production**
-   - Toujours incrémenter pour les déploiements
+3. **You deploy to production**
+   - Always increment for deployments
 
-#### ❌ Ne PAS Incrémenter Quand:
+#### ❌ DON'T Increment When:
 
-1. Vous modifiez uniquement le HTML (index.html)
-2. Vous modifiez uniquement le CSS inline
-3. Vous ne touchez qu'aux fichiers backend (Go)
+1. You only modify HTML (index.html)
+2. You only modify inline CSS
+3. You only touch backend files (Go)
 
-### Processus de Modification
+### Modification Process
 
 ```bash
-# 1. Modifier le code JavaScript
+# 1. Modify JavaScript code
 vim js/components/InputBar.js
 
-# 2. Incrémenter la version dans index.html
-# Changer ?v=3 en ?v=4
+# 2. Increment version in index.html
+# Change ?v=3 to ?v=4
 
-# 3. Recharger le navigateur
-# Simple F5 suffit maintenant
+# 3. Reload the browser
+# Simple F5 is now sufficient
 ```
 
-## Historique des Versions
+## Version History
 
-### v1 (Version Initiale)
-- Première version de l'application
-- Pas de query parameters
+### v1 (Initial Version)
+- First version of the application
+- No query parameters
 
-### v2 (Ajout des Modals)
-- Suppression des `confirm()` natifs
-- Ajout du système de modals personnalisées
-- Modal pour Clear Memory
-- Modal pour View Messages
-- Modal pour View Models
-- Modal pour Reset Operations
+### v2 (Add Modals)
+- Removal of native `confirm()`
+- Addition of custom modal system
+- Modal for Clear Memory
+- Modal for View Messages
+- Modal for View Models
+- Modal for Reset Operations
 
-### v3 (Fix Label Unknown)
-- Suppression du label "UNKNOWN" dans la liste des messages
-- Ajout de `v-if="msg.role"` pour masquer les labels vides
+### v3 (Fix Unknown Label)
+- Removal of "UNKNOWN" label in message list
+- Addition of `v-if="msg.role"` to hide empty labels
 
-## Alternatives au Versioning Manuel
+## Alternatives to Manual Versioning
 
-### 1. Hash de Contenu (Build Tools)
+### 1. Content Hash (Build Tools)
 
-Avec des outils de build comme Webpack/Vite:
+With build tools like Webpack/Vite:
 
 ```html
-<!-- Le hash change automatiquement quand le fichier change -->
+<!-- Hash changes automatically when file changes -->
 <script src="js/app.a3d8f9b2.js"></script>
 ```
 
-**Avantages**: Automatique, précis par fichier
-**Inconvénients**: Nécessite un outil de build
+**Advantages**: Automatic, precise per file
+**Disadvantages**: Requires a build tool
 
 ### 2. Timestamp
 
@@ -130,8 +130,8 @@ Avec des outils de build comme Webpack/Vite:
 <script src="js/app.js?t=1704654321"></script>
 ```
 
-**Avantages**: Unique à chaque build
-**Inconvénients**: Cache invalidé même sans changement
+**Advantages**: Unique per build
+**Disadvantages**: Cache invalidated even without change
 
 ### 3. Git Commit Hash
 
@@ -139,116 +139,116 @@ Avec des outils de build comme Webpack/Vite:
 <script src="js/app.js?v=a3d8f9b"></script>
 ```
 
-**Avantages**: Traçable dans Git
-**Inconvénients**: Nécessite automation
+**Advantages**: Traceable in Git
+**Disadvantages**: Requires automation
 
-## Notre Choix: Versioning Manuel Simple
+## Our Choice: Simple Manual Versioning
 
-Nous utilisons le versioning manuel (`?v=1`, `?v=2`, etc.) car:
+We use manual versioning (`?v=1`, `?v=2`, etc.) because:
 
-✅ **Simplicité**: Pas d'outil de build requis
-✅ **Contrôle**: Vous décidez quand invalider le cache
-✅ **CDN-friendly**: Fonctionne avec Vue.js et libraries CDN
-✅ **Production-ready**: Suffisant pour la plupart des cas
+✅ **Simplicity**: No build tool required
+✅ **Control**: You decide when to invalidate cache
+✅ **CDN-friendly**: Works with Vue.js and CDN libraries
+✅ **Production-ready**: Sufficient for most cases
 
-## Commandes Utiles
+## Useful Commands
 
-### Rechercher la Version Actuelle
+### Find Current Version
 
 ```bash
 grep "js/app.js?v=" web/index.html
 ```
 
-### Remplacer Toutes les Versions
+### Replace All Versions
 
 ```bash
-# Passer de v=3 à v=4 partout
+# Change from v=3 to v=4 everywhere
 sed -i '' 's/\?v=3/\?v=4/g' web/index.html
 ```
 
-### Vérifier que Tous les Scripts Ont la Même Version
+### Verify All Scripts Have Same Version
 
 ```bash
 grep "\.js?v=" web/index.html | grep -o "v=[0-9]*" | sort -u
-# Devrait afficher une seule ligne: v=3
+# Should display a single line: v=3
 ```
 
-## Bonnes Pratiques
+## Best Practices
 
 ### ✅ DO
 
-- Incrémenter systématiquement après modification JS
-- Utiliser le même numéro pour tous les scripts
-- Documenter les changements importants
-- Tester après chaque incrémentation
+- Systematically increment after JS modification
+- Use the same number for all scripts
+- Document important changes
+- Test after each increment
 
 ### ❌ DON'T
 
-- Oublier d'incrémenter après modification
-- Utiliser des versions différentes pour chaque fichier
-- Sauter des numéros (v=3 → v=5)
-- Réutiliser un ancien numéro
+- Forget to increment after modification
+- Use different versions for each file
+- Skip numbers (v=3 → v=5)
+- Reuse an old number
 
 ## Troubleshooting
 
-### Les Modifications Ne Sont Toujours Pas Visibles
+### Changes Still Not Visible
 
-1. **Vérifier la version dans index.html**
+1. **Verify version in index.html**
    ```bash
    grep "js/app.js?v=" web/index.html
    ```
 
-2. **Hard Refresh du Navigateur**
+2. **Hard Refresh in Browser**
    - Mac: `Cmd + Shift + R`
    - Windows/Linux: `Ctrl + Shift + F5`
 
-3. **Inspecter dans DevTools**
-   - F12 → Network → Filtrer "js" → Vérifier les URLs chargées
-   - Chercher `app.js?v=X` dans la liste
+3. **Inspect in DevTools**
+   - F12 → Network → Filter "js" → Verify loaded URLs
+   - Look for `app.js?v=X` in the list
 
-4. **Vider le Cache Manuellement**
+4. **Clear Cache Manually**
    - Chrome: Settings → Privacy → Clear browsing data → Cached images and files
 
-5. **Mode Incognito**
-   - Tester dans une fenêtre incognito (pas de cache)
+5. **Incognito Mode**
+   - Test in an incognito window (no cache)
 
-### Le Fichier Est Chargé Mais Les Changements Ne Fonctionnent Pas
+### File is Loaded But Changes Don't Work
 
-- Vérifiez que vous avez bien modifié le bon fichier
-- Vérifiez qu'il n'y a pas d'erreurs JavaScript dans la console (F12)
-- Vérifiez que le serveur web sert bien les derniers fichiers
+- Verify you modified the correct file
+- Check there are no JavaScript errors in the console (F12)
+- Verify the web server is serving the latest files
 
-## Exemple Complet
+## Complete Example
 
-### Scénario: Ajouter une Nouvelle Fonctionnalité
+### Scenario: Add a New Feature
 
 ```bash
-# 1. Modifier le code
+# 1. Modify code
 echo "console.log('New feature');" >> js/app.js
 
-# 2. Ouvrir index.html
+# 2. Open index.html
 vim web/index.html
 
-# 3. Changer manuellement
-# Avant:
+# 3. Change manually
+# Before:
 # <script src="js/app.js?v=3"></script>
-# Après:
+# After:
 # <script src="js/app.js?v=4"></script>
 
-# 4. Appliquer à tous les scripts
-# Remplacer ?v=3 par ?v=4 pour tous les scripts
+# 4. Apply to all scripts
+# Replace ?v=3 with ?v=4 for all scripts
 
-# 5. Recharger le navigateur
-# F5 ou Cmd+R
+# 5. Reload browser
+# F5 or Cmd+R
 
-# 6. Vérifier dans DevTools
-# Network → Voir app.js?v=4 chargé
+# 6. Verify in DevTools
+# Network → See app.js?v=4 loaded
 ```
 
 ## Conclusion
 
-Le cache busting avec query parameters est une solution simple et efficace pour notre application Vue.js CDN-based. En incrémentant systématiquement le numéro de version après chaque modification JavaScript, nous garantissons que les utilisateurs reçoivent toujours la dernière version du code.
+Cache busting with query parameters is a simple and effective solution for our CDN-based Vue.js application. By systematically incrementing the version number after each JavaScript modification, we ensure users always receive the latest version of the code.
 
-**Version actuelle**: `v=3` (au 2026-01-07)
+**Current version**: `v=3` (as of 2026-01-07)
 
-**Prochaine version**: `v=4` (lors de la prochaine modification JS)
+**Next version**: `v=4` (upon next JS modification)

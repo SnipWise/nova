@@ -13,7 +13,8 @@ const App = {
         StatusBar,
         InputBar,
         OperationControls,
-        Modal
+        Modal,
+        ThemeSwitcher
     },
 
     setup() {
@@ -245,6 +246,78 @@ const App = {
         const handleToolCallNotification = (notification) => {
             console.log('Notification received:', notification);
 
+            // Handle information messages (e.g., compression notifications)
+            if (notification.role === 'information') {
+                // Check if message indicates completion
+                const isCompleted = notification.content &&
+                                   (notification.content.includes('✅') ||
+                                    notification.content.includes('completed') ||
+                                    notification.content.includes('failed'));
+
+                // Find existing information message (completed or not)
+                const existingIndex = messages.value.findIndex(
+                    msg => msg.role === 'information'
+                );
+
+                if (existingIndex !== -1) {
+                    // Update existing information message
+                    messages.value[existingIndex] = {
+                        role: 'information',
+                        content: notification.content || 'Processing...',
+                        completed: isCompleted,
+                        timestamp: messages.value[existingIndex].timestamp || Date.now()
+                    };
+
+                    // Auto-remove completed information messages after 5 seconds
+                    if (isCompleted) {
+                        const timestamp = messages.value[existingIndex].timestamp;
+                        setTimeout(() => {
+                            // Find and remove this specific message by timestamp
+                            const msgIndex = messages.value.findIndex(
+                                msg => msg.role === 'information' &&
+                                       msg.timestamp === timestamp
+                            );
+                            if (msgIndex !== -1) {
+                                messages.value.splice(msgIndex, 1);
+                            }
+                        }, 5000);
+                    }
+                } else {
+                    // Add new information message
+                    const infoMessage = {
+                        role: 'information',
+                        content: notification.content || 'Processing...',
+                        completed: isCompleted,
+                        timestamp: Date.now()
+                    };
+
+                    messages.value.push(infoMessage);
+
+                    // Auto-remove completed information messages after 5 seconds
+                    if (isCompleted) {
+                        setTimeout(() => {
+                            // Find and remove this specific message by timestamp
+                            const msgIndex = messages.value.findIndex(
+                                msg => msg.role === 'information' &&
+                                       msg.timestamp === infoMessage.timestamp
+                            );
+                            if (msgIndex !== -1) {
+                                messages.value.splice(msgIndex, 1);
+                            }
+                        }, 5000);
+                    }
+
+                    // Scroll to bottom to show the new message
+                    Vue.nextTick(() => {
+                        const container = document.querySelector('.chat-container');
+                        if (container) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    });
+                }
+                return;
+            }
+
             // Handle agent switch notifications
             if (notification.kind === 'agent_switch') {
                 selectedAgent.value = notification.agent_name || notification.agent_id;
@@ -347,6 +420,72 @@ const App = {
 
         const hasMessages = Vue.computed(() => messages.value.length > 0);
 
+        const handleCopyLastResponse = async (event) => {
+            // Find the last assistant message
+            const lastAssistantMessage = messages.value
+                .slice()
+                .reverse()
+                .find(msg => msg.role === 'assistant');
+
+            if (!lastAssistantMessage || !lastAssistantMessage.content) {
+                error.value = 'No assistant response to copy';
+                setTimeout(() => {
+                    error.value = null;
+                }, 3000);
+                return;
+            }
+
+            // Get the button element for visual feedback
+            const button = event?.target;
+
+            try {
+                await navigator.clipboard.writeText(lastAssistantMessage.content);
+                console.log('✅ Response copied to clipboard');
+
+                // Change button appearance temporarily
+                if (button) {
+                    const originalText = button.textContent;
+                    const originalClass = button.className;
+
+                    button.textContent = '✓ Copied!';
+                    button.className = 'success';
+
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.className = originalClass;
+                    }, 2000);
+                }
+
+                // Show temporary success feedback in error area
+                const originalError = error.value;
+                error.value = '✅ Response copied to clipboard!';
+                setTimeout(() => {
+                    error.value = originalError;
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy response:', err);
+
+                // Change button to error state
+                if (button) {
+                    const originalText = button.textContent;
+                    const originalClass = button.className;
+
+                    button.textContent = '✗ Failed';
+                    button.className = 'danger';
+
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.className = originalClass;
+                    }, 2000);
+                }
+
+                error.value = 'Failed to copy to clipboard';
+                setTimeout(() => {
+                    error.value = null;
+                }, 3000);
+            }
+        };
+
         return {
             messages,
             contextSize,
@@ -366,6 +505,7 @@ const App = {
             confirmResetOperations,
             handleValidateOperation,
             handleCancelOperation,
+            handleCopyLastResponse,
             isMessageStreaming,
             hasMessages,
             // Modal state
@@ -381,6 +521,7 @@ const App = {
         <div>
             <header class="header">
                 <h1>🚀 Nova Crew Server Agent</h1>
+                <theme-switcher />
                 <status-bar
                     :context-size="contextSize"
                     :models="models"
@@ -424,6 +565,7 @@ const App = {
                 @show-messages="handleShowMessages"
                 @show-models="handleShowModels"
                 @reset-operations="handleResetOperations"
+                @copy-last-response="handleCopyLastResponse"
             />
 
             <!-- Clear Memory Confirmation Modal -->

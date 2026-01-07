@@ -38,30 +38,30 @@ func (agent *CrewServerAgent) handleCompletionStop(w http.ResponseWriter, r *htt
 }
 
 // handleCompletion processes completion requests with SSE streaming:
-// 1. Compresses context if needed
-// 2. Parses request and sets up SSE streaming
+// 1. Parses request and sets up SSE streaming first (for compression notifications)
+// 2. Compresses context if needed (with SSE notifications)
 // 3. Manages tool call notifications
 // 4. Executes tool calls if detected
 // 5. Adds RAG context if available
 // 6. Routes to appropriate agent if orchestrator is configured
 // 7. Generates streaming completion
 func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Request) {
-	// Step 1: Compress context if needed
-	agent.compressContextIfNeeded()
-
-	// Step 2: Parse request
+	// Step 1: Parse request
 	question, err := agent.parseCompletionRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Step 3: Setup SSE streaming
+	// Step 2: Setup SSE streaming (before compression for notifications)
 	flusher, err := agent.setupSSEHeaders(w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Step 3: Compress context if needed (with SSE notifications)
+	agent.compressContextIfNeeded(w, flusher)
 
 	// Step 4: Setup and start notification streaming
 	notificationChan := agent.setupNotificationChannel()
@@ -87,19 +87,61 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 }
 
 // compressContextIfNeeded compresses the chat context if compressor is configured
-func (agent *CrewServerAgent) compressContextIfNeeded() {
+// and sends SSE notifications to the client about the compression process
+func (agent *CrewServerAgent) compressContextIfNeeded(w http.ResponseWriter, flusher http.Flusher) {
 	if agent.CompressorAgent == nil {
 		return
 	}
 
+	// Get context size before compression
+	contextSizeBefore := agent.currentChatAgent.GetContextSize()
+
+	// Check if compression is needed
+	if contextSizeBefore <= agent.ContextSizeLimit {
+		return
+	}
+
+	// Send "compression starting" notification
+	startData := map[string]interface{}{
+		"role":    "information",
+		"content": "🗜️ Context size limit reached. Compressing conversation history...",
+	}
+	jsonData, _ := json.Marshal(startData)
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
+		agent.Log.Error("Failed to write compression start notification: %v", err)
+	}
+	flusher.Flush()
+
+	// Perform compression
 	newSize, err := agent.CompressChatAgentContextIfOverLimit()
+
 	if err != nil {
+		// Send error notification
 		agent.Log.Error("Error during context compression: %v", err)
+		errData := map[string]interface{}{
+			"role":    "information",
+			"content": fmt.Sprintf("❌ Compression failed: %s", err.Error()),
+		}
+		jsonData, _ = json.Marshal(errData)
+		if _, writeErr := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); writeErr != nil {
+			agent.Log.Error("Failed to write compression error notification: %v", writeErr)
+		}
+		flusher.Flush()
 		return
 	}
 
 	if newSize > 0 {
-		agent.Log.Info("🗜️  Chat agent context compressed to %d bytes", newSize)
+		// Send success notification with size reduction details
+		agent.Log.Info("🗜️  Chat agent context compressed from %d to %d bytes", contextSizeBefore, newSize)
+		successData := map[string]interface{}{
+			"role":    "information",
+			"content": fmt.Sprintf("✅ Compression completed. Context reduced from %d to %d bytes.", contextSizeBefore, newSize),
+		}
+		jsonData, _ = json.Marshal(successData)
+		if _, writeErr := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); writeErr != nil {
+			agent.Log.Error("Failed to write compression success notification: %v", writeErr)
+		}
+		flusher.Flush()
 	}
 }
 

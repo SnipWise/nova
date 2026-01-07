@@ -1,34 +1,34 @@
-# Exemples de Routes Personnalisées
+# Custom Routes Examples
 
-Le SDK expose maintenant le multiplexeur HTTP via `agent.Mux`, permettant d'ajouter facilement des routes personnalisées.
+The SDK now exposes the HTTP multiplexer via `agent.Mux`, allowing easy addition of custom routes.
 
-## Utilisation de Base
+## Basic Usage
 
 ```go
-// Créer l'agent
+// Create the agent
 crewAgent, err := crewserver.NewAgent(
     ctx,
     crewserver.WithSingleAgent(chatAgent),
     crewserver.WithPort(8080),
 )
 
-// Ajouter des routes personnalisées AVANT de démarrer le serveur
+// Add custom routes BEFORE starting the server
 crewAgent.Mux.HandleFunc("GET /custom/endpoint", myHandler)
 
-// Démarrer le serveur (CORS sera appliqué automatiquement)
+// Start the server (CORS will be applied automatically)
 crewAgent.StartServer()
 ```
 
 ## ⚠️ Important
 
-- Les routes personnalisées doivent être ajoutées **AVANT** `StartServer()`
-- Le middleware CORS est appliqué automatiquement à toutes les routes
-- Utilisez les méthodes HTTP standards: GET, POST, PUT, DELETE
-- Go 1.22+ supporte les méthodes dans les patterns: `"POST /endpoint"`
+- Custom routes must be added **BEFORE** `StartServer()`
+- CORS middleware is applied automatically to all routes
+- Use standard HTTP methods: GET, POST, PUT, DELETE
+- Go 1.22+ supports methods in patterns: `"POST /endpoint"`
 
-## Exemples Pratiques
+## Practical Examples
 
-### 1. Statistiques du Serveur
+### 1. Server Statistics
 
 ```go
 package main
@@ -47,9 +47,9 @@ var (
 )
 
 func main() {
-    // ... création de l'agent ...
+    // ... agent creation ...
 
-    // Route pour les statistiques
+    // Stats route
     crewAgent.Mux.HandleFunc("GET /stats", func(w http.ResponseWriter, r *http.Request) {
         stats := map[string]interface{}{
             "uptime_seconds":     time.Since(startTime).Seconds(),
@@ -72,7 +72,7 @@ func main() {
 curl http://localhost:8080/stats
 ```
 
-**Réponse:**
+**Response:**
 ```json
 {
   "uptime_seconds": 123.45,
@@ -83,7 +83,7 @@ curl http://localhost:8080/stats
 }
 ```
 
-### 2. Switch Agent Dynamique
+### 2. Dynamic Agent Switch
 
 ```go
 crewAgent.Mux.HandleFunc("POST /agent/switch", func(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +119,7 @@ curl -X POST http://localhost:8080/agent/switch \
   -d '{"agent_id": "thinker"}'
 ```
 
-**Réponse:**
+**Response:**
 ```json
 {
   "status": "ok",
@@ -127,7 +127,7 @@ curl -X POST http://localhost:8080/agent/switch \
 }
 ```
 
-### 3. Liste des Agents Disponibles
+### 3. List Available Agents
 
 ```go
 crewAgent.Mux.HandleFunc("GET /agents", func(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +155,7 @@ crewAgent.Mux.HandleFunc("GET /agents", func(w http.ResponseWriter, r *http.Requ
 curl http://localhost:8080/agents
 ```
 
-**Réponse:**
+**Response:**
 ```json
 {
   "current_agent": "generic",
@@ -184,7 +184,7 @@ curl http://localhost:8080/agents
 }
 ```
 
-### 4. Export de la Conversation (JSON)
+### 4. Export Conversation (JSON)
 
 ```go
 crewAgent.Mux.HandleFunc("GET /export/conversation", func(w http.ResponseWriter, r *http.Request) {
@@ -206,7 +206,7 @@ crewAgent.Mux.HandleFunc("GET /export/conversation", func(w http.ResponseWriter,
 curl http://localhost:8080/export/conversation > conversation.json
 ```
 
-### 5. Health Check Détaillé
+### 5. Detailed Health Check
 
 ```go
 crewAgent.Mux.HandleFunc("GET /health/detailed", func(w http.ResponseWriter, r *http.Request) {
@@ -235,7 +235,7 @@ crewAgent.Mux.HandleFunc("GET /health/detailed", func(w http.ResponseWriter, r *
 curl http://localhost:8080/health/detailed
 ```
 
-### 6. Ajouter un Nouvel Agent à la Crew
+### 6. Add New Agent to Crew
 
 ```go
 crewAgent.Mux.HandleFunc("POST /agents/add", func(w http.ResponseWriter, r *http.Request) {
@@ -294,7 +294,7 @@ curl -X POST http://localhost:8080/agents/add \
   }'
 ```
 
-### 7. Upload de Documents pour RAG
+### 7. Upload Documents for RAG
 
 ```go
 import (
@@ -353,7 +353,7 @@ curl -X POST http://localhost:8080/rag/upload \
   -F "document=@README.md"
 ```
 
-### 8. Recherche RAG Directe
+### 8. Direct RAG Search
 
 ```go
 crewAgent.Mux.HandleFunc("POST /rag/search", func(w http.ResponseWriter, r *http.Request) {
@@ -411,7 +411,7 @@ curl -X POST http://localhost:8080/rag/search \
   }'
 ```
 
-## Exemple Complet dans main.go
+## Complete Example in main.go
 
 ```go
 package main
@@ -535,15 +535,15 @@ func addCustomRoutes(crewAgent *crewserver.CrewServerAgent) {
 }
 ```
 
-## Notes Importantes
+## Important Notes
 
-### CORS Automatique
+### Automatic CORS
 
-Toutes les routes personnalisées bénéficient automatiquement du middleware CORS. Vous n'avez pas besoin d'ajouter les headers CORS manuellement.
+All custom routes automatically benefit from CORS middleware. You don't need to add CORS headers manually.
 
 ### Go 1.22+ Syntax
 
-Si vous utilisez Go 1.22+, vous pouvez spécifier la méthode HTTP dans le pattern:
+If you're using Go 1.22+, you can specify the HTTP method in the pattern:
 
 ```go
 // ✅ Go 1.22+
@@ -560,25 +560,25 @@ crewAgent.Mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) 
 })
 ```
 
-### Ordre des Routes
+### Route Order
 
-Les routes doivent être ajoutées **avant** `StartServer()`:
+Routes must be added **before** `StartServer()`:
 
 ```go
 // ✅ Correct
 crewAgent.Mux.HandleFunc("GET /stats", handler)
 crewAgent.StartServer()
 
-// ❌ Incorrect - trop tard!
+// ❌ Incorrect - too late!
 crewAgent.StartServer()
 crewAgent.Mux.HandleFunc("GET /stats", handler)
 ```
 
-### Tests
+### Testing
 
-Vous pouvez tester vos routes avec curl, Postman, ou directement depuis le navigateur.
+You can test your routes with curl, Postman, or directly from the browser.
 
-**Exemple de tests automatisés:**
+**Example of automated tests:**
 
 ```bash
 #!/bin/bash
@@ -602,4 +602,4 @@ echo "All tests completed!"
 
 ## Conclusion
 
-Le SDK Nova permet maintenant d'étendre facilement le serveur avec des routes personnalisées tout en bénéficiant automatiquement du middleware CORS. Cela ouvre de nombreuses possibilités pour créer des API riches autour de vos agents!
+The Nova SDK now allows easy server extension with custom routes while automatically benefiting from CORS middleware. This opens up many possibilities for creating rich APIs around your agents!
