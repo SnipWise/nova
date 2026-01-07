@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -334,10 +335,19 @@ func main() {
 	}
 
 	// Display server start message
+	display.Colorf(display.ColorCyan, "🚀 API Server starting on http://localhost%s\n", crewServerAgent.GetPort())
+	display.Colorf(display.ColorCyan, "🌐 Web UI Server starting on http://localhost:3000\n")
 
-	display.Colorf(display.ColorCyan, "🚀 Server starting on http://localhost%s\n", crewServerAgent.GetPort())
+	// Start the web UI server in a goroutine
+	go func() {
+		fs := http.FileServer(http.Dir("./web"))
+		display.Colorf(display.ColorGreen, "✅ Web UI ready at http://localhost:3000\n")
+		if err := http.ListenAndServe(":3000", fs); err != nil {
+			display.Errorf("Failed to start web UI server: %v\n", err)
+		}
+	}()
 
-	// Start the server
+	// Start the API server (blocking)
 	if err := crewServerAgent.StartServer(); err != nil {
 		panic(err)
 	}
