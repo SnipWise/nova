@@ -181,10 +181,7 @@ body {
    ============================================================================ */
 
 .message-content {
-    font-family: 'Segoe UI','Roboto', 'Oxygen', 'Ubuntu', sans-serif;
-    /*line-height: 1.4;*/
-    line-height: 1.5;
-    font-size: 0.9rem;
+    line-height: 1.6;
     word-wrap: break-word;     /* Coupe les mots trop longs */
 }
 
@@ -258,20 +255,10 @@ body {
     background: #505050;
 }
 
-/* Code inline et blocs - style de base pour tous les éléments code */
+/* Code inline et blocs */
 .message-content code {
     font-family: 'Menlo', 'Monaco', 'Ubuntu Mono', monospace;
     font-size: 0.875rem;
-}
-
-/* Code inline uniquement (entre simple backticks `code`) - pas dans les blocs pre */
-.message-content :not(pre) > code {
-    background: #2d2d2d;           /* Fond gris moyen pour contraste */
-    color: #e06c75;                /* Couleur rouge/rose pour le texte */
-    padding: 0.2em 0.4em;          /* Espacement interne pour lisibilité */
-    border-radius: 3px;            /* Coins arrondis légers */
-    font-size: 0.875em;            /* Taille légèrement réduite */
-    border: 1px solid #404040;     /* Bordure subtile */
 }
 
 /* Paragraphes */

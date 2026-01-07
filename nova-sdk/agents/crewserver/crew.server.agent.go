@@ -447,10 +447,18 @@ func (agent *CrewServerAgent) StartServer() error {
 func (agent *CrewServerAgent) handleCurrentAgent(w http.ResponseWriter, r *http.Request) {
 	agentId := agent.GetSelectedAgentId()
 	modelId := agent.GetModelID()
+	agentName := agent.GetName()
+
+	if agentName == "" {
+		agentName = "Unnamed Agent"
+	}
+
+	//agent.Log.Info("ℹ️ Current agent requested: ID=%s, Name=%s, Model=%s", agentId, agentName, modelId)
 
 	response := map[string]string{
 		"agent_id": agentId,
 		"model_id": modelId,
+		"agent_name": agentName,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

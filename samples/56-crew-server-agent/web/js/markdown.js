@@ -58,8 +58,9 @@ class MarkdownRenderer {
         };
 
         // Override inline code rendering
+        // Note: marked already provides the code unescaped, we just wrap it in <code> tags
         renderer.codespan = (code) => {
-            return `<code>${this.escapeHtml(code)}</code>`;
+            return `<code>${code}</code>`;
         };
 
         // Set custom renderer
