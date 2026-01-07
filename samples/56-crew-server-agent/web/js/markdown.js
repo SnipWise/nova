@@ -51,12 +51,16 @@ class MarkdownRenderer {
                 highlightedCode = this.escapeHtml(code);
             }
 
-            return `<pre><code class="hljs language-${this.escapeHtml(validLang)}">${highlightedCode}</code></pre>`;
+            // Store code in base64 to avoid escaping issues
+            const base64Code = btoa(encodeURIComponent(code));
+
+            return `<div class="code-block-wrapper"><button class="copy-code-btn" data-code-base64="${base64Code}" title="Copy code">Copy</button><pre><code class="hljs language-${this.escapeHtml(validLang)}">${highlightedCode}</code></pre></div>`;
         };
 
         // Override inline code rendering
+        // Note: marked already provides the code unescaped, we just wrap it in <code> tags
         renderer.codespan = (code) => {
-            return `<code>${this.escapeHtml(code)}</code>`;
+            return `<code>${code}</code>`;
         };
 
         // Set custom renderer
@@ -161,3 +165,37 @@ class MarkdownRenderer {
 
 // Export for use in other modules
 window.MarkdownRenderer = MarkdownRenderer;
+
+/**
+ * Initialize copy button functionality
+ * Attaches event listeners to copy code buttons
+ */
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('copy-code-btn')) {
+        const button = e.target;
+        const base64Code = button.getAttribute('data-code-base64');
+
+        // Decode from base64
+        const decodedCode = decodeURIComponent(atob(base64Code));
+
+        // Copy to clipboard
+        navigator.clipboard.writeText(decodedCode).then(() => {
+            // Change button text and style
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            button.classList.add('copied');
+
+            // Reset after 2 seconds
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('copied');
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy code:', err);
+            button.textContent = 'Failed';
+            setTimeout(() => {
+                button.textContent = 'Copy';
+            }, 2000);
+        });
+    }
+});

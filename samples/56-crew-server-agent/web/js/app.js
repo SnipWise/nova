@@ -76,7 +76,7 @@ const App = {
 
                 // Load current agent
                 const currentAgent = await api.getCurrentAgent();
-                selectedAgent.value = currentAgent.agent_id;
+                selectedAgent.value = currentAgent.agent_name || currentAgent.agent_id;
                 // Update models.chat_model with the current agent's model
                 if (currentAgent.model_id) {
                     models.value.chat_model = currentAgent.model_id;
@@ -105,7 +105,7 @@ const App = {
 
                     // Update current agent info
                     const currentAgent = await api.getCurrentAgent();
-                    selectedAgent.value = currentAgent.agent_id;
+                    selectedAgent.value = currentAgent.agent_name || currentAgent.agent_id;
                     if (currentAgent.model_id) {
                         models.value.chat_model = currentAgent.model_id;
                     }
@@ -247,8 +247,8 @@ const App = {
 
             // Handle agent switch notifications
             if (notification.kind === 'agent_switch') {
-                selectedAgent.value = notification.agent_id;
-                console.log('Agent switched to:', notification.agent_id);
+                selectedAgent.value = notification.agent_name || notification.agent_id;
+                console.log('Agent switched to:', notification.agent_name || notification.agent_id);
                 return;
             }
 
