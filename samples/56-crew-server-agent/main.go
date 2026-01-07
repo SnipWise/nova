@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -36,9 +35,9 @@ func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
 	coderAgent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "coder",
-			EngineURL:          engineURL,
-			SystemInstructions: coderAgentSystemInstructionsContent,
+			Name:                    "coder",
+			EngineURL:               engineURL,
+			SystemInstructions:      coderAgentSystemInstructionsContent,
 			KeepConversationHistory: true,
 		},
 		models.Config{
@@ -69,9 +68,9 @@ func getThinkerAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 	thinkerAgent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "thinker",
-			EngineURL:          engineURL,
-			SystemInstructions: thinkerAgentSystemInstructionsContent,
+			Name:                    "thinker",
+			EngineURL:               engineURL,
+			SystemInstructions:      thinkerAgentSystemInstructionsContent,
 			KeepConversationHistory: true,
 		},
 		models.Config{
@@ -101,9 +100,9 @@ func getCookAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
 	cookAgent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "cook",
-			EngineURL:          engineURL,
-			SystemInstructions: cookAgentSystemInstructionsContent,
+			Name:                    "cook",
+			EngineURL:               engineURL,
+			SystemInstructions:      cookAgentSystemInstructionsContent,
 			KeepConversationHistory: true,
 		},
 		models.Config{
@@ -134,9 +133,9 @@ func getGenericAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 	genericAgent, err := chat.NewAgent(
 		ctx,
 		agents.Config{
-			Name:               "generic",
-			EngineURL:          engineURL,
-			SystemInstructions: genericAgentSystemInstructionsContent,
+			Name:                    "generic",
+			EngineURL:               engineURL,
+			SystemInstructions:      genericAgentSystemInstructionsContent,
 			KeepConversationHistory: true,
 		},
 		models.Config{
@@ -210,7 +209,6 @@ func main() {
 		return agentId
 	}
 
-
 	// Create the tools agent
 	toolsAgent, err := tools.NewAgent(
 		ctx,
@@ -244,7 +242,7 @@ func main() {
 			EngineURL: engineURL,
 		},
 		models.Config{
-			Name: "ai/mxbai-embed-large:latest",
+			Name: "ai/mxbai-embed-large",
 		},
 	)
 	if err != nil {
@@ -270,7 +268,6 @@ func main() {
 			}
 		}
 	}
-
 
 	compressorAgent, err := compressor.NewAgent(
 		ctx,
@@ -314,19 +311,20 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	_ = orchestratorAgent
 
 	// Create the server agent
 	crewServerAgent, err := crewserver.NewAgent(
 		ctx,
-		crewserver.WithAgentCrew(agentCrew, "generic"),
+		//crewserver.WithAgentCrew(agentCrew, "generic"),
+		crewserver.WithSingleAgent(coderAgent),
 		crewserver.WithPort(8080),
 		crewserver.WithMatchAgentIdToTopicFn(matchAgentFunction),
-		//crewserver.WithExecuteFn(executeFunction),
+		crewserver.WithExecuteFn(executeFunction),
 		//crewserver.WithToolsAgent(toolsAgent),
-		crewserver.WithRagAgentAndSimilarityConfig(ragAgent, 0.4,7),
+		crewserver.WithRagAgentAndSimilarityConfig(ragAgent, 0.4, 7),
 		crewserver.WithCompressorAgentAndContextSize(compressorAgent, 8500),
-		crewserver.WithOrchestratorAgent(orchestratorAgent),
-		
+		//crewserver.WithOrchestratorAgent(orchestratorAgent),
 	)
 
 	_ = toolsAgent
@@ -334,10 +332,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-
-
-
 
 	// Display server start message
 
@@ -355,17 +349,17 @@ func GetToolsIndex() []*tools.Tool {
 		AddParameter("a", "number", "The first number", true).
 		AddParameter("b", "number", "The second number", true)
 
-	sayHelloTool := tools.NewTool("say_hello").
-		SetDescription("Say hello to the given name").
-		AddParameter("name", "string", "The name to greet", true)
+	// sayHelloTool := tools.NewTool("say_hello").
+	// 	SetDescription("Say hello to the given name").
+	// 	AddParameter("name", "string", "The name to greet", true)
 
-	sayExit := tools.NewTool("say_exit").
-		SetDescription("Say exit")
+	// sayExit := tools.NewTool("say_exit").
+	// 	SetDescription("Say exit")
 
 	return []*tools.Tool{
 		calculateSumTool,
-		sayHelloTool,
-		sayExit,
+		//sayHelloTool,
+		//sayExit,
 	}
 }
 
@@ -373,15 +367,15 @@ func executeFunction(functionName string, arguments string) (string, error) {
 	display.Colorf(display.ColorGreen, "🟢 Executing function: %s with arguments: %s\n", functionName, arguments)
 
 	switch functionName {
-	case "say_hello":
-		var args struct {
-			Name string `json:"name"`
-		}
-		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
-			return `{"error": "Invalid arguments for say_hello"}`, nil
-		}
-		hello := fmt.Sprintf("👋 Hello, %s!🙂", args.Name)
-		return fmt.Sprintf(`{"message": "%s"}`, hello), nil
+	// case "say_hello":
+	// 	var args struct {
+	// 		Name string `json:"name"`
+	// 	}
+	// 	if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+	// 		return `{"error": "Invalid arguments for say_hello"}`, nil
+	// 	}
+	// 	hello := fmt.Sprintf("👋 Hello, %s!🙂", args.Name)
+	// 	return fmt.Sprintf(`{"message": "%s"}`, hello), nil
 
 	case "calculate_sum":
 		var args struct {
@@ -394,9 +388,9 @@ func executeFunction(functionName string, arguments string) (string, error) {
 		sum := args.A + args.B
 		return fmt.Sprintf(`{"result": %g}`, sum), nil
 
-	case "say_exit":
-		// NOTE: Returning a message and an error to stop further processing
-		return fmt.Sprintf(`{"message": "%s"}`, "❌ EXIT"), errors.New("exit_loop")
+	// case "say_exit":
+	// 	// NOTE: Returning a message and an error to stop further processing
+	// 	return fmt.Sprintf(`{"message": "%s"}`, "❌ EXIT"), errors.New("exit_loop")
 
 	default:
 		return `{"error": "Unknown function"}`, fmt.Errorf("unknown function: %s", functionName)
