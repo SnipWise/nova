@@ -21,6 +21,9 @@ type ServerAgent struct {
 	*serverbase.BaseServerAgent
 	chatAgent *chat.Agent
 
+	// HTTP server multiplexer for custom routes
+	Mux *http.ServeMux
+
 	// Temporary fields to store config before BaseServerAgent is created
 	portConfig               string
 	executeFnConfig          func(string, string) (string, error)
@@ -284,9 +287,38 @@ func (agent *ServerAgent) ExportMessagesToJSON() (string, error) {
 // Note: SetToolsAgent, GetToolsAgent, SetRagAgent, GetRagAgent, etc.
 // are defined in methods.*.related.go files
 
+// corsMiddleware adds CORS headers to all responses
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow all origins (can be restricted to specific origins if needed)
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		// Allowed HTTP methods
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+
+		// Allowed headers
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
+
+		// Allow credentials (cookies, auth)
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		// Preflight request (OPTIONS) - return 200 OK without calling next handler
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Continue to the next handler
+		next.ServeHTTP(w, r)
+	})
+}
+
 // StartServer starts the HTTP server with all routes
 func (agent *ServerAgent) StartServer() error {
 	mux := http.NewServeMux()
+
+	// Expose mux for custom routes
+	agent.Mux = mux
 
 	// Routes using base handlers
 	mux.HandleFunc("POST /completion", agent.handleCompletion)
@@ -300,8 +332,11 @@ func (agent *ServerAgent) StartServer() error {
 	mux.HandleFunc("GET /models", agent.HandleModelsInformation)
 	mux.HandleFunc("GET /health", agent.HandleHealth)
 
+	// Apply CORS middleware
+	handler := corsMiddleware(mux)
+
 	agent.Log.Info("🚀 Server started on http://localhost%s", agent.Port)
-	return http.ListenAndServe(agent.Port, mux)
+	return http.ListenAndServe(agent.Port, handler)
 }
 
 // Helper functions
