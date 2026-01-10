@@ -87,20 +87,24 @@ use the nova-agent-builder skill to create a RAG agent
 |----------|---------|-------------|--------|
 | chat | streaming-chat | Chat with streaming responses | 05 |
 | chat | contextual-chat | Chat with context memory | 06 |
+| chat | history-management | Conversation history control (stateful/stateless) | 60-61 |
 | rag | basic-rag | RAG with in-memory vectorstore | 13 |
 | rag | jsonstore-rag | RAG with JSON persistent store | 69 |
 | tools | simple-tools | Agent with function calling | 18 |
 | tools | parallel-tools | Parallel tool execution | 19 |
 | tools | confirmation-tools | Human-in-the-loop | 47 |
+| tools | mcp-integration | MCP tools via stdio or HTTP | 40-42 |
 | structured | structured-output | Structured output (Go struct) | 23 |
 | structured | structured-schema | Output with JSON Schema | 24 |
 | structured | structured-validation | Advanced validation + retry | 25 |
+| structured | intent-detection | Intent detection and entity extraction | 24 |
 | compressor | compressor-agent | Context compression | 28 |
 | **server** | **basic-server** | **HTTP/REST API with SSE streaming** | **70** |
 | **server** | **server-with-tools** | **API with function calling** | **49** |
 | **server** | **server-with-rag** | **API with document retrieval** | **54** |
 | **server** | **server-with-compressor** | **API with context compression** | **54** |
 | **server** | **server-full-featured** | **Complete API (tools+RAG+compress)** | **54** |
+| **server** | **dual-mode-server** | **Dual-mode (CLI + HTTP API)** | **70** |
 | **remote** | **basic-remote** | **Client connecting to Server Agent** | **71** |
 | orchestrator | topic-detection | Topic/intent detection for routing | 55 |
 | complex | crew-agent | Multi-agent collaboration (local) | 55 |

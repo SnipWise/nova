@@ -8,11 +8,15 @@ description: |
   - "agent" + "Go" or "golang"
   - "Nova SDK" or "Nova" + "agent"
   - "chat agent", "chatbot", "conversational" + Go
+  - "conversation history", "stateful", "stateless", "keep history" + agent
   - "RAG agent", "retrieval", "embeddings", "vector" + Go
   - "tools agent", "function calling" + Go
+  - "MCP", "Model Context Protocol", "MCP tools", "stdio MCP", "HTTP MCP" + Go
+  - "intent detection", "classification", "routing", "entity extraction" + agent
   - "server agent", "HTTP API", "REST API", "API server" + Go
   - "server with tools", "API with functions"
   - "server with RAG", "API with knowledge base"
+  - "dual mode", "CLI and HTTP", "interactive server" + agent
   - "remote agent", "client agent", "connect to server"
   - "crew agent", "multi-agents", "agent team"
   - "pipeline agent", "chained agents"
@@ -89,16 +93,20 @@ nova-sdk/
 |--------------|------|----------------|
 | "chat agent", "chatbot", "conversation" | Chat | `snippets/chat/` |
 | "streaming", "real-time" | Chat Streaming | `snippets/chat/streaming-chat.md` |
+| "conversation history", "stateful", "stateless", "keep history" | Chat History | `snippets/chat/history-management.md` |
 | "RAG", "search", "embeddings", "vector" | RAG | `snippets/rag/` |
 | "persistent RAG", "json store", "save embeddings" | RAG Persistant | `snippets/rag/jsonstore-rag.md` |
 | "tools", "function calling", "utilities" | Tools | `snippets/tools/` |
+| "MCP", "Model Context Protocol", "MCP tools", "stdio MCP", "HTTP MCP" | MCP Integration | `snippets/tools/mcp-integration.md` |
 | "structured", "JSON", "schema", "extraction" | Structured | `snippets/structured/` |
+| "intent detection", "classification", "routing", "entity extraction" | Intent Detection | `snippets/structured/intent-detection.md` |
 | "compression", "long context", "long memory" | Compressor | `snippets/compressor/` |
 | "server agent", "HTTP API", "REST", "SSE" | Server Agent | `snippets/server/basic-server.md` |
 | "server with tools", "API with functions" | Server + Tools | `snippets/server/server-with-tools.md` |
 | "server with RAG", "API with knowledge base" | Server + RAG | `snippets/server/server-with-rag.md` |
 | "server with compression", "API with long context" | Server + Compressor | `snippets/server/server-with-compressor.md` |
 | "full server", "complete API", "production server" | Full Server | `snippets/server/server-full-featured.md` |
+| "dual mode", "CLI and HTTP", "interactive server" | Dual Mode Server | `snippets/server/dual-mode-server.md` |
 | "remote agent", "client agent", "connect to server" | Remote Agent | `snippets/remote/basic-remote.md` |
 | "multi-agents", "crew", "team" | Crew | `snippets/complex/crew-agent.md` |
 | "crew server", "multi-agent API", "expose crew" | Crew Server | `snippets/complex/crew-server-agent.md` |
@@ -131,6 +139,7 @@ Files in `snippets/` - direct generation without questions:
 **Chat Agents:** (`snippets/chat/`)
 - `streaming-chat.md` - Chat with streaming (sample 05)
 - `contextual-chat.md` - Chat with maintained context (sample 06)
+- `history-management.md` - Conversation history control with KeepConversationHistory flag (samples 60-61)
 
 **RAG Agents:** (`snippets/rag/`)
 - `basic-rag.md` - Basic RAG agent with in-memory vectorstore (sample 13)
@@ -141,11 +150,13 @@ Files in `snippets/` - direct generation without questions:
 - `simple-tools.md` - Agent with simple tools (sample 18)
 - `parallel-tools.md` - Parallel tools (sample 19)
 - `confirmation-tools.md` - Tools with human-in-the-loop confirmation (sample 47)
+- `mcp-integration.md` - MCP (Model Context Protocol) tools via stdio or HTTP (samples 40-42)
 
 **Structured Output Agents:** (`snippets/structured/`)
 - `structured-output.md` - Structured output with Go struct (sample 23)
 - `structured-schema.md` - Output with explicit JSON Schema (sample 24)
 - `structured-validation.md` - Advanced validation and retry (sample 25)
+- `intent-detection.md` - Intent detection and entity extraction with structured output (sample 24)
 
 **Compressor Agents:** (`snippets/compressor/`)
 - `compressor-agent.md` - Context compression (sample 28)
@@ -157,6 +168,7 @@ Files in `snippets/` - direct generation without questions:
 - `server-with-rag.md` - Server with document retrieval (sample 54)
 - `server-with-compressor.md` - Server with context compression (sample 54)
 - `server-full-featured.md` - Complete server with all features (sample 54)
+- `dual-mode-server.md` - Dual-mode server (CLI interactive + HTTP API) (sample 70)
 
 **Remote Agents:** (`snippets/remote/`)
 - `basic-remote.md` - Remote client connecting to Server Agent (sample 71)
@@ -444,6 +456,147 @@ if agent.StoreFileExists("./store/data.json") {
     agent.SaveEmbedding("text chunk")
     agent.PersistStore("./store/data.json")
 }
+```
+
+### Conversation History Pattern
+
+**CRITICAL**: Use `KeepConversationHistory` flag to control history management.
+
+```go
+// Stateful agent (maintains full context)
+agent, err := chat.NewAgent(
+    ctx,
+    agents.Config{
+        KeepConversationHistory: true, // Keeps all messages
+        // ...
+    },
+    modelConfig,
+)
+
+// Stateless agent (no context between requests)
+agent, err := chat.NewAgent(
+    ctx,
+    agents.Config{
+        KeepConversationHistory: false, // Only system message kept
+        // ...
+    },
+    modelConfig,
+)
+
+// History management methods
+messages := agent.GetMessages()       // Get all messages
+agent.ResetMessages()                 // Clear history
+contextSize := agent.GetContextSize() // Check token usage
+```
+
+### MCP Tools Integration Pattern
+
+**Pattern**: Integrate external tools via Model Context Protocol (stdio or HTTP).
+
+```go
+import "github.com/snipwise/nova/nova-sdk/mcptools"
+
+// Stdio MCP client (Docker, local commands)
+mcpClient, err := mcptools.NewStdioMCPClient(
+    ctx,
+    "docker",              // Command
+    []string{},            // Environment vars
+    "mcp", "gateway", "run", // Args
+)
+
+// HTTP MCP client (remote servers)
+mcpClient, err := mcptools.NewStreamableHttpMCPClient(
+    ctx,
+    "http://localhost:9011", // MCP server URL
+)
+
+// List available tools
+for _, tool := range mcpClient.GetTools() {
+    fmt.Printf("- %s: %s\n", tool.Name, tool.Description)
+}
+
+// Create agent with MCP tools
+agent, err := tools.NewAgent(
+    ctx,
+    agentConfig,
+    modelConfig,
+    tools.WithMCPTools(mcpClient), // Add all MCP tools
+)
+
+// Execute tools in DetectToolCallsLoop
+agent.DetectToolCallsLoop(
+    messages,
+    func(functionName, arguments string) (string, error) {
+        return mcpClient.ExecTool(functionName, arguments)
+    },
+)
+```
+
+### Intent Detection Pattern
+
+**Pattern**: Use structured agents for intent/entity detection and routing.
+
+```go
+import "github.com/snipwise/nova/nova-sdk/agents/structured"
+
+// Define intent structure
+type Intent struct {
+    Action     string  `json:"action"`
+    Entity     string  `json:"entity"`
+    Confidence float64 `json:"confidence"`
+}
+
+// Create intent detection agent
+agent, err := structured.NewAgent[Intent](
+    ctx,
+    agents.Config{
+        SystemInstructions:      classificationPrompt,
+        KeepConversationHistory: false, // Stateless for classification
+    },
+    models.Config{
+        Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+        Temperature: models.Float64(0.0), // Deterministic
+    },
+)
+
+// Detect intent
+intent, _, err := agent.GenerateStructuredData(messages)
+
+// Route based on intent
+if intent.Confidence > 0.7 {
+    routeToHandler(intent.Action)
+} else {
+    handleFallback()
+}
+```
+
+### Dual-Mode Server Pattern
+
+**Pattern**: Server agent that works in both CLI and HTTP modes.
+
+```go
+import "github.com/snipwise/nova/nova-sdk/agents/server"
+
+// Create dual-mode agent
+agent, err := server.NewAgent(
+    ctx,
+    agentConfig,
+    modelConfig,
+    server.WithPort(":3500"),
+    server.WithToolsAgent(toolsAgent),
+    server.WithRagAgent(ragAgent),
+)
+
+// CLI Mode - Interactive streaming
+agent.StreamCompletion(userInput, func(chunk, reason string) error {
+    if chunk != "" {
+        fmt.Print(chunk)
+    }
+    return nil
+})
+
+// HTTP Mode - Start REST API server
+agent.StartServer() // Blocking, exposes /chat, /chat/stream, /health
 ```
 
 ### Compressor Pattern
