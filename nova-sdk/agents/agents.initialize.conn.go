@@ -32,11 +32,15 @@ func InitializeConnection(ctx context.Context, agentConfig Config, modelConfig m
 	modelFound := false
 	for modelsList.Next() {
 		m := modelsList.Current()
-		log.Debug("Available model: %s", m.ID)
+		log.Debug("🤖 Available model: %s, 🔎 searching %s", m.ID, modelConfig.Name)
 		if m.ID == modelConfig.Name {
 			modelFound = true
 		}
+		if m.ID == "docker.io/"+modelConfig.Name {
+			modelFound = true
+		}
 	}
+
 	if err := modelsList.Err(); err != nil {
 		log.Error("Error listing models: %v", err)
 		return openai.Client{}, nil, err
