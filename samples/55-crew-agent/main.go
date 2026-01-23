@@ -32,7 +32,7 @@ func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
         - Follow best practices for the language
         - Explain your approach briefly
 	`
-	coderAgentModel := "hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m"
+	coderAgentModel := "huggingface.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m"
 
 	coderAgent, err := chat.NewAgent(
 		ctx,
@@ -65,7 +65,7 @@ func getThinkerAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
         - Admit when you don't know something
         Keep responses natural and conversational.	
 	`
-	thinkerModel := "hf.co/menlo/lucy-gguf:q4_k_m"
+	thinkerModel := "huggingface.co/menlo/lucy-gguf:q4_k_m"
 
 	thinkerAgent, err := chat.NewAgent(
 		ctx,
@@ -130,7 +130,7 @@ func getGenericAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 
         Always start with the most important information.	
 	`
-	genericModel := "hf.co/menlo/jan-nano-gguf:q4_k_m"
+	genericModel := "huggingface.co/menlo/jan-nano-gguf:q4_k_m"
 
 	genericAgent, err := chat.NewAgent(
 		ctx,
