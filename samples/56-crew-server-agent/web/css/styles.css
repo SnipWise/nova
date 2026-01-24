@@ -1,6 +1,6 @@
 /**
  * Nova Crew Server - Stylesheet
- * Dark theme CSS for the chat interface
+ * VSCode Claude Code theme inspired CSS
  */
 
 /* ============================================================================
@@ -10,20 +10,19 @@
 * {
     margin: 0;
     padding: 0;
-    box-sizing: border-box; /* Inclut padding et border dans width/height */
+    box-sizing: border-box;
 }
 
 body {
-    /* Police système pour un rendu natif sur chaque OS */
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-    background: #1a1a1a;  /* Fond sombre principal */
-    color: #e0e0e0;       /* Texte gris clair */
-    height: 100vh;        /* Hauteur plein écran */
-    overflow: hidden;     /* Empêche le scroll du body */
+    background: #1e1e1e;
+    color: #cccccc;
+    height: 100vh;
+    overflow: hidden;
 }
 
 #app {
-    height: 100vh;        /* Conteneur principal plein écran */
+    height: 100vh;
     display: flex;
     flex-direction: column;
 }
@@ -33,69 +32,71 @@ body {
    ============================================================================ */
 
 .header {
-    background: #2d2d2d;       /* Fond gris moyen */
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid #404040;
-    flex-shrink: 0;            /* Ne rétrécit pas quand l'espace manque */
-    position: relative;        /* Pour le positionnement du theme switcher */
+    background: #252526;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid #2d2d30;
+    flex-shrink: 0;
+    position: relative;
 }
 
 .header h1 {
-    font-size: 1.5rem;
-    color: #4fc3f7;            /* Bleu clair - couleur d'accent principale */
+    font-size: 1.125rem;
+    color: #cccccc;
     margin-bottom: 0.5rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
 }
 
 /* Theme switcher button */
 .theme-switcher {
     position: absolute;
-    top: 1rem;
+    top: 0.75rem;
     right: 1.5rem;
 }
 
 .theme-toggle-btn {
-    background: #404040;
-    border: 1px solid #505050;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    font-size: 1.25rem;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    font-size: 1.125rem;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: background 0.15s;
     padding: 0;
+    color: #858585;
 }
 
 .theme-toggle-btn:hover {
-    background: #505050;
-    border-color: #606060;
-    transform: scale(1.05);
+    background: #2a2d2e;
+    color: #cccccc;
 }
 
 /* Barre de statut avec infos sur l'agent, contexte, modèles */
 .status-bar {
     display: flex;
-    gap: 2rem;                 /* Espacement entre les items */
-    font-size: 0.875rem;
-    color: #9e9e9e;            /* Gris moyen */
-    flex-wrap: wrap;           /* Passe à la ligne si nécessaire */
+    gap: 1.5rem;
+    font-size: 0.8125rem;
+    color: #858585;
+    flex-wrap: wrap;
 }
 
 .status-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .status-label {
-    color: #757575;            /* Gris foncé pour les labels */
+    color: #858585;
 }
 
 .status-value {
-    color: #4fc3f7;            /* Bleu clair pour les valeurs */
-    font-weight: 500;
+    color: #9cdcfe;
+    font-weight: 400;
 }
 
 /* ============================================================================
@@ -103,78 +104,84 @@ body {
    ============================================================================ */
 
 .chat-container {
-    position: absolute;        /* Positionnement absolu pour hauteur fixe */
-    top: 90px;                 /* Sous le header */
-    bottom: 180px;             /* Au-dessus de l'input bar */
+    position: absolute;
+    top: 72px;
+    bottom: 180px;
     left: 0;
     right: 0;
-    overflow-y: auto;          /* Scroll vertical */
-    overflow-x: hidden;        /* Pas de scroll horizontal */
-    padding: 1.5rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 1rem;                 /* Espacement entre les messages */
+    gap: 0;
 }
 
 /* Personnalisation de la scrollbar (Webkit: Chrome, Safari) */
 .chat-container::-webkit-scrollbar {
-    width: 8px;
+    width: 10px;
 }
 
 .chat-container::-webkit-scrollbar-track {
-    background: #1a1a1a;
+    background: transparent;
 }
 
 .chat-container::-webkit-scrollbar-thumb {
-    background: #404040;
-    border-radius: 4px;
+    background: #424242;
+    border-radius: 5px;
+    border: 2px solid #1e1e1e;
 }
 
 .chat-container::-webkit-scrollbar-thumb:hover {
-    background: #505050;
+    background: #4e4e4e;
 }
 
 /* ============================================================================
-   MESSAGES - Bulles de chat pour user, assistant, system
+   MESSAGES - Style Claude Code (pas de bulles)
    ============================================================================ */
 
 .message {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 1rem;
-    border-radius: 8px;
-    max-width: 85%;            /* Messages ne prennent pas toute la largeur */
+    gap: 0.375rem;
+    padding: 1rem 1.5rem;
+    max-width: 100%;
+    border-left: 3px solid transparent;
+    transition: background 0.15s;
 }
 
-/* Message utilisateur - aligné à droite, bleu */
+.message:hover {
+    background: #2a2d2e;
+}
+
+/* Message utilisateur */
 .message.user {
-    align-self: flex-end;
-    background: #1e3a5f;       /* Bleu foncé */
-    border: 1px solid #2d5a8f;
+    background: transparent;
+    border-left-color: #007acc;
 }
 
-/* Message assistant - aligné à gauche, gris */
+.message.user:hover {
+    background: #2a2d2e;
+}
+
+/* Message assistant */
 .message.assistant {
-    align-self: flex-start;
-    background: #2d2d2d;
-    border: 1px solid #404040;
+    background: transparent;
+    border-left-color: transparent;
 }
 
-/* Message système - centré, orange */
+/* Message système */
 .message.system {
-    align-self: center;
-    background: #3d2d1e;       /* Orange foncé */
-    border: 1px solid #5d4d3e;
-    max-width: 95%;
+    background: #2d2d30;
+    border-left-color: #ce9178;
+    max-width: 100%;
 }
 
-/* Message information - centré, bleu-gris pour notifications système */
+/* Message information */
 .message.information {
-    align-self: center;
-    background: #2d3d4d;       /* Bleu-gris foncé */
-    border: 1px solid #4d5d6d;
-    max-width: 70%;
+    background: transparent;
+    border-left-color: #4e94ce;
+    max-width: 100%;
 }
 
 /* Animation pulse pour message information en cours de traitement */
@@ -185,11 +192,9 @@ body {
 @keyframes pulse {
     0%, 100% {
         opacity: 1;
-        transform: scale(1);
     }
     50% {
-        opacity: 0.8;
-        transform: scale(1.02);
+        opacity: 0.7;
     }
 }
 
@@ -199,35 +204,36 @@ body {
 
 .message-role {
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 0.6875rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.05em;
+    opacity: 0.6;
 }
 
 .message.user .message-role {
-    color: #4fc3f7;            /* Bleu pour user */
+    color: #9cdcfe;
 }
 
 .message.assistant .message-role {
-    color: #81c784;            /* Vert pour assistant */
+    color: #4ec9b0;
 }
 
 .message.system .message-role {
-    color: #ffb74d;            /* Orange pour system */
+    color: #ce9178;
 }
 
 .message.information .message-role {
-    color: #64b5f6;            /* Bleu clair pour information */
+    color: #569cd6;
 }
 
 /* Loader animé dans le role (quand l'assistant répond) */
 .role-loader {
     display: inline-block;
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     margin-left: 0.5rem;
-    border: 2px solid rgba(129, 199, 132, 0.3);
-    border-top-color: #81c784;
+    border: 2px solid rgba(78, 201, 176, 0.3);
+    border-top-color: #4ec9b0;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     vertical-align: middle;
@@ -238,20 +244,21 @@ body {
    ============================================================================ */
 
 .message-content {
-    font-family: 'Segoe UI','Roboto', 'Oxygen', 'Ubuntu', sans-serif;
-    /*line-height: 1.4;*/
-    line-height: 1.5;
-    font-size: 0.9rem;
-    word-wrap: break-word;     /* Coupe les mots trop longs */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    line-height: 1.6;
+    font-size: 0.8125rem;
+    word-wrap: break-word;
+    color: #cccccc;
 }
 
 /* Blocs de code */
 .message-content pre {
-    background: #1a1a1a;
-    padding: 1rem;
-    border-radius: 4px;
-    overflow-x: auto;          /* Scroll horizontal pour code long */
+    background: #1e1e1e;
+    padding: 0.875rem;
+    border-radius: 3px;
+    overflow-x: auto;
     margin: 0.5rem 0;
+    border: 1px solid #2d2d30;
 }
 
 /* Wrapper pour bloc de code avec bouton de copie */
@@ -265,36 +272,37 @@ body {
     position: absolute;
     top: 0.5rem;
     right: 0.5rem;
-    background: #404040;
-    color: #e0e0e0;
-    border: 1px solid #505050;
-    padding: 0.375rem 0.75rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
+    background: #3c3c3c;
+    color: #cccccc;
+    border: 1px solid #4e4e4e;
+    padding: 0.25rem 0.625rem;
+    border-radius: 3px;
+    font-size: 0.6875rem;
+    font-weight: 400;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
     z-index: 10;
-    opacity: 0.7;
+    opacity: 0;
+}
+
+.code-block-wrapper:hover .copy-code-btn {
+    opacity: 1;
 }
 
 .copy-code-btn:hover {
-    opacity: 1;
     background: #505050;
-    border-color: #606060;
 }
 
 /* État "Copied!" - changement de couleur */
 .copy-code-btn.copied {
-    background: #43a047;
-    border-color: #388e3c;
+    background: #0e639c;
+    border-color: #007acc;
     color: white;
     opacity: 1;
 }
 
 .copy-code-btn.copied:hover {
-    background: #43a047;
-    border-color: #388e3c;
+    background: #0e639c;
 }
 
 /* Scrollbar horizontale pour les blocs de code */
@@ -303,61 +311,84 @@ body {
 }
 
 .message-content pre::-webkit-scrollbar-track {
-    background: #0a0a0a;
+    background: transparent;
 }
 
 .message-content pre::-webkit-scrollbar-thumb {
-    background: #404040;
+    background: #424242;
     border-radius: 4px;
 }
 
 .message-content pre::-webkit-scrollbar-thumb:hover {
-    background: #505050;
+    background: #4e4e4e;
 }
 
 /* Code inline et blocs - style de base pour tous les éléments code */
 .message-content code {
-    font-family: 'Menlo', 'Monaco', 'Ubuntu Mono', monospace;
-    font-size: 0.875rem;
+    font-family: 'Menlo', 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+    font-size: 0.8125rem;
 }
 
 /* Code inline uniquement (entre simple backticks `code`) - pas dans les blocs pre */
 .message-content :not(pre) > code {
-    background: #2d2d2d;           /* Fond gris moyen pour contraste */
-    color: #e06c75;                /* Couleur rouge/rose pour le texte */
-    padding: 0.2em 0.4em;          /* Espacement interne pour lisibilité */
-    border-radius: 3px;            /* Coins arrondis légers */
-    font-size: 0.875em;            /* Taille légèrement réduite */
-    border: 1px solid #404040;     /* Bordure subtile */
+    background: #2d2d30;
+    color: #ce9178;
+    padding: 0.125em 0.375em;
+    border-radius: 3px;
+    font-size: 0.875em;
+    border: none;
 }
 
 /* Paragraphes */
 .message-content p {
-    margin: 0.5rem 0;
+    margin: 0.375rem 0;
 }
 
 /* Listes à puces et numérotées */
 .message-content ul,
 .message-content ol {
     margin-left: 0;
-    padding-left: 1.5rem;      /* Indentation des puces */
-    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+    margin: 0.375rem 0;
 }
 
 /* Citations */
 .message-content blockquote {
-    border-left: 3px solid #4fc3f7;  /* Barre bleue à gauche */
+    border-left: 2px solid #007acc;
     padding-left: 1rem;
     margin: 0.5rem 0;
-    color: #9e9e9e;
+    color: #858585;
 }
 
 /* Titres dans les messages */
 .message-content h1,
 .message-content h2,
 .message-content h3 {
-    margin: 1rem 0 0.5rem 0;
-    color: #e0e0e0;
+    margin: 0.875rem 0 0.375rem 0;
+    color: #cccccc;
+    font-weight: 600;
+}
+
+/* Liens HTML */
+.message-content a {
+    color: #569cd6;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.15s;
+}
+
+.message-content a:hover {
+    color: #9cdcfe;
+    border-bottom-color: #9cdcfe;
+}
+
+.message-content a:visited {
+    color: #c586c0;
+}
+
+.message-content a:visited:hover {
+    color: #daaad6;
+    border-bottom-color: #daaad6;
 }
 
 /* ============================================================================
@@ -365,41 +396,48 @@ body {
    ============================================================================ */
 
 .operation-controls {
-    background: #3d2d1e;       /* Orange foncé */
-    border: 1px solid #5d4d3e;
-    padding: 1rem;
-    border-radius: 8px;
+    background: #2d2d30;
+    border: 1px solid #007acc;
+    border-left: 3px solid #007acc;
+    padding: 0.875rem;
+    border-radius: 3px;
     margin: 0.5rem 0;
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
 }
 
 /* État en attente de validation */
 .operation-controls.operation-pending {
-    background: #3d2d1e;
-    border: 1px solid #5d4d3e;
+    background: #2d2d30;
+    border-color: #ce9178;
+    border-left-color: #ce9178;
 }
 
 /* État validé (succès) */
 .operation-controls.operation-completed {
-    background: #1e3d2e;       /* Vert foncé */
-    border: 1px solid #2e5d3e;
+    background: #2d2d30;
+    border-color: #4ec9b0;
+    border-left-color: #4ec9b0;
 }
 
 /* État annulé (erreur) */
 .operation-controls.operation-cancelled {
-    background: #3d1e1e;       /* Rouge foncé */
-    border: 1px solid #5d2e2e;
+    background: #2d2d30;
+    border-color: #f48771;
+    border-left-color: #f48771;
 }
 
 .operation-controls h4 {
-    color: #ffb74d;            /* Orange pour le titre */
+    color: #cccccc;
     margin-bottom: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
 }
 
 .operation-controls p {
-    color: #9e9e9e;
-    font-size: 0.875rem;
+    color: #858585;
+    font-size: 0.8125rem;
     margin-bottom: 0.75rem;
+    line-height: 1.5;
 }
 
 /* Boutons de validation/annulation */
@@ -411,19 +449,20 @@ body {
 
 /* Résultat de l'opération (après validation/annulation) */
 .operation-result {
-    padding: 0.75rem;
+    padding: 0.625rem;
     background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
-    font-weight: 500;
+    border-radius: 3px;
+    font-weight: 400;
     margin-top: 0.75rem;
+    font-size: 0.8125rem;
 }
 
 .operation-controls.operation-completed .operation-result {
-    color: #81c784;            /* Vert pour succès */
+    color: #4ec9b0;
 }
 
 .operation-controls.operation-cancelled .operation-result {
-    color: #e57373;            /* Rouge pour annulation */
+    color: #f48771;
 }
 
 /* ============================================================================
@@ -431,19 +470,19 @@ body {
    ============================================================================ */
 
 .operations-overlay {
-    position: fixed;           /* Toujours visible au-dessus de l'input */
-    bottom: 180px;             /* Juste au-dessus de l'input bar */
+    position: fixed;
+    bottom: 180px;
     left: 0;
     right: 0;
-    background: rgba(26, 26, 26, 0.98);  /* Fond semi-transparent */
-    border-top: 1px solid #404040;
+    background: rgba(30, 30, 30, 0.98);
+    border-top: 1px solid #2d2d30;
     padding: 1rem 1.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    max-height: 30vh;          /* Max 30% de la hauteur écran */
+    max-height: 30vh;
     overflow-y: auto;
-    z-index: 1000;             /* Au-dessus du chat */
+    z-index: 1000;
 }
 
 /* Cache l'overlay quand il est vide */
@@ -453,7 +492,7 @@ body {
 
 .operations-overlay .operation-controls {
     margin: 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* ============================================================================
@@ -461,40 +500,42 @@ body {
    ============================================================================ */
 
 .input-container {
-    position: fixed;           /* Fixé en bas de page */
+    position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    background: #2d2d2d;
-    border-top: 1px solid #404040;
-    padding: 1rem 1.5rem;
-    z-index: 999;              /* Sous l'overlay mais au-dessus du chat */
+    background: #252526;
+    border-top: 1px solid #2d2d30;
+    padding: 0.875rem 1.5rem;
+    z-index: 999;
 }
 
 .input-wrapper {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.625rem;
     margin-bottom: 0.75rem;
 }
 
 /* Zone de texte pour saisir le message */
 .input-field {
-    flex: 1;                   /* Prend tout l'espace disponible */
-    background: #1a1a1a;
-    border: 1px solid #404040;
-    color: #e0e0e0;
-    padding: 0.75rem 1rem;
-    border-radius: 6px;
-    font-size: 1rem;
+    flex: 1;
+    background: #3c3c3c;
+    border: 1px solid #3c3c3c;
+    color: #cccccc;
+    padding: 0.625rem 0.875rem;
+    border-radius: 3px;
+    font-size: 0.8125rem;
     font-family: inherit;
-    resize: none;              /* Empêche le resize manuel */
+    resize: none;
     min-height: 60px;
     max-height: 150px;
+    line-height: 1.5;
 }
 
 .input-field:focus {
     outline: none;
-    border-color: #4fc3f7;     /* Bordure bleue au focus */
+    border-color: #007acc;
+    background: #3c3c3c;
 }
 
 /* ============================================================================
@@ -504,30 +545,29 @@ body {
 .button-group {
     display: flex;
     gap: 0.5rem;
-    flex-wrap: wrap;           /* Passe à la ligne si nécessaire */
+    flex-wrap: wrap;
 }
 
 /* Style de bouton par défaut */
 button {
-    background: #404040;
-    color: #e0e0e0;
-    border: 1px solid #505050;
-    padding: 0.625rem 1rem;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    background: #0e639c;
+    color: #ffffff;
+    border: 1px solid #0e639c;
+    padding: 0.5rem 0.875rem;
+    border-radius: 2px;
+    font-size: 0.8125rem;
+    font-weight: 400;
     cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;       /* Empêche le retour à la ligne du texte */
+    transition: background 0.15s;
+    white-space: nowrap;
 }
 
 button:hover:not(:disabled) {
-    background: #505050;
-    border-color: #606060;
+    background: #1177bb;
 }
 
 button:active:not(:disabled) {
-    transform: scale(0.98);    /* Petit effet de "press" */
+    background: #0d5689;
 }
 
 button:disabled {
@@ -537,57 +577,52 @@ button:disabled {
 
 /* Bouton primaire (bleu) - utilisé pour Send */
 button.primary {
-    background: #1e88e5;
-    border-color: #1976d2;
+    background: #0e639c;
+    border-color: #0e639c;
 }
 
 button.primary:hover:not(:disabled) {
-    background: #1976d2;
-    border-color: #1565c0;
+    background: #1177bb;
 }
 
 /* Bouton succès (vert) - utilisé pour Validate */
 button.success {
-    background: #43a047;
-    border-color: #388e3c;
+    background: #0e8a16;
+    border-color: #0e8a16;
 }
 
 button.success:hover:not(:disabled) {
-    background: #388e3c;
-    border-color: #2e7d32;
+    background: #14a01c;
 }
 
 /* Bouton danger (rouge) - utilisé pour Stop, Cancel */
 button.danger {
-    background: #e53935;
-    border-color: #d32f2f;
+    background: #c72e0f;
+    border-color: #c72e0f;
 }
 
 button.danger:hover:not(:disabled) {
-    background: #d32f2f;
-    border-color: #c62828;
+    background: #d73a21;
 }
 
 /* Bouton warning (orange) - utilisé pour Clear Memory, Reset */
 button.warning {
-    background: #fb8c00;
-    border-color: #f57c00;
+    background: #bf8700;
+    border-color: #bf8700;
 }
 
 button.warning:hover:not(:disabled) {
-    background: #f57c00;
-    border-color: #ef6c00;
+    background: #ca9800;
 }
 
 /* Bouton info (bleu clair) - utilisé pour Copy Response */
 button.info {
-    background: #0288d1;
-    border-color: #0277bd;
+    background: #0e639c;
+    border-color: #0e639c;
 }
 
 button.info:hover:not(:disabled) {
-    background: #0277bd;
-    border-color: #01579b;
+    background: #1177bb;
 }
 
 /* ============================================================================
@@ -598,8 +633,8 @@ button.info:hover:not(:disabled) {
     display: inline-block;
     width: 12px;
     height: 12px;
-    border: 2px solid #404040;
-    border-top-color: #4fc3f7;  /* Couleur animée */
+    border: 2px solid #3c3c3c;
+    border-top-color: #007acc;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     margin-left: 0.5rem;
@@ -614,11 +649,13 @@ button.info:hover:not(:disabled) {
    ============================================================================ */
 
 .error {
-    background: #d32f2f;       /* Rouge */
-    color: white;
-    padding: 0.75rem 1rem;
-    border-radius: 6px;
+    background: #5a1d1d;
+    color: #f48771;
+    padding: 0.625rem 1rem;
+    border-radius: 3px;
     margin-bottom: 0.75rem;
+    border-left: 3px solid #f48771;
+    font-size: 0.8125rem;
 }
 
 /* ============================================================================
@@ -628,17 +665,19 @@ button.info:hover:not(:disabled) {
 .empty-state {
     text-align: center;
     padding: 3rem 1rem;
-    color: #757575;
+    color: #6a6a6a;
 }
 
 .empty-state h2 {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     margin-bottom: 0.5rem;
-    color: #9e9e9e;
+    color: #858585;
+    font-weight: 400;
 }
 
 .empty-state p {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
+    color: #6a6a6a;
 }
 
 /* ============================================================================
@@ -652,30 +691,30 @@ button.info:hover:not(:disabled) {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.75);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 2000;             /* Au-dessus de tout */
+    z-index: 2000;
     padding: 1rem;
 }
 
 /* Conteneur de la modal */
 .modal-container {
-    background: #2d2d2d;
-    border-radius: 8px;
-    border: 1px solid #404040;
+    background: #252526;
+    border-radius: 3px;
+    border: 1px solid #2d2d30;
     width: 100%;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
 /* En-tête de la modal avec titre et bouton close */
 .modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #404040;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #2d2d30;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -683,96 +722,98 @@ button.info:hover:not(:disabled) {
 
 .modal-header h3 {
     margin: 0;
-    color: #4fc3f7;
-    font-size: 1.25rem;
+    color: #cccccc;
+    font-size: 1rem;
+    font-weight: 600;
 }
 
 /* Bouton X pour fermer */
 .modal-close {
     background: none;
     border: none;
-    color: #9e9e9e;
-    font-size: 2rem;
+    color: #858585;
+    font-size: 1.5rem;
     line-height: 1;
     padding: 0;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     cursor: pointer;
-    transition: color 0.2s;
+    transition: color 0.15s;
 }
 
 .modal-close:hover {
-    color: #e0e0e0;
+    color: #cccccc;
 }
 
 /* Corps de la modal (contenu scrollable) */
 .modal-body {
-    padding: 1.5rem;
+    padding: 1.25rem;
     overflow-y: auto;
-    flex: 1;                   /* Prend l'espace disponible */
+    flex: 1;
 }
 
 .modal-body::-webkit-scrollbar {
-    width: 8px;
+    width: 10px;
 }
 
 .modal-body::-webkit-scrollbar-track {
-    background: #1a1a1a;
+    background: transparent;
 }
 
 .modal-body::-webkit-scrollbar-thumb {
-    background: #404040;
-    border-radius: 4px;
+    background: #424242;
+    border-radius: 5px;
+    border: 2px solid #252526;
 }
 
 /* Pied de la modal avec boutons d'action */
 .modal-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid #404040;
+    padding: 0.875rem 1.25rem;
+    border-top: 1px solid #2d2d30;
     display: flex;
-    gap: 0.75rem;
+    gap: 0.625rem;
     justify-content: flex-end;
 }
 
 /* Boutons de la modal */
 .modal-btn {
-    padding: 0.625rem 1.25rem;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 2px;
+    font-size: 0.8125rem;
+    font-weight: 400;
     cursor: pointer;
-    transition: all 0.2s;
-    border: 1px solid #505050;
-    background: #404040;
-    color: #e0e0e0;
+    transition: background 0.15s;
+    border: 1px solid #0e639c;
+    background: #0e639c;
+    color: #ffffff;
 }
 
 .modal-btn:hover {
-    background: #505050;
+    background: #1177bb;
 }
 
 .modal-btn-primary {
-    background: #1e88e5;
-    border-color: #1976d2;
+    background: #0e639c;
+    border-color: #0e639c;
 }
 
 .modal-btn-primary:hover {
-    background: #1976d2;
+    background: #1177bb;
 }
 
 .modal-btn-danger {
-    background: #e53935;
-    border-color: #d32f2f;
+    background: #c72e0f;
+    border-color: #c72e0f;
 }
 
 .modal-btn-danger:hover {
-    background: #d32f2f;
+    background: #d73a21;
 }
 
 /* Transitions d'apparition/disparition de la modal */
 .modal-enter-active,
 .modal-leave-active {
-    transition: opacity 0.3s;
+    transition: opacity 0.2s;
 }
 
 .modal-enter-from,
@@ -786,10 +827,10 @@ button.info:hover:not(:disabled) {
 
 .modal-list-item {
     padding: 0.75rem;
-    background: #1a1a1a;
-    border: 1px solid #404040;
-    border-radius: 4px;
-    margin-bottom: 0.75rem;
+    background: #1e1e1e;
+    border: 1px solid #2d2d30;
+    border-radius: 3px;
+    margin-bottom: 0.625rem;
 }
 
 .modal-list-item:last-child {
@@ -798,17 +839,18 @@ button.info:hover:not(:disabled) {
 
 /* Label de l'item (ex: "USER", "ASSISTANT") */
 .modal-list-label {
-    color: #757575;
-    font-size: 0.75rem;
+    color: #858585;
+    font-size: 0.6875rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.05em;
     margin-bottom: 0.25rem;
 }
 
 /* Valeur de l'item */
 .modal-list-value {
-    color: #e0e0e0;
+    color: #cccccc;
     word-break: break-word;
+    font-size: 0.8125rem;
 }
 
 /* ============================================================================

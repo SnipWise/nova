@@ -243,7 +243,7 @@ func main() {
 			EngineURL: engineURL,
 		},
 		models.Config{
-			Name: "ai/mxbai-embed-large",
+			Name: "ai/mxbai-embed-large:latest",
 		},
 	)
 	if err != nil {
