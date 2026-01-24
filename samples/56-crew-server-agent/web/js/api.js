@@ -4,7 +4,36 @@
  * Improved SSE streaming handling
  */
 
-const API_BASE_URL = 'http://localhost:8080';
+/**
+ * Get API base URL from configuration
+ * Priority order:
+ * 1. window.NOVA_API_URL (can be set in index.html or config.js)
+ * 2. localStorage 'nova_api_url'
+ * 3. Auto-detect from current page (same host, port 8080)
+ * 4. Default: http://localhost:8080
+ */
+function getApiBaseUrl() {
+    // 1. Check window global variable
+    if (window.NOVA_API_URL) {
+        return window.NOVA_API_URL;
+    }
+
+    // 2. Check localStorage
+    const storedUrl = localStorage.getItem('nova_api_url');
+    if (storedUrl) {
+        return storedUrl;
+    }
+
+    // 3. Auto-detect: use current host with port 8080
+    if (window.location.hostname !== '') {
+        return `${window.location.protocol}//${window.location.hostname}:8080`;
+    }
+
+    // 4. Default fallback
+    return 'http://localhost:8080';
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 class CrewServerAPI {
     constructor(baseURL = API_BASE_URL) {
