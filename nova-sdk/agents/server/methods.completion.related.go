@@ -64,12 +64,40 @@ func (agent *ServerAgent) handleToolCallsCLI(question string, callback chat.Stre
 	// Prepare message history including current question
 	historyMessages := agent.buildToolCallHistoryCLI(question)
 
-	// Detect and execute tool calls
-	toolCallsResult, err := agent.ToolsAgent.DetectToolCallsLoopWithConfirmation(
-		historyMessages,
-		agent.ExecuteFn,
-		agent.ConfirmationPromptFn,
-	)
+	// Detect and execute tool calls based on configuration:
+	// - ParallelToolCalls=true + no confirmation fn → DetectParallelToolCalls
+	// - ParallelToolCalls=true + confirmation fn → DetectParallelToolCallsWithConfirmation
+	// - ParallelToolCalls=false → DetectToolCallsLoopWithConfirmation
+	var toolCallsResult *tools.ToolCallResult
+	var err error
+
+	modelConfig := agent.ToolsAgent.GetModelConfig()
+	isParallel := modelConfig.ParallelToolCalls != nil && *modelConfig.ParallelToolCalls
+
+	if isParallel {
+		if agent.ConfirmationPromptFn != nil {
+			agent.Log.Info("🔄 Using DetectParallelToolCallsWithConfirmation (CLI)")
+			toolCallsResult, err = agent.ToolsAgent.DetectParallelToolCallsWithConfirmation(
+				historyMessages,
+				agent.ExecuteFn,
+				agent.ConfirmationPromptFn,
+			)
+		} else {
+			agent.Log.Info("🔄 Using DetectParallelToolCalls (CLI)")
+			toolCallsResult, err = agent.ToolsAgent.DetectParallelToolCalls(
+				historyMessages,
+				agent.ExecuteFn,
+			)
+		}
+	} else {
+		agent.Log.Info("🔄 Using DetectToolCallsLoopWithConfirmation (CLI)")
+		toolCallsResult, err = agent.ToolsAgent.DetectToolCallsLoopWithConfirmation(
+			historyMessages,
+			agent.ExecuteFn,
+			agent.ConfirmationPromptFn,
+		)
+	}
+
 	if err != nil {
 		return err
 	}

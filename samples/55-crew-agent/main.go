@@ -253,8 +253,8 @@ func main() {
 			EngineURL: engineURL,
 		},
 		models.Config{
-			//Name: "ai/mxbai-embed-large:latest",
-			Name: "ai/mxbai-embed-large",
+			Name: "ai/mxbai-embed-large:latest",
+			//Name: "ai/mxbai-embed-large",
 		},
 	)
 	if err != nil {
@@ -430,8 +430,8 @@ func GetToolsIndex() []*tools.Tool {
 		AddParameter("a", "number", "The first number", true).
 		AddParameter("b", "number", "The second number", true)
 
-	saveSnippettoFileTool := tools.NewTool("save_snippet").
-		SetDescription("Save snippet content to a file").
+	saveSnippettoFileTool := tools.NewTool("save_content").
+		SetDescription("Save content to a file").
 		AddParameter("file_path", "string", "The path of the file to write to", true).
 		AddParameter("content", "string", "The content to write to the file", true)
 
@@ -449,7 +449,7 @@ func GetToolsIndex() []*tools.Tool {
 
 	return []*tools.Tool{
 		calculateSumTool,
-		//sayHelloTool,
+		sayHelloTool,
 		//getHistoryMessagesOfAgentByIdTool,
 		saveSnippettoFileTool,
 	}
@@ -460,7 +460,7 @@ func executeFunction(functionName string, arguments string) (string, error) {
 
 	switch functionName {
 
-	case "save_snippet":
+	case "save_content":
 		var args struct {
 			FilePath string `json:"file_path"`
 			Content  string `json:"content"`

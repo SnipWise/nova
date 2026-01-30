@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+chat-agent
+
+# Test files
+*_test.go
+test/
+tests/
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (don't copy into image)
+Dockerfile
+compose.yml
+docker-compose.yml
+.dockerignore

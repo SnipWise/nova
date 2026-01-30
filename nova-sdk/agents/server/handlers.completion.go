@@ -201,15 +201,50 @@ func (agent *ServerAgent) handleToolCallsWithNotifications(
 	// Prepare message history
 	historyMessages := agent.buildToolCallHistory(question)
 
-	// Detect and execute tool calls
-	toolCallsResult, err := agent.ToolsAgent.DetectToolCallsLoopWithConfirmation(
-		// []messages.Message{
-		// 	{Role: roles.User, Content: question},
-		// },
-		historyMessages,
-		agent.ExecuteFn,
-		agent.webConfirmationPrompt,
-	)
+	// Detect and execute tool calls based on configuration:
+	// - ParallelToolCalls=true + no confirmation fn → DetectParallelToolCalls
+	// - ParallelToolCalls=true + confirmation fn → DetectParallelToolCallsWithConfirmation
+	// - ParallelToolCalls=false + confirmation fn → DetectToolCallsLoopWithConfirmation (custom confirmation)
+	// - ParallelToolCalls=false + no confirmation fn → DetectToolCallsLoopWithConfirmation (web confirmation)
+	var toolCallsResult *tools.ToolCallResult
+	var err error
+
+	modelConfig := agent.ToolsAgent.GetModelConfig()
+	isParallel := modelConfig.ParallelToolCalls != nil && *modelConfig.ParallelToolCalls
+
+	if isParallel {
+		if agent.ConfirmationPromptFn != nil {
+			agent.Log.Info("🔄 Using DetectParallelToolCallsWithConfirmation")
+			toolCallsResult, err = agent.ToolsAgent.DetectParallelToolCallsWithConfirmation(
+				historyMessages,
+				agent.ExecuteFn,
+				agent.ConfirmationPromptFn,
+			)
+		} else {
+			agent.Log.Info("🔄 Using DetectParallelToolCalls")
+			toolCallsResult, err = agent.ToolsAgent.DetectParallelToolCalls(
+				historyMessages,
+				agent.ExecuteFn,
+			)
+		}
+	} else {
+		if agent.ConfirmationPromptFn != nil {
+			agent.Log.Info("🔄 Using DetectToolCallsLoopWithConfirmation (custom confirmation)")
+			toolCallsResult, err = agent.ToolsAgent.DetectToolCallsLoopWithConfirmation(
+				historyMessages,
+				agent.ExecuteFn,
+				agent.ConfirmationPromptFn,
+			)
+		} else {
+			agent.Log.Info("🔄 Using DetectToolCallsLoopWithConfirmation (web confirmation)")
+			toolCallsResult, err = agent.ToolsAgent.DetectToolCallsLoopWithConfirmation(
+				historyMessages,
+				agent.ExecuteFn,
+				agent.webConfirmationPrompt,
+			)
+		}
+	}
+
 	if err != nil {
 		return err
 	}

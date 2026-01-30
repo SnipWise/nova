@@ -68,3 +68,13 @@ func (agent *CrewServerAgent) executeFunction(functionName string, arguments str
 func (agent *CrewServerAgent) SetExecuteFunction(fn func(string, string) (string, error)) {
 	agent.ExecuteFn = fn
 }
+
+// SetConfirmationPromptFn sets the confirmation prompt function for tool call confirmation
+func (agent *CrewServerAgent) SetConfirmationPromptFn(fn func(string, string) tools.ConfirmationResponse) {
+	agent.ConfirmationPromptFn = fn
+}
+
+// GetConfirmationPromptFn returns the confirmation prompt function
+func (agent *CrewServerAgent) GetConfirmationPromptFn() func(string, string) tools.ConfirmationResponse {
+	return agent.ConfirmationPromptFn
+}
