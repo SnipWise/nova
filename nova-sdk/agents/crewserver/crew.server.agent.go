@@ -45,6 +45,9 @@ type CrewServerAgent struct {
 	similarityLimitConfig  float64
 	maxSimilaritiesConfig  int
 	contextSizeLimitConfig int
+
+	// Confirmation prompt function config (for tool call confirmation)
+	confirmationPromptFnConfig func(string, string) tools.ConfirmationResponse
 }
 
 // Re-export types from serverbase for backward compatibility
@@ -160,6 +163,16 @@ func WithRagAgentAndSimilarityConfig(ragAgent *rag.Agent, similarityLimit float6
 	}
 }
 
+// WithConfirmationPromptFn sets the confirmation prompt function for tool call confirmation.
+// When provided, this function is used instead of the default web-based confirmation prompt.
+// When combined with ParallelToolCalls enabled on the tools agent, DetectParallelToolCallsWithConfirmation is used.
+func WithConfirmationPromptFn(fn func(string, string) tools.ConfirmationResponse) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.confirmationPromptFnConfig = fn
+		return nil
+	}
+}
+
 // WithOrchestratorAgent sets the orchestrator agent for routing/topic detection
 func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) CrewServerAgentOption {
 	return func(agent *CrewServerAgent) error {
@@ -181,6 +194,7 @@ func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) CrewServe
 //   - WithCompressorAgentAndContextSize(compressorAgent, contextSizeLimit) - Attaches a compressor agent and sets the context size limit
 //   - WithRagAgent(ragAgent) - Attaches a RAG agent for document retrieval
 //   - WithRagAgentAndSimilarityConfig(ragAgent, similarityLimit, maxSimilarities) - Attaches a RAG agent and configures similarity settings
+//   - WithConfirmationPromptFn(fn) - Sets a custom confirmation prompt function for tool call confirmation
 //   - WithOrchestratorAgent(orchestratorAgent) - Attaches an orchestrator agent for routing/topic detection
 //
 // At least one of WithAgentCrew or WithSingleAgent must be provided.
@@ -227,6 +241,11 @@ func NewAgent(ctx context.Context, options ...CrewServerAgentOption) (*CrewServe
 		if agent.contextSizeLimitConfig != 0 {
 			agent.ContextSizeLimit = agent.contextSizeLimitConfig
 		}
+	}
+
+	// Set confirmationPromptFn if provided
+	if agent.confirmationPromptFnConfig != nil {
+		agent.ConfirmationPromptFn = agent.confirmationPromptFnConfig
 	}
 
 	// Set default matchAgentIdToTopicFn if not provided

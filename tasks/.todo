@@ -1,0 +1,66 @@
+{
+  "todotree": {
+    "tree": [
+      {
+        "key": 1769755501116,
+        "children": [
+          {
+            "key": 1769755511534,
+            "children": [],
+            "todo": {
+              "content": "document agent by agent",
+              "id": 1769755511534,
+              "level": "default",
+              "done": false,
+              "start": 1769755511534
+            }
+          }
+        ],
+        "todo": {
+          "content": "documentation",
+          "id": 1769755501116,
+          "level": "danger",
+          "done": false,
+          "start": 1769755501116
+        }
+      },
+      {
+        "key": 1769755545833,
+        "children": [],
+        "todo": {
+          "content": "simplify the code if possible",
+          "id": 1769755545833,
+          "level": "default",
+          "done": false,
+          "start": 1769755545833
+        }
+      },
+      {
+        "key": 1769755560816,
+        "children": [],
+        "todo": {
+          "content": "make a javascript version",
+          "id": 1769755560816,
+          "level": "default",
+          "done": false,
+          "start": 1769755560816
+        }
+      }
+    ],
+    "expandKeys": [
+      1769755501116
+    ],
+    "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
+    "add_mode": "bottom",
+    "virtual": false,
+    "timelines": [],
+    "showLine": false,
+    "playFontSize": 24,
+    "title": ".todo",
+    "autoSort": false,
+    "showEndTime": false,
+    "simpleMode": false,
+    "lang": "en",
+    "version": "1769755568996"
+  }
+}

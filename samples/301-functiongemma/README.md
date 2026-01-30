@@ -1,0 +1,1 @@
+docker model run hf.co/unsloth/functiongemma-270m-it-GGUF:Q4_K_M

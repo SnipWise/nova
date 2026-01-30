@@ -1,0 +1,52 @@
+{
+  "todotree": {
+    "tree": [
+      {
+        "key": 1769318560704,
+        "children": [],
+        "todo": {
+          "content": "use the edit (multi line prompt)",
+          "id": 1769318560704,
+          "level": "default",
+          "done": false,
+          "start": 1769318560704
+        }
+      },
+      {
+        "key": 1769318577415,
+        "children": [],
+        "todo": {
+          "content": "add / command to reset the messages",
+          "id": 1769318577415,
+          "level": "default",
+          "done": false,
+          "start": 1769318577415
+        }
+      },
+      {
+        "key": 1769318661564,
+        "children": [],
+        "todo": {
+          "content": "teste function calling to save the answers for example",
+          "id": 1769318661564,
+          "level": "default",
+          "done": false,
+          "start": 1769318661564
+        }
+      }
+    ],
+    "expandKeys": [],
+    "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
+    "add_mode": "bottom",
+    "virtual": false,
+    "timelines": [],
+    "showLine": false,
+    "playFontSize": 24,
+    "title": "sample",
+    "autoSort": false,
+    "showEndTime": false,
+    "simpleMode": false,
+    "lang": "en",
+    "version": "1769318693388"
+  }
+}
