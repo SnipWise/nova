@@ -7,6 +7,24 @@ import (
 	"github.com/openai/openai-go/v3/shared/constant"
 )
 
+// createToolResponseMessage builds a tool response message that includes the function name.
+//
+// Some local models (e.g. FunctionGemma, jan-nano) use Jinja chat templates that
+// require a "name" field on tool response messages to correlate them with the
+// original function call. The standard OpenAI API only uses "tool_call_id" for
+// this correlation, so the openai-go SDK's ToolMessage helper does not set "name".
+//
+// This function uses SetExtraFields to inject "name" into the serialized JSON,
+// ensuring compatibility with both OpenAI-style APIs (which ignore unknown fields)
+// and local models that rely on "name" in the tool response.
+func createToolResponseMessage(content string, toolCallID string, functionName string) openai.ChatCompletionMessageParamUnion {
+	toolMsg := openai.ToolMessage(content, toolCallID)
+	toolMsg.OfTool.SetExtraFields(map[string]any{
+		"name": functionName,
+	})
+	return toolMsg
+}
+
 // createToolCallParams converts detected tool calls to the proper parameter format
 func createToolCallParams(detectedToolCalls []openai.ChatCompletionMessageToolCallUnion) []openai.ChatCompletionMessageToolCallUnionParam {
 	toolCallParams := make([]openai.ChatCompletionMessageToolCallUnionParam, len(detectedToolCalls))
@@ -218,7 +236,9 @@ func (agent *BaseAgent) processToolCalls(
 			*results = append(*results, result.Content)
 
 			// Add the tool call result to the conversation history
-			messages = append(messages, openai.ToolMessage(result.Content, toolCall.ID))
+			// Uses createToolResponseMessage to include the function name, ensuring
+			// compatibility with local models whose chat templates require it.
+			messages = append(messages, createToolResponseMessage(result.Content, toolCall.ID, functionName))
 		}
 
 		// Handle error case
