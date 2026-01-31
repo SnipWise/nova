@@ -44,6 +44,11 @@ func (agent *ServerAgent) handleCompletionStop(w http.ResponseWriter, r *http.Re
 // 5. Adds RAG context if available
 // 6. Generates streaming completion
 func (agent *ServerAgent) handleCompletion(w http.ResponseWriter, r *http.Request) {
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Step 1: Compress context if needed
 	agent.compressContextIfNeeded()
 
@@ -82,6 +87,11 @@ func (agent *ServerAgent) handleCompletion(w http.ResponseWriter, r *http.Reques
 
 	// Step 8: Cleanup tool state
 	agent.cleanupToolState()
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
 }
 
 // compressContextIfNeeded compresses the chat context if compressor is configured
