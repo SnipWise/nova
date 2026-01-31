@@ -1,0 +1,186 @@
+{
+  "todotree": {
+    "tree": [
+      {
+        "key": 1769856056279,
+        "children": [
+          {
+            "key": 1769856161561,
+            "children": [
+              {
+                "key": 1769856172843,
+                "children": [
+                  {
+                    "key": 1769856359395,
+                    "children": [],
+                    "todo": {
+                      "content": "Avec en parametre une closure qui prendra en parametre une reference à l'agent",
+                      "id": 1769856359395,
+                      "level": "default",
+                      "done": false,
+                      "start": 1769856359395
+                    }
+                  },
+                  {
+                    "key": 1769856404292,
+                    "children": [],
+                    "todo": {
+                      "content": "qui ne sera declenchée que si l'option est renseignée",
+                      "id": 1769856404292,
+                      "level": "default",
+                      "done": false,
+                      "start": 1769856404292
+                    }
+                  },
+                  {
+                    "key": 1769856442676,
+                    "children": [],
+                    "todo": {
+                      "content": "qui fonctionnera pour la completion et la completion en streaming",
+                      "id": 1769856442676,
+                      "level": "default",
+                      "done": false,
+                      "start": 1769856442676
+                    }
+                  }
+                ],
+                "todo": {
+                  "content": "BeforeCompletion",
+                  "id": 1769856172843,
+                  "level": "default",
+                  "done": false,
+                  "start": 1769856172843
+                }
+              },
+              {
+                "key": 1769856248926,
+                "children": [
+                  {
+                    "key": 1769856391816,
+                    "children": [],
+                    "todo": {
+                      "content": "Avec en parametre une closure qui prendra en parametre une reference à l'agent",
+                      "id": 1769856359395,
+                      "level": "default",
+                      "done": false,
+                      "start": 1769856359395
+                    }
+                  },
+                  {
+                    "key": 1769856426102,
+                    "children": [],
+                    "todo": {
+                      "content": "qui ne sera declenchée que si l'option est renseignée",
+                      "id": 1769856404292,
+                      "level": "default",
+                      "done": false,
+                      "start": 1769856404292
+                    }
+                  },
+                  {
+                    "key": 1769856467546,
+                    "children": [],
+                    "todo": {
+                      "content": "qui fonctionnera pour la completion et la completion en streaming",
+                      "id": 1769856467546,
+                      "level": "default",
+                      "done": false,
+                      "start": 1769856467546
+                    }
+                  }
+                ],
+                "todo": {
+                  "content": "AfterCompletion",
+                  "id": 1769856248926,
+                  "level": "default",
+                  "done": false,
+                  "start": 1769856248926
+                }
+              }
+            ],
+            "todo": {
+              "content": "créer 2 options:",
+              "id": 1769856161561,
+              "level": "default",
+              "done": false,
+              "start": 1769856161561
+            }
+          }
+        ],
+        "todo": {
+          "content": "pouvoir ajouter des options (chat.ChatAgentOption) à chat.NewAgent comme c'est déjà le cas pour tools.NewAgent (tools.ToolAgentOption)",
+          "id": 1769856056279,
+          "level": "default",
+          "done": false,
+          "start": 1769856056279
+        }
+      },
+      {
+        "key": 1769856522375,
+        "children": [
+          {
+            "key": 1769856595342,
+            "children": [],
+            "todo": {
+              "content": "vérifier que tout fonctionne",
+              "id": 1769856595342,
+              "level": "default",
+              "done": false,
+              "start": 1769856595342
+            }
+          }
+        ],
+        "todo": {
+          "content": "une fois les options crees, creer un exemple dans samples/74-chat-before-after",
+          "id": 1769856522375,
+          "level": "default",
+          "done": false,
+          "start": 1769856522375
+        }
+      },
+      {
+        "key": 1769856646757,
+        "children": [],
+        "todo": {
+          "content": "",
+          "id": 1769856646757,
+          "level": "default",
+          "done": false,
+          "start": 1769856646757
+        }
+      },
+      {
+        "key": 1769856646957,
+        "children": [],
+        "todo": {
+          "content": "documenter entierement en anglais et en francais le chat agent dans docs",
+          "id": 1769856646957,
+          "level": "default",
+          "done": false,
+          "start": 1769856646957
+        }
+      }
+    ],
+    "expandKeys": [
+      1769856172843,
+      1769856359395,
+      1769856248926,
+      1769856404292,
+      1769856391816,
+      1769856522375,
+      1769856056279
+    ],
+    "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
+    "add_mode": "bottom",
+    "virtual": false,
+    "timelines": [],
+    "showLine": false,
+    "playFontSize": 24,
+    "title": "before.after.completion",
+    "autoSort": false,
+    "showEndTime": false,
+    "simpleMode": false,
+    "lang": "en",
+    "version": "1769856648272"
+  }
+}

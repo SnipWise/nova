@@ -28,6 +28,23 @@ type ReasoningResult struct {
 // StreamCallback is a function called for each chunk of streaming response
 type StreamCallback func(chunk string, finishReason string) error
 
+// ChatAgentOption is a functional option for configuring an Agent during creation
+type ChatAgentOption func(*Agent)
+
+// BeforeCompletion sets a hook that is called before each completion (standard and streaming)
+func BeforeCompletion(fn func(*Agent)) ChatAgentOption {
+	return func(a *Agent) {
+		a.beforeCompletion = fn
+	}
+}
+
+// AfterCompletion sets a hook that is called after each completion (standard and streaming)
+func AfterCompletion(fn func(*Agent)) ChatAgentOption {
+	return func(a *Agent) {
+		a.afterCompletion = fn
+	}
+}
+
 // Agent represents a simplified chat agent that hides OpenAI SDK details
 type Agent struct {
 	config        agents.Config
@@ -38,6 +55,10 @@ type Agent struct {
 	// User message pre and post directives
 	userMessagePreDirectives  string
 	userMessagePostDirectives string
+
+	// Lifecycle hooks
+	beforeCompletion func(*Agent)
+	afterCompletion  func(*Agent)
 }
 
 // NewAgent creates a new simplified chat agent
@@ -45,6 +66,7 @@ func NewAgent(
 	ctx context.Context,
 	agentConfig agents.Config,
 	modelConfig models.Config,
+	opts ...ChatAgentOption,
 ) (*Agent, error) {
 	log := logger.GetLoggerFromEnv()
 
@@ -61,6 +83,11 @@ func NewAgent(
 		modelConfig:   modelConfig,
 		internalAgent: internalAgent,
 		log:           log,
+	}
+
+	// Apply optional configurations
+	for _, opt := range opts {
+		opt(agent)
 	}
 
 	// System message is already added by the BaseAgent constructor
@@ -182,6 +209,11 @@ func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*Comple
 		userMessages[len(userMessages)-1].Content = lastMsgContent 
 	}
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
@@ -191,10 +223,17 @@ func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*Comple
 		return nil, err
 	}
 
-	return &CompletionResult{
+	result := &CompletionResult{
 		Response:     response,
 		FinishReason: finishReason,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // GenerateCompletionWithReasoning sends messages and returns the completion result with reasoning
@@ -220,6 +259,11 @@ func (agent *Agent) GenerateCompletionWithReasoning(userMessages []messages.Mess
 		userMessages[len(userMessages)-1].Content = lastMsgContent
 	}
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
@@ -229,11 +273,18 @@ func (agent *Agent) GenerateCompletionWithReasoning(userMessages []messages.Mess
 		return nil, err
 	}
 
-	return &ReasoningResult{
+	result := &ReasoningResult{
 		Response:     response,
 		Reasoning:    reasoning,
 		FinishReason: finishReason,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // GenerateStreamCompletion sends messages and streams the response via callback
@@ -262,6 +313,11 @@ func (agent *Agent) GenerateStreamCompletion(
 		userMessages[len(userMessages)-1].Content = lastMsgContent
 	}
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
@@ -274,10 +330,17 @@ func (agent *Agent) GenerateStreamCompletion(
 	// NOTE: The assistant response is already added to history in BaseAgent.GenerateStreamCompletion
 	// when KeepConversationHistory is true, so we don't need to add it again here
 
-	return &CompletionResult{
+	result := &CompletionResult{
 		Response:     response,
 		FinishReason: finishReason,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // GenerateStreamCompletionWithReasoning sends messages and streams both reasoning and response
@@ -307,8 +370,10 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 		userMessages[len(userMessages)-1].Content = lastMsgContent
 	}
 
-	// Add user messages to history
-	//agent.messages = append(agent.messages, userMessages...)
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
 
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
@@ -326,11 +391,18 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 	// NOTE: The assistant response is already added to history in BaseAgent.GenerateStreamCompletionWithReasoning
 	// when KeepConversationHistory is true, so we don't need to add it again here
 
-	return &ReasoningResult{
+	result := &ReasoningResult{
 		Response:     response,
 		Reasoning:    reasoning,
 		FinishReason: finishReason,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // ExportMessagesToJSON exports the conversation history to JSON
