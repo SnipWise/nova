@@ -37,10 +37,31 @@ type Agent struct {
 	internalAgent  *BaseAgent
 	log            logger.Logger
 	toolsFunctions map[string]func(args ...any) (any, error)
+
+	// Lifecycle hooks
+	beforeCompletion func(*Agent)
+	afterCompletion  func(*Agent)
 }
 
 // ToolAgentOption is a functional option for configuring an Agent during creation
 type ToolAgentOption func(*openai.ChatCompletionNewParams)
+
+// ToolsAgentOption is a functional option for configuring lifecycle hooks on the Agent
+type ToolsAgentOption func(*Agent)
+
+// BeforeCompletion sets a hook that is called before each tool call detection
+func BeforeCompletion(fn func(*Agent)) ToolsAgentOption {
+	return func(a *Agent) {
+		a.beforeCompletion = fn
+	}
+}
+
+// AfterCompletion sets a hook that is called after each tool call detection
+func AfterCompletion(fn func(*Agent)) ToolsAgentOption {
+	return func(a *Agent) {
+		a.afterCompletion = fn
+	}
+}
 
 // WithTools sets custom tools for the agent
 func WithOpenAITools(tools []openai.ChatCompletionToolUnionParam) ToolAgentOption {
@@ -68,19 +89,27 @@ func NewAgent(
 	ctx context.Context,
 	agentConfig agents.Config,
 	modelConfig models.Config,
-	opts ...ToolAgentOption,
+	options ...any,
 ) (*Agent, error) {
 	log := logger.GetLoggerFromEnv()
+
+	// Separate ToolAgentOption (for OpenAI params) from ToolsAgentOption (for Agent hooks)
+	var toolOptions []ToolAgentOption
+	var agentOptions []ToolsAgentOption
+	for _, opt := range options {
+		switch o := opt.(type) {
+		case ToolAgentOption:
+			toolOptions = append(toolOptions, o)
+		case ToolsAgentOption:
+			agentOptions = append(agentOptions, o)
+		}
+	}
 
 	// Create internal OpenAI-based agent with converted parameters
 	openaiModelConfig := models.ConvertToOpenAIModelConfig(modelConfig)
 
-	// Add tools to model config
-	//openaiModelConfig.Tools = ToOpenAITools(tools)
-	// Replaced by functional options
-
-	// Apply optional configurations
-	for _, opt := range opts {
+	// Apply ToolAgentOption configurations (tools, etc.)
+	for _, opt := range toolOptions {
 		opt(&openaiModelConfig)
 	}
 
@@ -97,8 +126,10 @@ func NewAgent(
 		toolsFunctions: make(map[string]func(args ...any) (any, error)),
 	}
 
-	// System message is already added by the BaseAgent constructor
-	// No need to add it again here
+	// Apply ToolsAgentOption configurations (hooks)
+	for _, opt := range agentOptions {
+		opt(agent)
+	}
 
 	return agent, nil
 }
@@ -167,6 +198,11 @@ func (agent *Agent) DetectParallelToolCalls(
 		return nil, errors.New("no messages provided")
 	}
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
@@ -186,11 +222,18 @@ func (agent *Agent) DetectParallelToolCalls(
 		}
 	}
 
-	return &ToolCallResult{
+	result := &ToolCallResult{
 		FinishReason:         finishReason,
 		Results:              results,
 		LastAssistantMessage: lastAssistantMessage,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // NOTE: IMPORTANT: Not all LLMs with tool support support parallel tool calls.
@@ -201,6 +244,11 @@ func (agent *Agent) DetectParallelToolCallsWithConfirmation(
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
+	}
+
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
 	}
 
 	// Convert to OpenAI format
@@ -226,11 +274,18 @@ func (agent *Agent) DetectParallelToolCallsWithConfirmation(
 		}
 	}
 
-	return &ToolCallResult{
+	result := &ToolCallResult{
 		FinishReason:         finishReason,
 		Results:              results,
 		LastAssistantMessage: lastAssistantMessage,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // DetectToolCallsLoop sends messages and detects tool calls, executing them via callback
@@ -240,6 +295,11 @@ func (agent *Agent) DetectToolCallsLoop(
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
+	}
+
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
 	}
 
 	// Convert to OpenAI format
@@ -262,11 +322,18 @@ func (agent *Agent) DetectToolCallsLoop(
 		}
 	}
 
-	return &ToolCallResult{
+	result := &ToolCallResult{
 		FinishReason:         finishReason,
 		Results:              results,
 		LastAssistantMessage: lastAssistantMessage,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 func (agent *Agent) DetectToolCallsLoopWithConfirmation(
@@ -276,6 +343,11 @@ func (agent *Agent) DetectToolCallsLoopWithConfirmation(
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
+	}
+
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
 	}
 
 	// Convert to OpenAI format
@@ -302,11 +374,18 @@ func (agent *Agent) DetectToolCallsLoopWithConfirmation(
 		}
 	}
 
-	return &ToolCallResult{
+	result := &ToolCallResult{
 		FinishReason:         finishReason,
 		Results:              results,
 		LastAssistantMessage: lastAssistantMessage,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // DetectToolCallsLoopStream sends messages and detects tool calls with streaming
@@ -317,6 +396,11 @@ func (agent *Agent) DetectToolCallsLoopStream(
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
+	}
+
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
 	}
 
 	// Convert to OpenAI format
@@ -342,11 +426,18 @@ func (agent *Agent) DetectToolCallsLoopStream(
 		}
 	}
 
-	return &ToolCallResult{
+	result := &ToolCallResult{
 		FinishReason:         finishReason,
 		Results:              results,
 		LastAssistantMessage: lastAssistantMessage,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // DetectToolCallsStream sends messages and detects tool calls with streaming
@@ -358,6 +449,11 @@ func (agent *Agent) DetectToolCallsLoopWithConfirmationStream(
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
 		return nil, errors.New("no messages provided")
+	}
+
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
 	}
 
 	// Convert to OpenAI format
@@ -384,11 +480,18 @@ func (agent *Agent) DetectToolCallsLoopWithConfirmationStream(
 		}
 	}
 
-	return &ToolCallResult{
+	result := &ToolCallResult{
 		FinishReason:         finishReason,
 		Results:              results,
 		LastAssistantMessage: lastAssistantMessage,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // === Config Getters and Setters ===
