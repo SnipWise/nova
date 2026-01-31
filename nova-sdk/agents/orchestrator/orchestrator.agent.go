@@ -12,6 +12,23 @@ import (
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
+// OrchestratorAgentOption is a functional option for configuring an Agent during creation
+type OrchestratorAgentOption func(*Agent)
+
+// BeforeCompletion sets a hook that is called before each intent identification
+func BeforeCompletion(fn func(*Agent)) OrchestratorAgentOption {
+	return func(a *Agent) {
+		a.beforeCompletion = fn
+	}
+}
+
+// AfterCompletion sets a hook that is called after each intent identification
+func AfterCompletion(fn func(*Agent)) OrchestratorAgentOption {
+	return func(a *Agent) {
+		a.afterCompletion = fn
+	}
+}
+
 // Agent represents an orchestrator agent that identifies topics/intents from user input
 // It's a specialized structured agent that uses agents.Intent as its output type
 type Agent struct {
@@ -19,6 +36,10 @@ type Agent struct {
 	modelConfig         models.Config
 	internalStructAgent *structured.Agent[agents.Intent]
 	log                 logger.Logger
+
+	// Lifecycle hooks
+	beforeCompletion func(*Agent)
+	afterCompletion  func(*Agent)
 }
 
 // NewAgent creates a new orchestrator agent
@@ -26,6 +47,7 @@ func NewAgent(
 	ctx context.Context,
 	agentConfig agents.Config,
 	modelConfig models.Config,
+	opts ...OrchestratorAgentOption,
 ) (*Agent, error) {
 	log := logger.GetLoggerFromEnv()
 
@@ -40,6 +62,11 @@ func NewAgent(
 		modelConfig:         modelConfig,
 		internalStructAgent: structAgent,
 		log:                 log,
+	}
+
+	// Apply optional configurations
+	for _, opt := range opts {
+		opt(agent)
 	}
 
 	return agent, nil
@@ -83,10 +110,20 @@ func (agent *Agent) IdentifyIntent(userMessages []messages.Message) (intent *age
 		return nil, "", errors.New("no messages provided")
 	}
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Call internal structured agent to generate Intent
 	intent, finishReason, err = agent.internalStructAgent.GenerateStructuredData(userMessages)
 	if err != nil {
 		return nil, finishReason, err
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
 	}
 
 	return intent, finishReason, nil
