@@ -47,6 +47,10 @@ type CrewAgent struct {
 	confirmationPromptFn func(string, string) tools.ConfirmationResponse
 
 	streamCallbackFn func(chunk string, finishReason string) error
+
+	// Lifecycle hooks
+	beforeCompletion func(*CrewAgent)
+	afterCompletion  func(*CrewAgent)
 }
 
 type ToolCallNotification struct {
@@ -194,6 +198,22 @@ func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) CrewAgent
 	}
 }
 
+// BeforeCompletion sets a hook that is called before each StreamCompletion call
+func BeforeCompletion(fn func(*CrewAgent)) CrewAgentOption {
+	return func(agent *CrewAgent) error {
+		agent.beforeCompletion = fn
+		return nil
+	}
+}
+
+// AfterCompletion sets a hook that is called after each StreamCompletion call
+func AfterCompletion(fn func(*CrewAgent)) CrewAgentOption {
+	return func(agent *CrewAgent) error {
+		agent.afterCompletion = fn
+		return nil
+	}
+}
+
 // NewAgent creates a new crew agent with options
 //
 // Available options:
@@ -208,6 +228,8 @@ func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) CrewAgent
 //   - WithRagAgent(ragAgent) - Attaches a RAG agent for document retrieval
 //   - WithRagAgentAndSimilarityConfig(ragAgent, similarityLimit, maxSimilarities) - Attaches a RAG agent and configures similarity settings
 //   - WithOrchestratorAgent(orchestratorAgent) - Attaches an orchestrator agent for routing/topic detection
+//   - BeforeCompletion(fn) - Sets a hook called before each StreamCompletion call
+//   - AfterCompletion(fn) - Sets a hook called after each StreamCompletion call
 //
 // At least one of WithAgentCrew or WithSingleAgent must be provided.
 func NewAgent(ctx context.Context, options ...CrewAgentOption) (*CrewAgent, error) {

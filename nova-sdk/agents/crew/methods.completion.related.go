@@ -18,6 +18,11 @@ func (agent *CrewAgent) StreamCompletion(
 	callback chat.StreamCallback,
 ) (*chat.CompletionResult, error) {
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Step 1: Compress context if over limit
 	agent.compressContextIfNeeded()
 
@@ -28,11 +33,24 @@ func (agent *CrewAgent) StreamCompletion(
 
 	// Step 3: Generate completion only if tools weren't executed or user denied/quit
 	if agent.shouldGenerateCompletion() {
-		return agent.generateCompletion(question, callback)
+		result, err := agent.generateCompletion(question, callback)
+
+		// Call after completion hook if set
+		if agent.afterCompletion != nil {
+			agent.afterCompletion(agent)
+		}
+
+		return result, err
 	}
 
 	// Clean up after tool execution
 	agent.cleanupToolState()
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
 	return &chat.CompletionResult{}, nil
 }
 

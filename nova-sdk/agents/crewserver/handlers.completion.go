@@ -46,6 +46,11 @@ func (agent *CrewServerAgent) handleCompletionStop(w http.ResponseWriter, r *htt
 // 6. Routes to appropriate agent if orchestrator is configured
 // 7. Generates streaming completion
 func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Request) {
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Step 1: Parse request
 	question, err := agent.parseCompletionRequest(r)
 	if err != nil {
@@ -84,6 +89,11 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 
 	// Step 8: Cleanup tool state
 	agent.cleanupToolState()
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
 }
 
 // compressContextIfNeeded compresses the chat context if compressor is configured

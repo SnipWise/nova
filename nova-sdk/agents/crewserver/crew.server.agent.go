@@ -48,6 +48,10 @@ type CrewServerAgent struct {
 
 	// Confirmation prompt function config (for tool call confirmation)
 	confirmationPromptFnConfig func(string, string) tools.ConfirmationResponse
+
+	// Lifecycle hooks
+	beforeCompletion func(*CrewServerAgent)
+	afterCompletion  func(*CrewServerAgent)
 }
 
 // Re-export types from serverbase for backward compatibility
@@ -181,6 +185,22 @@ func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) CrewServe
 	}
 }
 
+// BeforeCompletion sets a hook that is called before each handleCompletion call
+func BeforeCompletion(fn func(*CrewServerAgent)) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.beforeCompletion = fn
+		return nil
+	}
+}
+
+// AfterCompletion sets a hook that is called after each handleCompletion call
+func AfterCompletion(fn func(*CrewServerAgent)) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.afterCompletion = fn
+		return nil
+	}
+}
+
 // NewAgent creates a new crew server agent with options
 //
 // Available options:
@@ -196,6 +216,8 @@ func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) CrewServe
 //   - WithRagAgentAndSimilarityConfig(ragAgent, similarityLimit, maxSimilarities) - Attaches a RAG agent and configures similarity settings
 //   - WithConfirmationPromptFn(fn) - Sets a custom confirmation prompt function for tool call confirmation
 //   - WithOrchestratorAgent(orchestratorAgent) - Attaches an orchestrator agent for routing/topic detection
+//   - BeforeCompletion(fn) - Sets a hook called before each handleCompletion call
+//   - AfterCompletion(fn) - Sets a hook called after each handleCompletion call
 //
 // At least one of WithAgentCrew or WithSingleAgent must be provided.
 func NewAgent(ctx context.Context, options ...CrewServerAgentOption) (*CrewServerAgent, error) {
