@@ -22,26 +22,26 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Create nova-agent-builder skill archive
-        run: |
-          # Create temporary directory for the skill package
-          mkdir -p skill-package
+      # - name: Create nova-agent-builder skill archive
+      #   run: |
+      #     # Create temporary directory for the skill package
+      #     mkdir -p skill-package
 
-          # Copy skill files
-          cp -r .claude/skills/nova-agent-builder skill-package/
+      #     # Copy skill files
+      #     cp -r .claude/skills/nova-agent-builder skill-package/
 
-          # Copy CLAUDE.md to the package
-          cp CLAUDE.md skill-package/
+      #     # Copy CLAUDE.md to the package
+      #     cp CLAUDE.md skill-package/
 
-          # Create the archive
-          cd skill-package
-          zip -r ../nova-agent-builder-skill.zip .
-          cd ..
+      #     # Create the archive
+      #     cd skill-package
+      #     zip -r ../nova-agent-builder-skill.zip .
+      #     cd ..
 
-          # Cleanup
-          rm -rf skill-package
+      #     # Cleanup
+      #     rm -rf skill-package
 
-          echo "✅ Created nova-agent-builder-skill.zip with CLAUDE.md"
+      #     echo "✅ Created nova-agent-builder-skill.zip with CLAUDE.md"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
