@@ -36,6 +36,23 @@ type StreamCallback func(chunk string, finishReason string) error
 // ToolCallCallback is a function called when a tool call is detected
 type ToolCallCallback func(operationID string, message string) error
 
+// RemoteAgentOption is a functional option for configuring an Agent during creation
+type RemoteAgentOption func(*Agent)
+
+// BeforeCompletion sets a hook that is called before each completion (standard and streaming)
+func BeforeCompletion(fn func(*Agent)) RemoteAgentOption {
+	return func(a *Agent) {
+		a.beforeCompletion = fn
+	}
+}
+
+// AfterCompletion sets a hook that is called after each completion (standard and streaming)
+func AfterCompletion(fn func(*Agent)) RemoteAgentOption {
+	return func(a *Agent) {
+		a.afterCompletion = fn
+	}
+}
+
 // Agent represents a remote chat agent that communicates with a server agent via HTTP
 type Agent struct {
 	ctx              context.Context
@@ -44,6 +61,10 @@ type Agent struct {
 	client           *http.Client
 	log              logger.Logger
 	toolCallCallback ToolCallCallback
+
+	// Lifecycle hooks
+	beforeCompletion func(*Agent)
+	afterCompletion  func(*Agent)
 }
 
 // NewAgent creates a new remote chat agent
@@ -51,6 +72,7 @@ func NewAgent(
 	ctx context.Context,
 	agentConfig agents.Config,
 	baseURL string,
+	opts ...RemoteAgentOption,
 ) (*Agent, error) {
 	log := logger.GetLoggerFromEnv()
 
@@ -64,6 +86,11 @@ func NewAgent(
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		client:  &http.Client{},
 		log:     log,
+	}
+
+	// Apply optional configurations
+	for _, opt := range opts {
+		opt(agent)
 	}
 
 	return agent, nil
@@ -320,6 +347,11 @@ func (agent *Agent) GenerateStreamCompletion(
 		return nil, errors.New("no messages provided")
 	}
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Combine all user messages into one (server expects a single message)
 	var messageContent strings.Builder
 	for i, msg := range userMessages {
@@ -446,10 +478,17 @@ func (agent *Agent) GenerateStreamCompletion(
 		return nil, fmt.Errorf("error reading stream: %w", err)
 	}
 
-	return &CompletionResult{
+	result := &CompletionResult{
 		Response:     fullResponse.String(),
 		FinishReason: lastFinishReason,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // GenerateStreamCompletionWithReasoning sends messages and streams both reasoning and response

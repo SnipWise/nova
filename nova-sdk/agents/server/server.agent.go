@@ -34,6 +34,10 @@ type ServerAgent struct {
 	similarityLimitConfig    float64
 	maxSimilaritiesConfig    int
 	contextSizeLimitConfig   int
+
+	// Lifecycle hooks
+	beforeCompletion func(*ServerAgent)
+	afterCompletion  func(*ServerAgent)
 }
 
 // Re-export types from serverbase for backward compatibility
@@ -116,6 +120,22 @@ func WithRagAgentAndSimilarityConfig(ragAgent *rag.Agent, similarityLimit float6
 	}
 }
 
+// BeforeCompletion sets a hook that is called before each completion (HTTP and CLI)
+func BeforeCompletion(fn func(*ServerAgent)) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.beforeCompletion = fn
+		return nil
+	}
+}
+
+// AfterCompletion sets a hook that is called after each completion (HTTP and CLI)
+func AfterCompletion(fn func(*ServerAgent)) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.afterCompletion = fn
+		return nil
+	}
+}
+
 // NewAgent creates a new server agent with options
 //
 // Available options:
@@ -127,6 +147,8 @@ func WithRagAgentAndSimilarityConfig(ragAgent *rag.Agent, similarityLimit float6
 //   - WithCompressorAgentAndContextSize(compressorAgent, contextSizeLimit) - Attaches a compressor agent and sets the context size limit
 //   - WithRagAgent(ragAgent) - Attaches a RAG agent for document retrieval
 //   - WithRagAgentAndSimilarityConfig(ragAgent, similarityLimit, maxSimilarities) - Attaches a RAG agent and configures similarity settings
+//   - BeforeCompletion(fn) - Sets a hook called before each completion (HTTP and CLI)
+//   - AfterCompletion(fn) - Sets a hook called after each completion (HTTP and CLI)
 //
 // Example:
 //   agent, err := NewAgent(ctx, agentConfig, modelConfig,

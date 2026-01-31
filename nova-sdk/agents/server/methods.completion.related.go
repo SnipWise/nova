@@ -18,6 +18,11 @@ func (agent *ServerAgent) StreamCompletion(
 	callback chat.StreamCallback,
 ) (*chat.CompletionResult, error) {
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Step 1: Compress context if over limit
 	agent.compressContextIfNeededCLI()
 
@@ -28,11 +33,24 @@ func (agent *ServerAgent) StreamCompletion(
 
 	// Step 3: Generate completion only if tools weren't executed or user denied/quit
 	if agent.shouldGenerateCompletionCLI() {
-		return agent.generateCompletionCLI(question, callback)
+		result, err := agent.generateCompletionCLI(question, callback)
+
+		// Call after completion hook if set
+		if agent.afterCompletion != nil {
+			agent.afterCompletion(agent)
+		}
+
+		return result, err
 	}
 
 	// Clean up after tool execution
 	agent.cleanupToolStateCLI()
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
 	return &chat.CompletionResult{}, nil
 }
 
