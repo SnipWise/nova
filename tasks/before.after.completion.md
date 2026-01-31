@@ -1,0 +1,13 @@
+- pouvoir ajouter des options (chat.ChatAgentOption) à chat.NewAgent comme c'est déjà le cas pour tools.NewAgent (tools.ToolAgentOption)
+  - créer 2 options:
+    - BeforeCompletion
+      - Avec en parametre une closure qui prendra en parametre une reference à l'agent
+      - qui ne sera declenchée que si l'option est renseignée
+      - qui fonctionnera pour la completion et la completion en streaming
+    - AfterCompletion
+      - Avec en parametre une closure qui prendra en parametre une reference à l'agent
+      - qui ne sera declenchée que si l'option est renseignée
+      - qui fonctionnera pour la completion et la completion en streaming
+- une fois les options crees, creer un exemple dans samples/74-chat-before-after
+  - vérifier que tout fonctionne
+- documenter entierement en anglais et en francais le chat agent dans docs
