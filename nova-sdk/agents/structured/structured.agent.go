@@ -21,12 +21,33 @@ type StructuredResult[Output any] struct {
 	FinishReason string
 }
 
+// StructuredAgentOption is a functional option for configuring an Agent during creation
+type StructuredAgentOption[Output any] func(*Agent[Output])
+
+// BeforeCompletion sets a hook that is called before each structured data generation
+func BeforeCompletion[Output any](fn func(*Agent[Output])) StructuredAgentOption[Output] {
+	return func(a *Agent[Output]) {
+		a.beforeCompletion = fn
+	}
+}
+
+// AfterCompletion sets a hook that is called after each structured data generation
+func AfterCompletion[Output any](fn func(*Agent[Output])) StructuredAgentOption[Output] {
+	return func(a *Agent[Output]) {
+		a.afterCompletion = fn
+	}
+}
+
 // Agent represents a simplified structured data agent that hides OpenAI SDK details
 type Agent[Output any] struct {
 	config        agents.Config
 	modelConfig   models.Config
 	internalAgent *BaseAgent[Output]
 	log           logger.Logger
+
+	// Lifecycle hooks
+	beforeCompletion func(*Agent[Output])
+	afterCompletion  func(*Agent[Output])
 }
 
 // NewAgent creates a new simplified structured data agent
@@ -34,6 +55,7 @@ func NewAgent[Output any](
 	ctx context.Context,
 	agentConfig agents.Config,
 	modelConfig models.Config,
+	opts ...StructuredAgentOption[Output],
 ) (*Agent[Output], error) {
 	log := logger.GetLoggerFromEnv()
 
@@ -79,6 +101,11 @@ func NewAgent[Output any](
 		modelConfig:   modelConfig,
 		internalAgent: internalAgent,
 		log:           log,
+	}
+
+	// Apply optional configurations
+	for _, opt := range opts {
+		opt(agent)
 	}
 
 	// System message is already added by the BaseAgent constructor
@@ -143,6 +170,11 @@ func (agent *Agent[Output]) GenerateStructuredData(userMessages []messages.Messa
 		return nil, "", errors.New("no messages provided")
 	}
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(userMessages)
 
@@ -150,6 +182,11 @@ func (agent *Agent[Output]) GenerateStructuredData(userMessages []messages.Messa
 	response, finishReason, err = agent.internalAgent.GenerateStructuredData(openaiMessages)
 	if err != nil {
 		return nil, finishReason, err
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
 	}
 
 	return response, finishReason, nil
