@@ -1,4 +1,0 @@
-
-
-docker model run hf.co/JetBrains/Mellum-4b-dpo-all-gguf:Q8_0
-https://huggingface.co/JetBrains/Mellum-4b-dpo-all-gguf
