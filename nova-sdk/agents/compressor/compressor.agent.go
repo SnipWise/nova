@@ -19,12 +19,33 @@ type CompressionResult struct {
 // StreamCallback is a function called for each chunk of streaming response
 type StreamCallback func(chunk string, finishReason string) error
 
+// CompressorAgentOption is a functional option for configuring an Agent during creation
+type CompressorAgentOption func(*Agent)
+
+// BeforeCompletion sets a hook that is called before each compression (standard and streaming)
+func BeforeCompletion(fn func(*Agent)) CompressorAgentOption {
+	return func(a *Agent) {
+		a.beforeCompletion = fn
+	}
+}
+
+// AfterCompletion sets a hook that is called after each compression (standard and streaming)
+func AfterCompletion(fn func(*Agent)) CompressorAgentOption {
+	return func(a *Agent) {
+		a.afterCompletion = fn
+	}
+}
+
 // Agent represents a simplified compressor agent that hides OpenAI SDK details
 type Agent struct {
 	config        agents.Config
 	modelConfig   models.Config
 	internalAgent *BaseAgent
 	log           logger.Logger
+
+	// Lifecycle hooks
+	beforeCompletion func(*Agent)
+	afterCompletion  func(*Agent)
 }
 
 // NewAgent creates a new simplified compressor agent
@@ -32,14 +53,26 @@ func NewAgent(
 	ctx context.Context,
 	agentConfig agents.Config,
 	modelConfig models.Config,
-	options ...AgentOption,
+	options ...any,
 ) (*Agent, error) {
 	log := logger.GetLoggerFromEnv()
+
+	// Separate AgentOption (for BaseAgent) from CompressorAgentOption (for Agent)
+	var baseOptions []AgentOption
+	var agentOptions []CompressorAgentOption
+	for _, opt := range options {
+		switch o := opt.(type) {
+		case AgentOption:
+			baseOptions = append(baseOptions, o)
+		case CompressorAgentOption:
+			agentOptions = append(agentOptions, o)
+		}
+	}
 
 	// Create internal OpenAI-based agent with converted parameters
 	openaiModelConfig := models.ConvertToOpenAIModelConfig(modelConfig)
 
-	internalAgent, err := NewBaseAgent(ctx, agentConfig, openaiModelConfig, options...)
+	internalAgent, err := NewBaseAgent(ctx, agentConfig, openaiModelConfig, baseOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +82,11 @@ func NewAgent(
 		modelConfig:   modelConfig,
 		internalAgent: internalAgent,
 		log:           log,
+	}
+
+	// Apply CompressorAgentOption configurations
+	for _, opt := range agentOptions {
+		opt(agent)
 	}
 
 	return agent, nil
@@ -77,6 +115,11 @@ func (agent *Agent) CompressContext(messagesList []messages.Message) (*Compressi
 		return nil, errors.New("no messages provided")
 	}
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(messagesList)
 
@@ -86,10 +129,17 @@ func (agent *Agent) CompressContext(messagesList []messages.Message) (*Compressi
 		return nil, err
 	}
 
-	return &CompressionResult{
+	result := &CompressionResult{
 		CompressedText: response,
 		FinishReason:   finishReason,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // CompressMessagesStream compresses a list of messages and streams the result via callback
@@ -101,6 +151,11 @@ func (agent *Agent) CompressContextStream(
 		return nil, errors.New("no messages provided")
 	}
 
+	// Call before completion hook if set
+	if agent.beforeCompletion != nil {
+		agent.beforeCompletion(agent)
+	}
+
 	// Convert to OpenAI format
 	openaiMessages := messages.ConvertToOpenAIMessages(messagesList)
 
@@ -110,10 +165,17 @@ func (agent *Agent) CompressContextStream(
 		return nil, err
 	}
 
-	return &CompressionResult{
+	result := &CompressionResult{
 		CompressedText: response,
 		FinishReason:   finishReason,
-	}, nil
+	}
+
+	// Call after completion hook if set
+	if agent.afterCompletion != nil {
+		agent.afterCompletion(agent)
+	}
+
+	return result, nil
 }
 
 // === Config Getters and Setters ===
