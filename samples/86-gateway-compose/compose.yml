@@ -1,0 +1,61 @@
+# docker compose up --build -d
+# docker compose exec -it agent-service /bin/sh
+# docker compose exec agent-service /bin/sh
+# docker compose exec agent-service ./chat-agent
+
+services:
+  agent-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # For interactive CLI agents
+    stdin_open: true
+    tty: true
+
+    ports:
+      - "8080:8080"   # Expose port 8080 for the gateway
+
+    environment:
+      # Application configuration
+      NOVA_LOG_LEVEL: INFO
+      AGENT_NAME: "Bob"
+
+
+    models:
+
+      coder-model:
+        endpoint_var: ENGINE_URL      # Environment variable for LLM endpoint
+        model_var: CODER_MODEL_ID
+
+      generic-model:
+        endpoint_var: ENGINE_URL      # Environment variable for LLM endpoint
+        model_var: GENERIC_MODEL_ID
+
+      orchestrator-model:
+        endpoint_var: ENGINE_URL      # Environment variable for LLM endpoint
+        model_var: ORCHESTRATOR_MODEL_ID  
+
+      compressor-model:
+        endpoint_var: ENGINE_URL      # Environment variable for LLM endpoint
+        model_var: COMPRESSOR_MODEL_ID  
+
+
+models:
+
+  coder-model:
+    model: hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m
+    context_size: 32768
+
+  generic-model:
+    model: hf.co/menlo/jan-nano-gguf:q4_k_m
+    context_size: 32768
+
+  orchestrator-model:
+    #model: hf.co/menlo/lucy-gguf:q4_k_m
+    model: ai/qwen2.5:1.5B-F16
+    context_size: 32768
+
+  compressor-model:
+    model: ai/qwen2.5:1.5B-F16
+    context_size: 32768

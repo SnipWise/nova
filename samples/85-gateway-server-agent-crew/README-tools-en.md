@@ -1,35 +1,35 @@
-# 🛠️ Guide d'utilisation des outils avec le Gateway Server
+# 🛠️ Tools Usage Guide with Gateway Server
 
-Ce document explique comment utiliser les outils (tools/functions) avec le gateway server en mode **Passthrough**.
+This document explains how to use tools (tools/functions) with the gateway server in **Passthrough** mode.
 
-## 📋 Table des matières
+## 📋 Table of Contents
 
-- [Qu'est-ce que le mode Passthrough ?](#quest-ce-que-le-mode-passthrough-)
-- [Comment ça fonctionne ?](#comment-ça-fonctionne-)
-- [Utilisation avec qwen-code](#utilisation-avec-qwen-code)
-- [Format des outils](#format-des-outils)
-- [Exemples pratiques](#exemples-pratiques)
-- [Mode Auto-Execute vs Passthrough](#mode-auto-execute-vs-passthrough)
+- [What is Passthrough Mode?](#what-is-passthrough-mode)
+- [How Does It Work?](#how-does-it-work)
+- [Usage with qwen-code](#usage-with-qwen-code)
+- [Tools Format](#tools-format)
+- [Practical Examples](#practical-examples)
+- [Auto-Execute vs Passthrough Mode](#auto-execute-vs-passthrough-mode)
 
-## Qu'est-ce que le mode Passthrough ?
+## What is Passthrough Mode?
 
-Le **mode Passthrough** (transparence) est le mode par défaut du gateway server. Dans ce mode :
+**Passthrough mode** (transparency) is the default mode of the gateway server. In this mode:
 
-- 🔄 Le gateway **transmet** les appels d'outils du LLM vers le client
-- 💻 Le **client** (qwen-code, aider, continue.dev, etc.) **exécute** les outils
-- 📤 Le client renvoie les résultats au gateway
-- 🔁 Le gateway transmet les résultats au LLM pour continuer la conversation
+- 🔄 The gateway **transmits** tool calls from the LLM to the client
+- 💻 The **client** (qwen-code, aider, continue.dev, etc.) **executes** the tools
+- 📤 The client sends the results back to the gateway
+- 🔁 The gateway transmits the results to the LLM to continue the conversation
 
-### Avantages du mode Passthrough
+### Advantages of Passthrough Mode
 
-✅ **Flexibilité** : Le client contrôle quels outils sont disponibles
-✅ **Sécurité** : Les outils s'exécutent dans l'environnement du client, pas sur le serveur
-✅ **Simplicité** : Pas besoin de configurer les outils côté serveur
-✅ **Compatible** : Fonctionne avec tous les clients OpenAI standard
+✅ **Flexibility**: The client controls which tools are available
+✅ **Security**: Tools execute in the client's environment, not on the server
+✅ **Simplicity**: No need to configure tools on the server side
+✅ **Compatible**: Works with all standard OpenAI clients
 
-## Comment ça fonctionne ?
+## How Does It Work?
 
-### Flux de communication
+### Communication Flow
 
 ```
 ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
@@ -39,32 +39,32 @@ Le **mode Passthrough** (transparence) est le mode par défaut du gateway server
 │             │         │             │         │             │
 └─────────────┘         └─────────────┘         └─────────────┘
       │                                                 │
-      │ 1. Envoie la requête avec les outils           │
+      │ 1. Sends request with tools                     │
       │────────────────────────────────────────────────►│
       │                                                 │
-      │ 2. LLM décide d'appeler un outil                │
+      │ 2. LLM decides to call a tool                   │
       │◄────────────────────────────────────────────────│
       │                                                 │
-      │ 3. Client exécute l'outil                       │
+      │ 3. Client executes the tool                     │
       │                                                 │
-      │ 4. Renvoie le résultat                          │
+      │ 4. Sends back the result                        │
       │────────────────────────────────────────────────►│
       │                                                 │
-      │ 5. LLM génère la réponse finale                 │
+      │ 5. LLM generates final response                 │
       │◄────────────────────────────────────────────────│
 ```
 
-### Étapes détaillées
+### Detailed Steps
 
-1. **Le client envoie une requête** avec la liste des outils disponibles
-2. **Le gateway route** vers l'agent approprié (coder, thinker, generic)
-3. **Le LLM décide** s'il doit utiliser un outil
-4. **Le gateway renvoie** l'appel d'outil au client (avec `finish_reason: "tool_calls"`)
-5. **Le client exécute** l'outil localement
-6. **Le client renvoie** le résultat avec `role: "tool"`
-7. **Le LLM génère** la réponse finale basée sur le résultat
+1. **The client sends a request** with the list of available tools
+2. **The gateway routes** to the appropriate agent (coder, thinker, generic)
+3. **The LLM decides** whether to use a tool
+4. **The gateway returns** the tool call to the client (with `finish_reason: "tool_calls"`)
+5. **The client executes** the tool locally
+6. **The client sends back** the result with `role: "tool"`
+7. **The LLM generates** the final response based on the result
 
-## Utilisation avec qwen-code
+## Usage with qwen-code
 
 ### Configuration
 
@@ -74,20 +74,20 @@ export OPENAI_API_KEY=none
 export OPENAI_MODEL=crew
 ```
 
-### Lancement
+### Launch
 
 ```bash
-# Terminal 1 : Démarrer le gateway
+# Terminal 1: Start the gateway
 cd samples/85-gateway-server-agent-crew
 go run main.go
 
-# Terminal 2 : Utiliser qwen-code
-qwen
+# Terminal 2: Use qwen-code
+qwen-code
 ```
 
-### Configuration des outils dans qwen-code
+### Tool Configuration in qwen-code
 
-Qwen-code doit être configuré avec les outils disponibles. Voici un exemple de configuration :
+Qwen-code must be configured with available tools. Here's an example configuration:
 
 ```json
 {
@@ -134,26 +134,26 @@ Qwen-code doit être configuré avec les outils disponibles. Voici un exemple de
 }
 ```
 
-## Format des outils
+## Tools Format
 
-### Définition d'un outil (envoyée par le client)
+### Tool Definition (sent by the client)
 
 ```json
 {
   "type": "function",
   "function": {
-    "name": "nom_de_la_fonction",
-    "description": "Description de ce que fait la fonction",
+    "name": "function_name",
+    "description": "Description of what the function does",
     "parameters": {
       "type": "object",
       "properties": {
         "param1": {
           "type": "string",
-          "description": "Description du paramètre"
+          "description": "Parameter description"
         },
         "param2": {
           "type": "number",
-          "description": "Description du paramètre"
+          "description": "Parameter description"
         }
       },
       "required": ["param1"]
@@ -162,20 +162,20 @@ Qwen-code doit être configuré avec les outils disponibles. Voici un exemple de
 }
 ```
 
-### Appel d'outil (renvoyé par le LLM)
+### Tool Call (returned by the LLM)
 
 ```json
 {
   "id": "call_abc123",
   "type": "function",
   "function": {
-    "name": "nom_de_la_fonction",
-    "arguments": "{\"param1\":\"valeur1\",\"param2\":42}"
+    "name": "function_name",
+    "arguments": "{\"param1\":\"value1\",\"param2\":42}"
   }
 }
 ```
 
-### Résultat d'outil (envoyé par le client)
+### Tool Result (sent by the client)
 
 ```json
 {
@@ -185,11 +185,11 @@ Qwen-code doit être configuré avec les outils disponibles. Voici un exemple de
 }
 ```
 
-## Exemples pratiques
+## Practical Examples
 
-### Exemple 1 : Requête simple avec outils
+### Example 1: Simple Request with Tools
 
-**Requête initiale du client :**
+**Initial client request:**
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
@@ -212,7 +212,7 @@ curl http://localhost:8080/v1/chat/completions \
   }'
 ```
 
-**Réponse du gateway (appel d'outil) :**
+**Gateway response (tool call):**
 
 ```json
 {
@@ -242,7 +242,7 @@ curl http://localhost:8080/v1/chat/completions \
 }
 ```
 
-**Requête du client avec le résultat :**
+**Client request with result:**
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
@@ -275,7 +275,7 @@ curl http://localhost:8080/v1/chat/completions \
   }'
 ```
 
-**Réponse finale :**
+**Final response:**
 
 ```json
 {
@@ -295,49 +295,49 @@ curl http://localhost:8080/v1/chat/completions \
 }
 ```
 
-### Exemple 2 : Avec qwen-code (automatique)
+### Example 2: With qwen-code (automatic)
 
-Qwen-code gère automatiquement ce flux :
+Qwen-code automatically handles this flow:
 
 ```
-👤 Utilisateur : "Lis le fichier package.json"
+👤 User: "Read the file package.json"
 
-🤖 LLM : [appelle read_file avec path="package.json"]
+🤖 LLM: [calls read_file with path="package.json"]
          ↓
-💻 qwen-code : [exécute la lecture du fichier]
+💻 qwen-code: [executes file read]
          ↓
-🤖 LLM : "Voici le contenu de package.json: ..."
+🤖 LLM: "Here is the content of package.json: ..."
 ```
 
-## Mode Auto-Execute vs Passthrough
+## Auto-Execute vs Passthrough Mode
 
-| Aspect | Passthrough (défaut) | Auto-Execute |
-|--------|---------------------|--------------|
-| **Exécution** | Client | Serveur |
-| **Configuration** | Outils définis par le client | Outils définis côté serveur |
-| **Sécurité** | Outils dans l'environnement client | Outils dans l'environnement serveur |
-| **Flexibilité** | Client contrôle les outils | Serveur contrôle les outils |
-| **Use case** | Applications avec accès local (IDE, CLI) | Services web, APIs |
+| Aspect | Passthrough (default) | Auto-Execute |
+|--------|----------------------|--------------|
+| **Execution** | Client | Server |
+| **Configuration** | Tools defined by client | Tools defined server-side |
+| **Security** | Tools in client environment | Tools in server environment |
+| **Flexibility** | Client controls tools | Server controls tools |
+| **Use case** | Applications with local access (IDE, CLI) | Web services, APIs |
 
-### Quand utiliser Passthrough ?
+### When to use Passthrough?
 
-✅ Applications de bureau (qwen-code, IDE extensions)
-✅ CLI tools qui ont accès au système de fichiers local
-✅ Quand le client doit contrôler les outils disponibles
-✅ Pour des raisons de sécurité (isolation des outils)
+✅ Desktop applications (qwen-code, IDE extensions)
+✅ CLI tools that have access to the local file system
+✅ When the client needs to control available tools
+✅ For security reasons (tool isolation)
 
-### Quand utiliser Auto-Execute ?
+### When to use Auto-Execute?
 
-✅ Services web sans client intelligent
-✅ APIs publiques avec outils prédéfinis
-✅ Quand tous les clients doivent avoir les mêmes outils
-✅ Chatbots web simples
+✅ Web services without an intelligent client
+✅ Public APIs with predefined tools
+✅ When all clients should have the same tools
+✅ Simple web chatbots
 
-## Configuration avancée
+## Advanced Configuration
 
-### Activer le mode Auto-Execute
+### Enable Auto-Execute Mode
 
-Si vous souhaitez passer en mode Auto-Execute, modifiez [main.go](main.go) :
+If you want to switch to Auto-Execute mode, modify [main.go](main.go):
 
 ```go
 gateway, err := gatewayserver.NewAgent(
@@ -345,20 +345,20 @@ gateway, err := gatewayserver.NewAgent(
     gatewayserver.WithAgentCrew(agentCrew, "generic"),
     gatewayserver.WithPort(8080),
 
-    // Activer le mode Auto-Execute
+    // Enable Auto-Execute mode
     gatewayserver.WithToolMode(gatewayserver.ToolModeAutoExecute),
     gatewayserver.WithToolsAgent(toolsAgent),
     gatewayserver.WithExecuteFn(executeFunction),
 )
 ```
 
-Et décommenter les définitions d'outils dans `getToolsDefinitions()`.
+And uncomment the tool definitions in `getToolsDefinitions()`.
 
-## Débogage
+## Debugging
 
-### Vérifier les requêtes
+### Check Requests
 
-Activez les logs détaillés :
+Enable detailed logs:
 
 ```go
 if err := os.Setenv("NOVA_LOG_LEVEL", "DEBUG"); err != nil {
@@ -366,36 +366,36 @@ if err := os.Setenv("NOVA_LOG_LEVEL", "DEBUG"); err != nil {
 }
 ```
 
-### Messages de diagnostic
+### Diagnostic Messages
 
-Le gateway affiche :
-- 📥 `Request received (current agent: X)` : Requête reçue
-- 📤 `Response sent (agent used: X)` : Réponse envoyée
-- 🔵 `Matching agent for topic: X` : Agent sélectionné
+The gateway displays:
+- 📥 `Request received (current agent: X)`: Request received
+- 📤 `Response sent (agent used: X)`: Response sent
+- 🔵 `Matching agent for topic: X`: Selected agent
 
-### Erreurs courantes
+### Common Errors
 
-| Erreur | Cause | Solution |
-|--------|-------|----------|
-| `400 Invalid request body: json: cannot unmarshal array` | Format content incorrect | ✅ Résolu dans cette version |
-| `finish_reason: "tool_calls"` mais pas de tool_calls | LLM mal configuré | Vérifier que le modèle supporte les outils |
-| Pas de réponse après tool call | Client n'a pas renvoyé le résultat | Vérifier l'implémentation client |
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `400 Invalid request body: json: cannot unmarshal array` | Incorrect content format | ✅ Fixed in this version |
+| `finish_reason: "tool_calls"` but no tool_calls | LLM misconfigured | Verify that the model supports tools |
+| No response after tool call | Client didn't send back result | Check client implementation |
 
-## Support multi-modal
+## Multi-modal Support
 
-Le gateway supporte maintenant **trois formats** pour le champ `content` :
+The gateway now supports **three formats** for the `content` field:
 
-### 1. String simple (legacy)
+### 1. Simple String (legacy)
 ```json
 {"role": "user", "content": "Hello"}
 ```
 
-### 2. Array de strings (qwen-code)
+### 2. Array of Strings (qwen-code)
 ```json
 {"role": "user", "content": ["Hello", "world"]}
 ```
 
-### 3. Array d'objets (multi-modal OpenAI)
+### 3. Array of Objects (multi-modal OpenAI)
 ```json
 {
   "role": "user",
@@ -406,9 +406,9 @@ Le gateway supporte maintenant **trois formats** pour le champ `content` :
 }
 ```
 
-Tous les formats sont automatiquement convertis en texte simple par le gateway.
+All formats are automatically converted to plain text by the gateway.
 
-## Ressources
+## Resources
 
 - [OpenAI Tools Documentation](https://platform.openai.com/docs/guides/function-calling)
 - [Qwen Code GitHub](https://github.com/QwenLM/qwen-code)
@@ -416,5 +416,5 @@ Tous les formats sont automatiquement convertis en texte simple par le gateway.
 
 ---
 
-**Version :** 1.0.0
-**Dernière mise à jour :** 2026-02-02
+**Version:** 1.0.0
+**Last updated:** 2026-02-02
