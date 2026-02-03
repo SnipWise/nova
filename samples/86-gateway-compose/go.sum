@@ -27,8 +27,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
-github.com/snipwise/nova v1.2.10-0.20260203054922-2aa32888fa70 h1:d+jFETVfZnKjucE+i3deOJCGWvK2QjLSw6MxSV+tbNo=
-github.com/snipwise/nova v1.2.10-0.20260203054922-2aa32888fa70/go.mod h1:LIfXjRbcYnNZRTQefxGx9OJLulq9KAVsWs/dUjDEtoo=
+github.com/snipwise/nova v1.3.0 h1:nIpNX9qAX2BzIbTnQdt7wlhMyTb6tqlSPT2yrPo+og8=
+github.com/snipwise/nova v1.3.0/go.mod h1:LIfXjRbcYnNZRTQefxGx9OJLulq9KAVsWs/dUjDEtoo=
 github.com/spf13/cast v1.7.1 h1:cuNEagBQEHWN1FnbGEjCXL2szYEXqfJPbP2HNUaca9Y=
 github.com/spf13/cast v1.7.1/go.mod h1:ancEpBxwJDODSW/UG4rDrAqiKolqNNh2DX3mk86cAdo=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=

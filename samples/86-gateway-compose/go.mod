@@ -2,7 +2,7 @@ module gateway-compose
 
 go 1.25.4
 
-require github.com/snipwise/nova v1.2.10-0.20260203054922-2aa32888fa70
+require github.com/snipwise/nova v1.3.0
 
 require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
