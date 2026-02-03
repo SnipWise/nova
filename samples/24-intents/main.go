@@ -50,7 +50,9 @@ func main() {
 			`,
 		},
 		models.Config{
-			Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			//Name:        "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Name:        "ai/qwen2.5:1.5B-F16",
+
 			Temperature: models.Float64(0.0),
 		},
 	)

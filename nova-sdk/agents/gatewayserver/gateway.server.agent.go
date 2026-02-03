@@ -1,0 +1,440 @@
+package gatewayserver
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"sync"
+
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/chat"
+	"github.com/snipwise/nova/nova-sdk/agents/compressor"
+	"github.com/snipwise/nova/nova-sdk/agents/rag"
+	"github.com/snipwise/nova/nova-sdk/agents/tools"
+	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
+)
+
+// ToolMode defines how tool calls are handled by the gateway.
+type ToolMode int
+
+const (
+	// ToolModePassthrough returns tool_calls to the client in OpenAI format.
+	// The client is responsible for executing tools and sending results back
+	// as messages with role "tool". This is the mode used by qwen-code, aider, etc.
+	ToolModePassthrough ToolMode = iota
+
+	// ToolModeAutoExecute executes tools server-side using the configured ExecuteFn,
+	// then continues the completion loop internally. The client only sees the final response.
+	ToolModeAutoExecute
+)
+
+// GatewayServerAgent exposes an OpenAI-compatible API (POST /v1/chat/completions)
+// backed by a N.O.V.A. crew of agents. External clients see a single "model".
+type GatewayServerAgent struct {
+	ctx context.Context
+	log logger.Logger
+
+	// Crew of chat agents
+	chatAgents      map[string]*chat.Agent
+	selectedAgentId string
+	currentChatAgent *chat.Agent
+
+	// Orchestration
+	orchestratorAgent     agents.OrchestratorAgent
+	matchAgentIdToTopicFn func(string, string) string
+
+	// Tools
+	toolsAgent       *tools.Agent
+	toolMode         ToolMode
+	executeFn        func(string, string) (string, error)
+	confirmationFn   func(string, string) tools.ConfirmationResponse
+
+	// RAG
+	ragAgent        *rag.Agent
+	similarityLimit float64
+	maxSimilarities int
+
+	// Compression
+	compressorAgent  *compressor.Agent
+	contextSizeLimit int
+
+	// Server
+	port string
+	Mux  *http.ServeMux
+
+	// Stream control
+	stopStreamChan chan bool
+	streamMutex    sync.Mutex
+
+	// Lifecycle hooks
+	beforeCompletion func(*GatewayServerAgent)
+	afterCompletion  func(*GatewayServerAgent)
+}
+
+// GatewayServerAgentOption is a function that configures a GatewayServerAgent.
+type GatewayServerAgentOption func(*GatewayServerAgent) error
+
+// WithAgentCrew sets the crew of agents and the initially selected agent ID.
+func WithAgentCrew(agentCrew map[string]*chat.Agent, selectedAgentId string) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		if len(agentCrew) == 0 {
+			return fmt.Errorf("agent crew cannot be nil or empty")
+		}
+		if selectedAgentId == "" {
+			return fmt.Errorf("selected agent ID cannot be empty")
+		}
+		firstAgent, exists := agentCrew[selectedAgentId]
+		if !exists {
+			return fmt.Errorf("selected agent ID %s does not exist in the provided crew", selectedAgentId)
+		}
+		agent.chatAgents = agentCrew
+		agent.selectedAgentId = selectedAgentId
+		agent.currentChatAgent = firstAgent
+		return nil
+	}
+}
+
+// WithSingleAgent creates a crew with a single agent (key: "single").
+func WithSingleAgent(chatAgent *chat.Agent) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		if chatAgent == nil {
+			return fmt.Errorf("chat agent cannot be nil")
+		}
+		agent.chatAgents = map[string]*chat.Agent{"single": chatAgent}
+		agent.selectedAgentId = "single"
+		agent.currentChatAgent = chatAgent
+		return nil
+	}
+}
+
+// WithPort sets the HTTP server port (default: 8080).
+func WithPort(port int) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.port = fmt.Sprintf(":%d", port)
+		return nil
+	}
+}
+
+// WithToolsAgent attaches a tools agent for function calling capabilities.
+func WithToolsAgent(toolsAgent *tools.Agent) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.toolsAgent = toolsAgent
+		return nil
+	}
+}
+
+// WithToolMode sets the tool execution mode (ToolModePassthrough or ToolModeAutoExecute).
+func WithToolMode(mode ToolMode) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.toolMode = mode
+		return nil
+	}
+}
+
+// WithExecuteFn sets the function executor for server-side tool execution (ToolModeAutoExecute).
+func WithExecuteFn(fn func(string, string) (string, error)) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.executeFn = fn
+		return nil
+	}
+}
+
+// WithConfirmationPromptFn sets the confirmation prompt for tool call confirmation.
+func WithConfirmationPromptFn(fn func(string, string) tools.ConfirmationResponse) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.confirmationFn = fn
+		return nil
+	}
+}
+
+// WithRagAgent attaches a RAG agent for document retrieval.
+func WithRagAgent(ragAgent *rag.Agent) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.ragAgent = ragAgent
+		return nil
+	}
+}
+
+// WithRagAgentAndSimilarityConfig attaches a RAG agent and configures similarity settings.
+func WithRagAgentAndSimilarityConfig(ragAgent *rag.Agent, similarityLimit float64, maxSimilarities int) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.ragAgent = ragAgent
+		agent.similarityLimit = similarityLimit
+		agent.maxSimilarities = maxSimilarities
+		return nil
+	}
+}
+
+// WithCompressorAgent attaches a compressor agent for context compression.
+func WithCompressorAgent(compressorAgent *compressor.Agent) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.compressorAgent = compressorAgent
+		return nil
+	}
+}
+
+// WithCompressorAgentAndContextSize attaches a compressor agent and sets the context size limit.
+func WithCompressorAgentAndContextSize(compressorAgent *compressor.Agent, contextSizeLimit int) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.compressorAgent = compressorAgent
+		agent.contextSizeLimit = contextSizeLimit
+		return nil
+	}
+}
+
+// WithOrchestratorAgent attaches an orchestrator agent for topic detection and routing.
+func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.orchestratorAgent = orchestratorAgent
+		return nil
+	}
+}
+
+// WithMatchAgentIdToTopicFn sets the function to match agent ID to detected topic.
+func WithMatchAgentIdToTopicFn(fn func(string, string) string) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.matchAgentIdToTopicFn = fn
+		return nil
+	}
+}
+
+// BeforeCompletion sets a hook called before each completion request.
+func BeforeCompletion(fn func(*GatewayServerAgent)) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.beforeCompletion = fn
+		return nil
+	}
+}
+
+// AfterCompletion sets a hook called after each completion request.
+func AfterCompletion(fn func(*GatewayServerAgent)) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.afterCompletion = fn
+		return nil
+	}
+}
+
+// NewAgent creates a new GatewayServerAgent with the provided options.
+//
+// At least one of WithAgentCrew or WithSingleAgent must be provided.
+//
+// Available options:
+//   - WithAgentCrew(agentCrew, selectedAgentId) - Sets the crew of agents
+//   - WithSingleAgent(chatAgent) - Creates a single-agent crew
+//   - WithPort(port) - Sets the HTTP server port (default: 8080)
+//   - WithToolsAgent(toolsAgent) - Attaches a tools agent
+//   - WithToolMode(mode) - Sets tool execution mode (default: ToolModePassthrough)
+//   - WithExecuteFn(fn) - Sets the tool executor (for ToolModeAutoExecute)
+//   - WithConfirmationPromptFn(fn) - Sets tool confirmation prompt
+//   - WithRagAgent(ragAgent) - Attaches a RAG agent
+//   - WithRagAgentAndSimilarityConfig(ragAgent, limit, max) - RAG with similarity config
+//   - WithCompressorAgent(compressorAgent) - Attaches a compressor agent
+//   - WithCompressorAgentAndContextSize(compressorAgent, limit) - Compressor with size limit
+//   - WithOrchestratorAgent(orchestratorAgent) - Attaches an orchestrator
+//   - WithMatchAgentIdToTopicFn(fn) - Sets topic-to-agent routing
+//   - BeforeCompletion(fn) - Hook before completion
+//   - AfterCompletion(fn) - Hook after completion
+func NewAgent(ctx context.Context, options ...GatewayServerAgentOption) (*GatewayServerAgent, error) {
+	agent := &GatewayServerAgent{
+		ctx:             ctx,
+		log:             logger.GetLoggerFromEnv(),
+		port:            ":8080",
+		toolMode:        ToolModePassthrough,
+		similarityLimit: 0.6,
+		maxSimilarities: 3,
+		contextSizeLimit: 8000,
+		stopStreamChan:  make(chan bool, 1),
+	}
+
+	for _, option := range options {
+		if err := option(agent); err != nil {
+			return nil, err
+		}
+	}
+
+	if len(agent.chatAgents) == 0 {
+		return nil, fmt.Errorf("agent crew must be set using WithAgentCrew or WithSingleAgent option")
+	}
+
+	// Default matchAgentIdToTopicFn: return first available agent
+	if agent.matchAgentIdToTopicFn == nil {
+		agent.matchAgentIdToTopicFn = func(currentAgent, topic string) string {
+			return currentAgent
+		}
+	}
+
+	// Default executeFn for auto-execute mode
+	if agent.executeFn == nil {
+		agent.executeFn = func(functionName, arguments string) (string, error) {
+			return fmt.Sprintf(`{"error": "no executor configured for %s"}`, functionName), nil
+		}
+	}
+
+	agent.log.Info("🌐 GatewayServerAgent initialized (mode: %s, agent: %s)", toolModeName(agent.toolMode), agent.selectedAgentId)
+
+	return agent, nil
+}
+
+// StartServer starts the HTTP server with OpenAI-compatible routes.
+func (agent *GatewayServerAgent) StartServer() error {
+	mux := http.NewServeMux()
+	agent.Mux = mux
+
+	// OpenAI-compatible routes
+	mux.HandleFunc("POST /v1/chat/completions", agent.handleChatCompletions)
+	mux.HandleFunc("GET /v1/models", agent.handleListModels)
+
+	// Utility routes
+	mux.HandleFunc("GET /health", agent.handleHealth)
+
+	// Apply CORS middleware
+	handler := corsMiddleware(mux)
+
+	agent.log.Info("🚀 Gateway server started on http://localhost%s", agent.port)
+	agent.log.Info("📡 OpenAI-compatible endpoint: POST /v1/chat/completions")
+	return http.ListenAndServe(agent.port, handler)
+}
+
+// corsMiddleware adds CORS headers to all responses.
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// --- Accessor methods ---
+
+// GetChatAgents returns the map of chat agents.
+func (agent *GatewayServerAgent) GetChatAgents() map[string]*chat.Agent {
+	return agent.chatAgents
+}
+
+// SetChatAgents sets the map of chat agents.
+func (agent *GatewayServerAgent) SetChatAgents(chatAgents map[string]*chat.Agent) {
+	agent.chatAgents = chatAgents
+}
+
+// AddChatAgentToCrew adds a new chat agent to the crew.
+func (agent *GatewayServerAgent) AddChatAgentToCrew(id string, chatAgent *chat.Agent) error {
+	if chatAgent == nil {
+		return fmt.Errorf("cannot add nil chat agent")
+	}
+	if id == "" {
+		return fmt.Errorf("agent ID cannot be empty")
+	}
+	if _, exists := agent.chatAgents[id]; exists {
+		return fmt.Errorf("agent with ID %s already exists in the crew", id)
+	}
+	agent.chatAgents[id] = chatAgent
+	return nil
+}
+
+// RemoveChatAgentFromCrew removes a chat agent from the crew.
+func (agent *GatewayServerAgent) RemoveChatAgentFromCrew(id string) error {
+	if id == "" {
+		return fmt.Errorf("agent ID cannot be empty")
+	}
+	if _, exists := agent.chatAgents[id]; !exists {
+		return fmt.Errorf("agent with ID %s does not exist in the crew", id)
+	}
+	if agent.currentChatAgent == agent.chatAgents[id] {
+		return fmt.Errorf("cannot remove the currently active agent (ID: %s)", id)
+	}
+	delete(agent.chatAgents, id)
+	return nil
+}
+
+// SetSelectedAgentId switches the active agent.
+func (agent *GatewayServerAgent) SetSelectedAgentId(agentId string) error {
+	chatAgent, exists := agent.chatAgents[agentId]
+	if !exists {
+		return fmt.Errorf("no chat agent found with ID: %s", agentId)
+	}
+	agent.selectedAgentId = agentId
+	agent.currentChatAgent = chatAgent
+	agent.log.Info("🔀 Switched to agent ID: %s", agentId)
+	return nil
+}
+
+// GetSelectedAgentId returns the currently selected agent ID.
+func (agent *GatewayServerAgent) GetSelectedAgentId() string {
+	return agent.selectedAgentId
+}
+
+// Kind returns the agent type.
+func (agent *GatewayServerAgent) Kind() agents.Kind {
+	return agents.ChatServer
+}
+
+// GetName returns the current agent name.
+func (agent *GatewayServerAgent) GetName() string {
+	return agent.currentChatAgent.GetName()
+}
+
+// GetModelID returns the current model ID.
+func (agent *GatewayServerAgent) GetModelID() string {
+	return agent.currentChatAgent.GetModelID()
+}
+
+// GetMessages returns all conversation messages.
+func (agent *GatewayServerAgent) GetMessages() []messages.Message {
+	return agent.currentChatAgent.GetMessages()
+}
+
+// GetContextSize returns the approximate context size.
+func (agent *GatewayServerAgent) GetContextSize() int {
+	return agent.currentChatAgent.GetContextSize()
+}
+
+// StopStream interrupts the current streaming operation.
+func (agent *GatewayServerAgent) StopStream() {
+	agent.currentChatAgent.StopStream()
+}
+
+// ResetMessages clears all messages except the system instruction.
+func (agent *GatewayServerAgent) ResetMessages() {
+	agent.currentChatAgent.ResetMessages()
+}
+
+// AddMessage adds a message to the conversation history.
+func (agent *GatewayServerAgent) AddMessage(role roles.Role, content string) {
+	agent.currentChatAgent.AddMessage(role, content)
+}
+
+// GetPort returns the HTTP port.
+func (agent *GatewayServerAgent) GetPort() string {
+	return agent.port
+}
+
+// GetToolMode returns the current tool execution mode.
+func (agent *GatewayServerAgent) GetToolMode() ToolMode {
+	return agent.toolMode
+}
+
+// SetToolMode changes the tool execution mode.
+func (agent *GatewayServerAgent) SetToolMode(mode ToolMode) {
+	agent.toolMode = mode
+}
+
+func toolModeName(mode ToolMode) string {
+	switch mode {
+	case ToolModePassthrough:
+		return "passthrough"
+	case ToolModeAutoExecute:
+		return "auto-execute"
+	default:
+		return "unknown"
+	}
+}
