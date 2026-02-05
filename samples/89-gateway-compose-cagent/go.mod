@@ -1,25 +1,17 @@
-module github.com/snipwise/nova
+module gateway-compose
 
 go 1.25.4
 
-require (
-	github.com/google/uuid v1.6.0
-	github.com/mark3labs/mcp-go v0.43.2
-	github.com/openai/openai-go/v3 v3.10.0
-	github.com/redis/go-redis/v9 v9.17.3
-)
-
-require (
-	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-)
+require github.com/snipwise/nova v1.3.0
 
 require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
-	github.com/joho/godotenv v1.5.1
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/mark3labs/mcp-go v0.43.2 // indirect
+	github.com/openai/openai-go/v3 v3.10.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

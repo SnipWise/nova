@@ -24,7 +24,7 @@ func main() {
 			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
 		},
 		models.Config{
-			Name: "ai/mxbai-embed-large",
+			Name: "ai/mxbai-embed-large:latest",
 		},
 	)
 	if err != nil {

@@ -20,6 +20,9 @@ type VectorRecord struct {
 	Similarity float64
 }
 
+// Note: Store configuration options (WithInMemoryStore, WithRedisStore) are defined
+// in rag.base.agent.go and can be used directly with NewAgent since they are AgentOption types
+
 // RagAgentOption is a functional option for configuring an Agent during creation
 type RagAgentOption func(*Agent)
 
@@ -153,15 +156,33 @@ func (agent *Agent) SaveEmbeddingIntoMemoryVectorStore(content string) error {
 }
 
 func (agent *Agent) LoadStore(storeFilePath string) error {
-	return agent.internalAgent.store.Load(storeFilePath)
+	// Check if the store supports persistence
+	if persistable, ok := agent.internalAgent.store.(interface {
+		Load(string) error
+	}); ok {
+		return persistable.Load(storeFilePath)
+	}
+	return errors.New("this store does not support file-based persistence (e.g., Redis stores)")
 }
 
 func (agent *Agent) PersistStore(storeFilePath string) error {
-	return agent.internalAgent.store.Persist(storeFilePath)
+	// Check if the store supports persistence
+	if persistable, ok := agent.internalAgent.store.(interface {
+		Persist(string) error
+	}); ok {
+		return persistable.Persist(storeFilePath)
+	}
+	return errors.New("this store does not support file-based persistence (e.g., Redis stores)")
 }
 
 func (agent *Agent) StoreFileExists(storeFilePath string) bool {
-	return agent.internalAgent.store.StoreFileExists(storeFilePath)
+	// Check if the store supports persistence
+	if persistable, ok := agent.internalAgent.store.(interface {
+		StoreFileExists(string) bool
+	}); ok {
+		return persistable.StoreFileExists(storeFilePath)
+	}
+	return false
 }
 
 // SearchSimilar searches for similar records based on content

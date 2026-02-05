@@ -24,6 +24,17 @@ type VectorStore interface {
 	SearchTopNSimilarities(embeddingFromQuestion VectorRecord, limit float64, max int) ([]VectorRecord, error)
 }
 
+// PersistableStore defines the interface for stores that support file-based persistence
+// This is an optional interface that can be implemented by VectorStore implementations
+// that support loading and persisting data to/from files (e.g., MemoryVectorStore)
+// Note: Redis-based stores don't need this interface as Redis handles persistence natively
+type PersistableStore interface {
+	Load(storeFilePath string) error
+	Persist(storeFilePath string) error
+	StoreFileExists(storeFilePath string) bool
+	ResetMemory() error
+}
+
 // MemoryVectorStore implements VectorStore using in-memory storage
 type MemoryVectorStore struct {
 	Records map[string]VectorRecord
