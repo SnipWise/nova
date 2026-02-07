@@ -175,6 +175,8 @@ gateway, err := gatewayserver.NewAgent(ctx,
 | `WithToolMode(mode)` | Définit le mode d'exécution des outils : `ToolModePassthrough` (défaut) ou `ToolModeAutoExecute`. |
 | `WithExecuteFn(fn)` | Définit la fonction d'exécution pour l'exécution côté serveur des outils. |
 | `WithConfirmationPromptFn(fn)` | Définit une fonction de confirmation personnalisée pour les appels de fonctions. |
+| `WithTLSCert(certData, keyData []byte)` | Active HTTPS avec des données de certificat et clé PEM en mémoire. |
+| `WithTLSCertFromFile(certPath, keyPath string)` | Active HTTPS avec les chemins vers les fichiers de certificat et clé. |
 | `WithMatchAgentIdToTopicFn(fn)` | Définit la fonction de correspondance entre sujets détectés et IDs d'agents. |
 | `WithRagAgent(ragAgent)` | Attache un agent RAG pour la recherche de documents. |
 | `WithRagAgentAndSimilarityConfig(ragAgent, limit, max)` | Attache un agent RAG avec configuration de similarité. |
@@ -193,6 +195,34 @@ gateway, err := gatewayserver.NewAgent(ctx,
 | `SimilarityLimit` | `0.6` |
 | `MaxSimilarities` | `3` |
 | `ContextSizeLimit` | `8000` |
+
+### Support HTTPS
+
+Le Gateway Server Agent supporte HTTPS pour une communication sécurisée. Lorsque des certificats TLS sont fournis, le serveur utilisera automatiquement HTTPS au lieu de HTTP.
+
+```go
+// Option 1 : Utiliser des fichiers de certificats (recommandé)
+gateway, err := gatewayserver.NewAgent(ctx,
+    gatewayserver.WithSingleAgent(chatAgent),
+    gatewayserver.WithPort(443),
+    gatewayserver.WithTLSCertFromFile("server.crt", "server.key"),
+)
+
+// Option 2 : Utiliser des données de certificat en mémoire
+certData, _ := os.ReadFile("server.crt")
+keyData, _ := os.ReadFile("server.key")
+
+gateway, err := gatewayserver.NewAgent(ctx,
+    gatewayserver.WithSingleAgent(chatAgent),
+    gatewayserver.WithPort(443),
+    gatewayserver.WithTLSCert(certData, keyData),
+)
+```
+
+**Notes importantes** :
+- HTTPS est **optionnel** - sans certificats TLS, le serveur fonctionne en HTTP (rétrocompatible)
+- Pour la production, utilisez des certificats d'une autorité de certification de confiance (ex : Let's Encrypt)
+- Voir `/samples/90-https-server-example` pour un exemple complet
 
 ---
 

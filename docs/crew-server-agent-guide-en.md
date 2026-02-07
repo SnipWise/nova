@@ -148,6 +148,8 @@ crewServerAgent, err := crewserver.NewAgent(ctx,
 | `WithMatchAgentIdToTopicFn(fn)` | Sets the function mapping detected topics to agent IDs. |
 | `WithExecuteFn(fn)` | Sets the function executor for tool calls. |
 | `WithConfirmationPromptFn(fn)` | Sets a custom confirmation prompt function for tool calls (replaces web-based confirmation). |
+| `WithTLSCert(certData, keyData []byte)` | Enables HTTPS with PEM-encoded certificate and key data in memory. |
+| `WithTLSCertFromFile(certPath, keyPath string)` | Enables HTTPS with certificate and key file paths. |
 | `WithToolsAgent(toolsAgent)` | Attaches a tools agent for function calling. |
 | `WithCompressorAgent(compressorAgent)` | Attaches a compressor agent for context compression. |
 | `WithCompressorAgentAndContextSize(compressorAgent, limit)` | Attaches a compressor with a context size limit. |
@@ -165,6 +167,34 @@ crewServerAgent, err := crewserver.NewAgent(ctx,
 | `SimilarityLimit` | `0.6` (inherited from `BaseServerAgent`) |
 | `MaxSimilarities` | `3` (inherited from `BaseServerAgent`) |
 | `ContextSizeLimit` | `8000` (inherited from `BaseServerAgent`) |
+
+### HTTPS Support
+
+The Crew Server Agent supports HTTPS for secure communication. When TLS certificates are provided, the server will automatically use HTTPS instead of HTTP.
+
+```go
+// Option 1: Using certificate files (recommended)
+crewServerAgent, err := crewserver.NewAgent(ctx,
+    crewserver.WithAgentCrew(agentCrew, "generic"),
+    crewserver.WithPort(443),
+    crewserver.WithTLSCertFromFile("server.crt", "server.key"),
+)
+
+// Option 2: Using certificate data in memory
+certData, _ := os.ReadFile("server.crt")
+keyData, _ := os.ReadFile("server.key")
+
+crewServerAgent, err := crewserver.NewAgent(ctx,
+    crewserver.WithAgentCrew(agentCrew, "generic"),
+    crewserver.WithPort(443),
+    crewserver.WithTLSCert(certData, keyData),
+)
+```
+
+**Important notes**:
+- HTTPS is **optional** - without TLS certificates, the server runs on HTTP (backward compatible)
+- For production, use certificates from a trusted CA (e.g., Let's Encrypt)
+- See `/samples/90-https-server-example` for a complete example
 
 ---
 

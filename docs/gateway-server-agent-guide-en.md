@@ -175,6 +175,8 @@ gateway, err := gatewayserver.NewAgent(ctx,
 | `WithToolMode(mode)` | Sets tool execution mode: `ToolModePassthrough` (default) or `ToolModeAutoExecute`. |
 | `WithExecuteFn(fn)` | Sets the function executor for server-side tool execution. |
 | `WithConfirmationPromptFn(fn)` | Sets a custom confirmation prompt function for tool calls. |
+| `WithTLSCert(certData, keyData []byte)` | Enables HTTPS with PEM-encoded certificate and key data in memory. |
+| `WithTLSCertFromFile(certPath, keyPath string)` | Enables HTTPS with certificate and key file paths. |
 | `WithMatchAgentIdToTopicFn(fn)` | Sets the function mapping detected topics to agent IDs. |
 | `WithRagAgent(ragAgent)` | Attaches a RAG agent for document retrieval. |
 | `WithRagAgentAndSimilarityConfig(ragAgent, limit, max)` | Attaches a RAG agent with similarity configuration. |
@@ -193,6 +195,34 @@ gateway, err := gatewayserver.NewAgent(ctx,
 | `SimilarityLimit` | `0.6` |
 | `MaxSimilarities` | `3` |
 | `ContextSizeLimit` | `8000` |
+
+### HTTPS Support
+
+The Gateway Server Agent supports HTTPS for secure communication. When TLS certificates are provided, the server will automatically use HTTPS instead of HTTP.
+
+```go
+// Option 1: Using certificate files (recommended)
+gateway, err := gatewayserver.NewAgent(ctx,
+    gatewayserver.WithSingleAgent(chatAgent),
+    gatewayserver.WithPort(443),
+    gatewayserver.WithTLSCertFromFile("server.crt", "server.key"),
+)
+
+// Option 2: Using certificate data in memory
+certData, _ := os.ReadFile("server.crt")
+keyData, _ := os.ReadFile("server.key")
+
+gateway, err := gatewayserver.NewAgent(ctx,
+    gatewayserver.WithSingleAgent(chatAgent),
+    gatewayserver.WithPort(443),
+    gatewayserver.WithTLSCert(certData, keyData),
+)
+```
+
+**Important notes**:
+- HTTPS is **optional** - without TLS certificates, the server runs on HTTP (backward compatible)
+- For production, use certificates from a trusted CA (e.g., Let's Encrypt)
+- See `/samples/90-https-server-example` for a complete example
 
 ---
 

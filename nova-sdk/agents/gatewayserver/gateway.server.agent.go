@@ -2,6 +2,7 @@ package gatewayserver
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"sync"
@@ -63,6 +64,12 @@ type GatewayServerAgent struct {
 	// Server
 	port string
 	Mux  *http.ServeMux
+
+	// TLS/HTTPS configuration
+	tlsCertData []byte
+	tlsKeyData  []byte
+	tlsCertPath string
+	tlsKeyPath  string
 
 	// Stream control
 	stopStreamChan chan bool
@@ -149,6 +156,34 @@ func WithConfirmationPromptFn(fn func(string, string) tools.ConfirmationResponse
 	}
 }
 
+// WithTLSCert sets the TLS certificate and key data for HTTPS support.
+// When provided, the server will use HTTPS instead of HTTP.
+// certData and keyData should be PEM-encoded certificate and private key.
+func WithTLSCert(certData, keyData []byte) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		if len(certData) == 0 || len(keyData) == 0 {
+			return fmt.Errorf("TLS certificate and key data cannot be empty")
+		}
+		agent.tlsCertData = certData
+		agent.tlsKeyData = keyData
+		return nil
+	}
+}
+
+// WithTLSCertFromFile sets the TLS certificate and key file paths for HTTPS support.
+// When provided, the server will use HTTPS instead of HTTP.
+// certPath and keyPath should point to PEM-encoded certificate and private key files.
+func WithTLSCertFromFile(certPath, keyPath string) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		if certPath == "" || keyPath == "" {
+			return fmt.Errorf("TLS certificate and key file paths cannot be empty")
+		}
+		agent.tlsCertPath = certPath
+		agent.tlsKeyPath = keyPath
+		return nil
+	}
+}
+
 // WithRagAgent attaches a RAG agent for document retrieval.
 func WithRagAgent(ragAgent *rag.Agent) GatewayServerAgentOption {
 	return func(agent *GatewayServerAgent) error {
@@ -228,6 +263,8 @@ func AfterCompletion(fn func(*GatewayServerAgent)) GatewayServerAgentOption {
 //   - WithToolMode(mode) - Sets tool execution mode (default: ToolModePassthrough)
 //   - WithExecuteFn(fn) - Sets the tool executor (for ToolModeAutoExecute)
 //   - WithConfirmationPromptFn(fn) - Sets tool confirmation prompt
+//   - WithTLSCert(certData, keyData) - Enables HTTPS with PEM-encoded certificate and key data
+//   - WithTLSCertFromFile(certPath, keyPath) - Enables HTTPS with certificate and key files
 //   - WithRagAgent(ragAgent) - Attaches a RAG agent
 //   - WithRagAgentAndSimilarityConfig(ragAgent, limit, max) - RAG with similarity config
 //   - WithCompressorAgent(compressorAgent) - Attaches a compressor agent
@@ -292,6 +329,32 @@ func (agent *GatewayServerAgent) StartServer() error {
 	// Apply CORS middleware
 	handler := corsMiddleware(mux)
 
+	// Check if TLS is configured
+	if len(agent.tlsCertData) > 0 && len(agent.tlsKeyData) > 0 {
+		// HTTPS mode with certificate data in memory
+		cert, err := tls.X509KeyPair(agent.tlsCertData, agent.tlsKeyData)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificate: %w", err)
+		}
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
+		server := &http.Server{
+			Addr:      agent.port,
+			Handler:   handler,
+			TLSConfig: tlsConfig,
+		}
+		agent.log.Info("🔒 Gateway server started on https://localhost%s", agent.port)
+		agent.log.Info("📡 OpenAI-compatible endpoint: POST /v1/chat/completions")
+		return server.ListenAndServeTLS("", "")
+	} else if agent.tlsCertPath != "" && agent.tlsKeyPath != "" {
+		// HTTPS mode with certificate files
+		agent.log.Info("🔒 Gateway server started on https://localhost%s", agent.port)
+		agent.log.Info("📡 OpenAI-compatible endpoint: POST /v1/chat/completions")
+		return http.ListenAndServeTLS(agent.port, agent.tlsCertPath, agent.tlsKeyPath, handler)
+	}
+
+	// Default HTTP mode (backward compatible)
 	agent.log.Info("🚀 Gateway server started on http://localhost%s", agent.port)
 	agent.log.Info("📡 OpenAI-compatible endpoint: POST /v1/chat/completions")
 	return http.ListenAndServe(agent.port, handler)

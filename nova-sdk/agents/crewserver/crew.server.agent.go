@@ -2,6 +2,7 @@ package crewserver
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -45,6 +46,12 @@ type CrewServerAgent struct {
 	similarityLimitConfig  float64
 	maxSimilaritiesConfig  int
 	contextSizeLimitConfig int
+
+	// TLS/HTTPS configuration
+	tlsCertData []byte
+	tlsKeyData  []byte
+	tlsCertPath string
+	tlsKeyPath  string
 
 	// Confirmation prompt function config (for tool call confirmation)
 	confirmationPromptFnConfig func(string, string) tools.ConfirmationResponse
@@ -177,6 +184,34 @@ func WithConfirmationPromptFn(fn func(string, string) tools.ConfirmationResponse
 	}
 }
 
+// WithTLSCert sets the TLS certificate and key data for HTTPS support.
+// When provided, the server will use HTTPS instead of HTTP.
+// certData and keyData should be PEM-encoded certificate and private key.
+func WithTLSCert(certData, keyData []byte) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		if len(certData) == 0 || len(keyData) == 0 {
+			return fmt.Errorf("TLS certificate and key data cannot be empty")
+		}
+		agent.tlsCertData = certData
+		agent.tlsKeyData = keyData
+		return nil
+	}
+}
+
+// WithTLSCertFromFile sets the TLS certificate and key file paths for HTTPS support.
+// When provided, the server will use HTTPS instead of HTTP.
+// certPath and keyPath should point to PEM-encoded certificate and private key files.
+func WithTLSCertFromFile(certPath, keyPath string) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		if certPath == "" || keyPath == "" {
+			return fmt.Errorf("TLS certificate and key file paths cannot be empty")
+		}
+		agent.tlsCertPath = certPath
+		agent.tlsKeyPath = keyPath
+		return nil
+	}
+}
+
 // WithOrchestratorAgent sets the orchestrator agent for routing/topic detection
 func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) CrewServerAgentOption {
 	return func(agent *CrewServerAgent) error {
@@ -215,6 +250,8 @@ func AfterCompletion(fn func(*CrewServerAgent)) CrewServerAgentOption {
 //   - WithRagAgent(ragAgent) - Attaches a RAG agent for document retrieval
 //   - WithRagAgentAndSimilarityConfig(ragAgent, similarityLimit, maxSimilarities) - Attaches a RAG agent and configures similarity settings
 //   - WithConfirmationPromptFn(fn) - Sets a custom confirmation prompt function for tool call confirmation
+//   - WithTLSCert(certData, keyData) - Enables HTTPS with PEM-encoded certificate and key data
+//   - WithTLSCertFromFile(certPath, keyPath) - Enables HTTPS with certificate and key files
 //   - WithOrchestratorAgent(orchestratorAgent) - Attaches an orchestrator agent for routing/topic detection
 //   - BeforeCompletion(fn) - Sets a hook called before each handleCompletion call
 //   - AfterCompletion(fn) - Sets a hook called after each handleCompletion call
@@ -480,6 +517,30 @@ func (agent *CrewServerAgent) StartServer() error {
 	// Apply CORS middleware
 	handler := corsMiddleware(mux)
 
+	// Check if TLS is configured
+	if len(agent.tlsCertData) > 0 && len(agent.tlsKeyData) > 0 {
+		// HTTPS mode with certificate data in memory
+		cert, err := tls.X509KeyPair(agent.tlsCertData, agent.tlsKeyData)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificate: %w", err)
+		}
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
+		server := &http.Server{
+			Addr:      agent.Port,
+			Handler:   handler,
+			TLSConfig: tlsConfig,
+		}
+		agent.Log.Info("🔒 Server started on https://localhost%s", agent.Port)
+		return server.ListenAndServeTLS("", "")
+	} else if agent.tlsCertPath != "" && agent.tlsKeyPath != "" {
+		// HTTPS mode with certificate files
+		agent.Log.Info("🔒 Server started on https://localhost%s", agent.Port)
+		return http.ListenAndServeTLS(agent.Port, agent.tlsCertPath, agent.tlsKeyPath, handler)
+	}
+
+	// Default HTTP mode (backward compatible)
 	agent.Log.Info("🚀 Server started on http://localhost%s", agent.Port)
 	return http.ListenAndServe(agent.Port, handler)
 }

@@ -148,6 +148,8 @@ crewServerAgent, err := crewserver.NewAgent(ctx,
 | `WithMatchAgentIdToTopicFn(fn)` | Définit la fonction de correspondance entre sujets détectés et IDs d'agents. |
 | `WithExecuteFn(fn)` | Définit la fonction d'exécution pour les appels de fonctions. |
 | `WithConfirmationPromptFn(fn)` | Définit une fonction de confirmation personnalisée pour les appels de fonctions (remplace la confirmation web). |
+| `WithTLSCert(certData, keyData []byte)` | Active HTTPS avec des données de certificat et clé PEM en mémoire. |
+| `WithTLSCertFromFile(certPath, keyPath string)` | Active HTTPS avec les chemins vers les fichiers de certificat et clé. |
 | `WithToolsAgent(toolsAgent)` | Attache un agent d'outils pour les appels de fonctions. |
 | `WithCompressorAgent(compressorAgent)` | Attache un agent de compression pour la compression du contexte. |
 | `WithCompressorAgentAndContextSize(compressorAgent, limit)` | Attache un compresseur avec une limite de taille du contexte. |
@@ -165,6 +167,34 @@ crewServerAgent, err := crewserver.NewAgent(ctx,
 | `SimilarityLimit` | `0.6` (hérité de `BaseServerAgent`) |
 | `MaxSimilarities` | `3` (hérité de `BaseServerAgent`) |
 | `ContextSizeLimit` | `8000` (hérité de `BaseServerAgent`) |
+
+### Support HTTPS
+
+Le Crew Server Agent supporte HTTPS pour une communication sécurisée. Lorsque des certificats TLS sont fournis, le serveur utilisera automatiquement HTTPS au lieu de HTTP.
+
+```go
+// Option 1 : Utiliser des fichiers de certificats (recommandé)
+crewServerAgent, err := crewserver.NewAgent(ctx,
+    crewserver.WithAgentCrew(agentCrew, "generic"),
+    crewserver.WithPort(443),
+    crewserver.WithTLSCertFromFile("server.crt", "server.key"),
+)
+
+// Option 2 : Utiliser des données de certificat en mémoire
+certData, _ := os.ReadFile("server.crt")
+keyData, _ := os.ReadFile("server.key")
+
+crewServerAgent, err := crewserver.NewAgent(ctx,
+    crewserver.WithAgentCrew(agentCrew, "generic"),
+    crewserver.WithPort(443),
+    crewserver.WithTLSCert(certData, keyData),
+)
+```
+
+**Notes importantes** :
+- HTTPS est **optionnel** - sans certificats TLS, le serveur fonctionne en HTTP (rétrocompatible)
+- Pour la production, utilisez des certificats d'une autorité de certification de confiance (ex : Let's Encrypt)
+- Voir `/samples/90-https-server-example` pour un exemple complet
 
 ---
 

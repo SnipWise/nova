@@ -127,6 +127,8 @@ agent, err := server.NewAgent(ctx, agentConfig, modelConfig,
 | `WithPort(port int)` | Définit le port HTTP du serveur (défaut : 8080). |
 | `WithExecuteFn(fn)` | Définit la fonction d'exécution des outils. |
 | `WithConfirmationPromptFn(fn)` | Définit la fonction de confirmation pour le human-in-the-loop. |
+| `WithTLSCert(certData, keyData []byte)` | Active HTTPS avec des données de certificat et clé PEM en mémoire. |
+| `WithTLSCertFromFile(certPath, keyPath string)` | Active HTTPS avec les chemins vers les fichiers de certificat et clé. |
 | `WithToolsAgent(toolsAgent)` | Attache un agent d'outils pour les appels de fonctions. |
 | `WithCompressorAgent(compressorAgent)` | Attache un agent compresseur pour la compression du contexte. |
 | `WithCompressorAgentAndContextSize(compressorAgent, limit)` | Attache un agent compresseur avec une limite de taille de contexte. |
@@ -134,6 +136,37 @@ agent, err := server.NewAgent(ctx, agentConfig, modelConfig,
 | `WithRagAgentAndSimilarityConfig(ragAgent, limit, max)` | Attache un agent RAG avec configuration de similarité. |
 | `BeforeCompletion(fn)` | Définit un hook appelé avant chaque complétion. |
 | `AfterCompletion(fn)` | Définit un hook appelé après chaque complétion. |
+
+### Support HTTPS
+
+Le Server Agent supporte HTTPS pour une communication sécurisée. Lorsque des certificats TLS sont fournis, le serveur utilisera automatiquement HTTPS au lieu de HTTP.
+
+**Option 1 : Utiliser des fichiers de certificats** (recommandé pour la production) :
+
+```go
+agent, err := server.NewAgent(ctx, agentConfig, modelConfig,
+    server.WithPort(443),
+    server.WithTLSCertFromFile("server.crt", "server.key"),
+)
+```
+
+**Option 2 : Utiliser des données de certificat en mémoire** :
+
+```go
+certData, _ := os.ReadFile("server.crt")
+keyData, _ := os.ReadFile("server.key")
+
+agent, err := server.NewAgent(ctx, agentConfig, modelConfig,
+    server.WithPort(443),
+    server.WithTLSCert(certData, keyData),
+)
+```
+
+**Notes importantes** :
+- HTTPS est **optionnel** - sans certificats TLS, le serveur fonctionne en HTTP (rétrocompatible)
+- Pour la production, utilisez des certificats d'une autorité de certification de confiance (ex : Let's Encrypt)
+- Pour le développement/test, vous pouvez utiliser des certificats auto-signés
+- Voir `/samples/90-https-server-example` pour un exemple complet
 
 ---
 

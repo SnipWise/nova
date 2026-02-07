@@ -127,6 +127,8 @@ agent, err := server.NewAgent(ctx, agentConfig, modelConfig,
 | `WithPort(port int)` | Sets the HTTP server port (default: 8080). |
 | `WithExecuteFn(fn)` | Sets the function executor for tool calls. |
 | `WithConfirmationPromptFn(fn)` | Sets the confirmation prompt for human-in-the-loop. |
+| `WithTLSCert(certData, keyData []byte)` | Enables HTTPS with PEM-encoded certificate and key data in memory. |
+| `WithTLSCertFromFile(certPath, keyPath string)` | Enables HTTPS with certificate and key file paths. |
 | `WithToolsAgent(toolsAgent)` | Attaches a tools agent for function calling. |
 | `WithCompressorAgent(compressorAgent)` | Attaches a compressor agent for context compression. |
 | `WithCompressorAgentAndContextSize(compressorAgent, limit)` | Attaches a compressor agent with a context size limit. |
@@ -134,6 +136,37 @@ agent, err := server.NewAgent(ctx, agentConfig, modelConfig,
 | `WithRagAgentAndSimilarityConfig(ragAgent, limit, max)` | Attaches a RAG agent with similarity configuration. |
 | `BeforeCompletion(fn)` | Sets a hook called before each completion. |
 | `AfterCompletion(fn)` | Sets a hook called after each completion. |
+
+### HTTPS Support
+
+The Server Agent supports HTTPS for secure communication. When TLS certificates are provided, the server will automatically use HTTPS instead of HTTP.
+
+**Option 1: Using certificate files** (recommended for production):
+
+```go
+agent, err := server.NewAgent(ctx, agentConfig, modelConfig,
+    server.WithPort(443),
+    server.WithTLSCertFromFile("server.crt", "server.key"),
+)
+```
+
+**Option 2: Using certificate data in memory**:
+
+```go
+certData, _ := os.ReadFile("server.crt")
+keyData, _ := os.ReadFile("server.key")
+
+agent, err := server.NewAgent(ctx, agentConfig, modelConfig,
+    server.WithPort(443),
+    server.WithTLSCert(certData, keyData),
+)
+```
+
+**Important notes**:
+- HTTPS is **optional** - without TLS certificates, the server runs on HTTP (backward compatible)
+- For production, use certificates from a trusted CA (e.g., Let's Encrypt)
+- For development/testing, you can use self-signed certificates
+- See `/samples/90-https-server-example` for a complete example
 
 ---
 
