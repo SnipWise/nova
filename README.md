@@ -49,6 +49,7 @@ Nova ships with pre-built AI agents that you can compose to create new ones:
 - **Orchestrator Agent**: Specialized agent for topic detection and query routing.
 - **Crew Agent**: Multi-agent collaboration framework for complex tasks.
 - **Server Agent**: HTTP/REST API server agent with SSE streaming, tool calling, RAG, and context compression.
+- **Gateway Server Agent**: OpenAI-compatible HTTP gateway that exposes a crew of N.O.V.A. agents through the standard OpenAI Chat Completions API, supporting both passthrough and auto-execute tool modes.
 - **Remote Agent**: Client agent that connects to a Server Agent for distributed AI applications.
 - **Crew Agent Server**: Multi-agent server for collaborative AI tasks over HTTP.
 

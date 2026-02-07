@@ -101,6 +101,8 @@ func main() {
 	// manages tools and their execution.
 	// The gateway simply forwards tool calls and results between
 	// the client and the LLM backend.
+	// ✋ **Important**: you need an agent (in the agents list) with a LLM with tool support
+	// then the orchestrator will select that agent when the conversation involves tools, and the gateway will forward tool calls to the client.
 
 	// ------------------------------------------------
 	// Create the orchestrator agent
