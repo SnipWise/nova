@@ -13,7 +13,6 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/orchestrator"
 	"github.com/snipwise/nova/nova-sdk/models"
 	"github.com/snipwise/nova/nova-sdk/toolbox/env"
-	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
 func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
@@ -115,7 +114,7 @@ func main() {
 			Name:        orchestratorModelID,
 			Temperature: models.Float64(0.0),
 		},
-		orchestrator.BeforeCompletion(func(agent *orchestrator.Agent){
+		orchestrator.BeforeCompletion(func(agent *orchestrator.Agent) {
 			fmt.Println("🔶 Orchestrator processing request...")
 		}),
 	)
@@ -165,21 +164,21 @@ func main() {
 
 		gatewayserver.BeforeCompletion(func(agent *gatewayserver.GatewayServerAgent) {
 			fmt.Printf("📥 Request received (current agent: %s)\n", agent.GetSelectedAgentId())
-			messsagesFromCli := agent.GetMessages()
-			for _, msg := range messsagesFromCli {
-				var color string
-				switch msg.Role {
-				case "system":
-					color = display.ColorRed
-				case "user":
-					color = display.ColorGreen
-				case "assistant":
-					color = display.ColorMagenta
-				default:
-					color = display.ColorBrightYellow
-				}
-				display.Styledln(fmt.Sprintf("   - %s: %s", msg.Role, msg.Content), color)
-			}
+			// messsagesFromCli := agent.GetMessages()
+			// for _, msg := range messsagesFromCli {
+			// 	var color string
+			// 	switch msg.Role {
+			// 	case "system":
+			// 		color = display.ColorRed
+			// 	case "user":
+			// 		color = display.ColorGreen
+			// 	case "assistant":
+			// 		color = display.ColorMagenta
+			// 	default:
+			// 		color = display.ColorBrightYellow
+			// 	}
+			// 	display.Styledln(fmt.Sprintf("   - %s: %s", msg.Role, msg.Content), color)
+			// }
 		}),
 		gatewayserver.AfterCompletion(func(agent *gatewayserver.GatewayServerAgent) {
 			fmt.Printf("📤 Response sent (agent used: %s)\n", agent.GetSelectedAgentId())

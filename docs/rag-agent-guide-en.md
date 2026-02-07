@@ -10,12 +10,13 @@
 6. [Saving Embeddings](#6-saving-embeddings)
 7. [Searching for Similar Content](#7-searching-for-similar-content)
 8. [Store Persistence](#8-store-persistence)
-9. [Chunking Utilities](#9-chunking-utilities)
-10. [Options: AgentOption and RagAgentOption](#10-options-agentoption-and-ragagentoption)
-11. [Lifecycle Hooks (RagAgentOption)](#11-lifecycle-hooks-ragagentoption)
-12. [Context and State Management](#12-context-and-state-management)
-13. [JSON Export and Debugging](#13-json-export-and-debugging)
-14. [API Reference](#14-api-reference)
+9. [Redis Vector Store](#9-redis-vector-store)
+10. [Chunking Utilities](#10-chunking-utilities)
+11. [Options: AgentOption and RagAgentOption](#11-options-agentoption-and-ragagentoption)
+12. [Lifecycle Hooks (RagAgentOption)](#12-lifecycle-hooks-ragagentoption)
+13. [Context and State Management](#13-context-and-state-management)
+14. [JSON Export and Debugging](#14-json-export-and-debugging)
+15. [API Reference](#15-api-reference)
 
 ---
 
@@ -44,9 +45,10 @@ Unlike chat or structured agents that use the Chat Completions API, the RAG agen
 
 - **Embedding generation**: Convert text content into vector embeddings using any OpenAI-compatible embedding model.
 - **In-memory vector store**: Save and manage embeddings with automatic ID generation.
+- **Redis vector store**: Use Redis as a persistent backend with HNSW indexing for ultra-fast and scalable search.
 - **Similarity search**: Find semantically similar content using cosine similarity with configurable thresholds.
 - **Top-N search**: Retrieve the top N most similar results above a threshold.
-- **Store persistence**: Save and load the vector store to/from JSON files.
+- **Store persistence**: Save and load the vector store to/from JSON files (Memory) or Redis.
 - **Chunking utilities**: Built-in text chunking helpers for splitting documents before embedding.
 - **Lifecycle hooks**: Execute custom logic before and after each embedding generation.
 
@@ -315,7 +317,275 @@ if agent.StoreFileExists(storeFile) {
 
 ---
 
-## 9. Chunking Utilities
+## 9. Redis Vector Store
+
+### Introduction: Redis vs In-Memory
+
+By default, the RAG Agent uses an **in-memory vector store** that stores embeddings in RAM. This is perfect for prototyping and small datasets, but the data is lost when the application restarts.
+
+The **Redis Vector Store** offers a persistent and scalable alternative:
+- 💾 **Persistence**: Data survives restarts
+- 🔄 **Sharing**: Multiple applications can access the same data
+- 📈 **Scalability**: Support for millions of vectors
+- ⚡ **Performance**: HNSW indexing for ultra-fast search
+
+### When to use Redis vs In-Memory
+
+| Criterion | In-Memory | Redis |
+|-----------|-----------|-------|
+| **Persistence** | ❌ Lost on restart | ✅ Survives restarts |
+| **Multi-process sharing** | ❌ Single process | ✅ Multiple applications |
+| **Scalability** | Limited by RAM | Millions of vectors |
+| **Speed** | Very fast | Very fast (HNSW) |
+| **Setup** | None needed | Requires Redis |
+| **Use case** | Prototyping, small datasets | Production, large datasets |
+
+### Redis Configuration
+
+To use Redis as a backend, you need to configure the connection via `RedisConfig`:
+
+```go
+type RedisConfig struct {
+    Address   string // Redis server address (e.g., "localhost:6379")
+    Password  string // Redis password (empty string for no password)
+    DB        int    // Redis database number (default: 0)
+    IndexName string // Redis search index name (default: "nova_rag_index")
+}
+```
+
+### Using WithRedisStore
+
+To create a RAG agent with Redis as the backend, use the `WithRedisStore` option:
+
+```go
+import (
+    "context"
+    "github.com/snipwise/nova/nova-sdk/agents"
+    "github.com/snipwise/nova/nova-sdk/agents/rag"
+    "github.com/snipwise/nova/nova-sdk/agents/rag/stores"
+    "github.com/snipwise/nova/nova-sdk/models"
+)
+
+ctx := context.Background()
+
+agent, err := rag.NewAgent(
+    ctx,
+    agents.Config{
+        EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+    },
+    models.Config{
+        Name: "ai/mxbai-embed-large", // 1024 dimensions
+    },
+    // Redis option
+    rag.WithRedisStore(stores.RedisConfig{
+        Address:   "localhost:6379",
+        Password:  "",                    // Empty if no password
+        DB:        0,                     // Default database
+        IndexName: "my_knowledge_base",   // Custom index name
+    }, 1024), // ⚠️ Dimension MUST match embedding model
+)
+if err != nil {
+    panic(err)
+}
+
+// Usage is identical to in-memory store
+agent.SaveEmbedding("James T Kirk is the captain of the USS Enterprise.")
+agent.SaveEmbedding("Spock is the science officer.")
+
+// Search
+results, _ := agent.SearchSimilar("Who is the captain?", 0.5)
+```
+
+### ⚠️ Important: Embedding Dimension
+
+The `dimension` parameter in `WithRedisStore` **MUST** match the dimension of vectors produced by your embedding model:
+
+| Model | Dimension |
+|-------|-----------|
+| `ai/mxbai-embed-large` | 1024 |
+| `text-embedding-3-small` | 1536 |
+| `text-embedding-3-large` | 3072 |
+| `text-embedding-ada-002` | 1536 |
+
+You can verify the dimension with:
+```go
+dimension := agent.GetEmbeddingDimension()
+fmt.Printf("Dimension: %d\n", dimension)
+```
+
+### Complete Example
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/snipwise/nova/nova-sdk/agents"
+    "github.com/snipwise/nova/nova-sdk/agents/rag"
+    "github.com/snipwise/nova/nova-sdk/agents/rag/stores"
+    "github.com/snipwise/nova/nova-sdk/models"
+)
+
+func main() {
+    ctx := context.Background()
+
+    // Create agent with Redis
+    agent, err := rag.NewAgent(
+        ctx,
+        agents.Config{
+            EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+        },
+        models.Config{
+            Name: "ai/mxbai-embed-large",
+        },
+        rag.WithRedisStore(stores.RedisConfig{
+            Address:   "localhost:6379",
+            Password:  "",
+            DB:        0,
+            IndexName: "star_trek_knowledge",
+        }, 1024),
+    )
+    if err != nil {
+        panic(err)
+    }
+
+    // Save documents
+    documents := []string{
+        "James T Kirk is the captain of the Enterprise.",
+        "Spock is a half-Vulcan science officer.",
+        "Leonard McCoy is the chief medical officer.",
+        "Montgomery Scott is the chief engineer.",
+    }
+
+    for _, doc := range documents {
+        err := agent.SaveEmbedding(doc)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+        }
+    }
+
+    // Search
+    results, err := agent.SearchSimilar("Who is the doctor?", 0.5)
+    if err != nil {
+        panic(err)
+    }
+
+    for _, r := range results {
+        fmt.Printf("Result: %s (similarity: %.4f)\n", r.Prompt, r.Similarity)
+    }
+}
+```
+
+### Prerequisites: Starting Redis
+
+Redis must be running with vector search support (Redis Stack or RediSearch module):
+
+```bash
+# With Docker
+docker run -d \
+  --name redis-vector-store \
+  -p 6379:6379 \
+  redis/redis-stack-server:latest
+
+# Verify Redis is running
+docker exec -it redis-vector-store redis-cli ping
+# Should return: PONG
+```
+
+### Inspecting Data in Redis
+
+You can inspect stored data using Redis CLI:
+
+```bash
+# Access Redis CLI
+docker exec -it redis-vector-store redis-cli
+
+# List all indexes
+FT._LIST
+
+# View index details
+FT.INFO my_knowledge_base
+
+# List all document keys
+KEYS doc:*
+
+# View a specific document
+HGETALL doc:<uuid>
+
+# Count documents
+DBSIZE
+```
+
+### Persistence and Restarts
+
+The main advantage of Redis is **automatic persistence**:
+
+```bash
+# First run - save data
+go run main.go
+
+# Stop the program (Ctrl+C)
+
+# Rerun - data is still there!
+go run main.go
+# Previously saved embeddings are accessible
+```
+
+To start fresh:
+```bash
+# Delete index and all data
+docker exec -it redis-vector-store redis-cli
+FT.DROPINDEX my_knowledge_base DD  # DD = delete documents
+```
+
+### Troubleshooting
+
+#### Redis Connection Error
+
+```
+❌ Failed to create RAG agent: failed to connect to Redis: dial tcp [::1]:6379: connect: connection refused
+```
+
+**Solution**: Start Redis with the Docker command above.
+
+#### Dimension Mismatch
+
+```
+Error: vector dimension mismatch
+```
+
+**Solution**: Verify the `dimension` parameter in `WithRedisStore` matches your model:
+```go
+dimension := agent.GetEmbeddingDimension()
+fmt.Printf("Model dimension: %d\n", dimension)
+```
+
+#### Index Already Exists
+
+Redis reuses existing indexes. To create a fresh index:
+```bash
+docker exec -it redis-vector-store redis-cli
+FT.DROPINDEX my_knowledge_base DD
+```
+
+### Performance and Scalability
+
+The Redis Vector Store uses the **HNSW algorithm** (Hierarchical Navigable Small World) for ultra-fast similarity search:
+
+- ⚡ Constant time search O(log n)
+- 📊 Support for millions of vectors
+- 🎯 High precision with cosine similarity
+- 🔄 Real-time updates
+
+**Recommendations:**
+- Use Redis for datasets > 10,000 documents
+- Index in batches for better performance
+- Configure Redis persistence (RDB or AOF) according to your needs
+
+---
+
+## 10. Chunking Utilities
 
 The `chunks` subpackage provides utilities for splitting documents before embedding.
 
@@ -345,7 +615,7 @@ for _, section := range sections {
 
 ---
 
-## 10. Options: AgentOption and RagAgentOption
+## 11. Options: AgentOption and RagAgentOption
 
 The RAG agent supports two distinct option types, both passed as variadic `...any` arguments to `NewAgent`:
 
@@ -359,11 +629,12 @@ The RAG agent supports two distinct option types, both passed as variadic `...an
 
 ### RagAgentOption (agent-level)
 
-`RagAgentOption` operates on the high-level `*Agent` and configures lifecycle hooks:
+`RagAgentOption` operates on the high-level `*Agent` and configures lifecycle hooks and storage backend:
 
 ```go
 rag.BeforeCompletion(func(a *rag.Agent) { ... })
 rag.AfterCompletion(func(a *rag.Agent) { ... })
+rag.WithRedisStore(stores.RedisConfig{...}, dimension)
 ```
 
 ### Mixing both option types
@@ -382,12 +653,19 @@ agent, err := rag.NewAgent(
     rag.AfterCompletion(func(a *rag.Agent) {
         fmt.Println("After embedding generation...")
     }),
+    // Use Redis as backend (optional)
+    rag.WithRedisStore(stores.RedisConfig{
+        Address:   "localhost:6379",
+        Password:  "",
+        DB:        0,
+        IndexName: "my_index",
+    }, 1024),
 )
 ```
 
 ---
 
-## 11. Lifecycle Hooks (RagAgentOption)
+## 12. Lifecycle Hooks (RagAgentOption)
 
 Lifecycle hooks allow you to execute custom logic before and after each embedding generation via the `GenerateEmbedding` method. They are configured as functional options when creating the agent.
 
@@ -464,7 +742,7 @@ If no hooks are provided, the agent behaves exactly as before. The `...any` para
 
 ---
 
-## 12. Context and State Management
+## 13. Context and State Management
 
 ### Getting and setting context
 
@@ -495,7 +773,7 @@ agent.GetModelID() // Returns the model name from model config
 
 ---
 
-## 13. JSON Export and Debugging
+## 14. JSON Export and Debugging
 
 ### Raw request/response JSON
 
@@ -511,7 +789,7 @@ prettyResp, err := agent.GetLastResponseJSON()
 
 ---
 
-## 14. API Reference
+## 15. API Reference
 
 ### Constructor
 
@@ -545,6 +823,14 @@ type RagAgentOption func(*Agent)
 
 // AgentOption configures the internal BaseAgent
 type AgentOption func(*BaseAgent)
+
+// RedisConfig configures the Redis connection for the vector store
+type RedisConfig struct {
+    Address   string // Redis server address (e.g., "localhost:6379")
+    Password  string // Redis password (empty string for no password)
+    DB        int    // Redis database number (default: 0)
+    IndexName string // Redis search index name (default: "nova_rag_index")
+}
 ```
 
 ---
@@ -555,6 +841,7 @@ type AgentOption func(*BaseAgent)
 |---|---|---|
 | `BeforeCompletion(fn func(*Agent))` | `RagAgentOption` | Sets a hook called before each embedding generation in `GenerateEmbedding`. |
 | `AfterCompletion(fn func(*Agent))` | `RagAgentOption` | Sets a hook called after each embedding generation in `GenerateEmbedding`. |
+| `WithRedisStore(config RedisConfig, dimension int)` | `RagAgentOption` | Configures Redis as the vector store backend instead of in-memory store. The `dimension` parameter must match the embedding model's dimension. |
 
 ---
 

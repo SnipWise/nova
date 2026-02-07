@@ -19,7 +19,7 @@ type BaseAgent struct {
 	openaiClient    openai.Client
 	log             logger.Logger
 
-	store stores.MemoryVectorStore
+	store stores.VectorStore
 
 	lastRequestJSON  string
 	lastResponseJSON string
@@ -50,9 +50,14 @@ func NewBaseAgent(
 		openaiClient:    client,
 		log:             log,
 
-		store: stores.MemoryVectorStore{
+		store: &stores.MemoryVectorStore{
 			Records: make(map[string]stores.VectorRecord),
 		},
+	}
+
+	// Apply options (which may override the default store)
+	for _, opt := range options {
+		opt(ragAgent)
 	}
 
 	return ragAgent, nil
@@ -213,4 +218,49 @@ func (agent *BaseAgent) GetContext() context.Context {
 // SetContext updates the agent's context
 func (agent *BaseAgent) SetContext(ctx context.Context) {
 	agent.ctx = ctx
+}
+
+// === Store Configuration Options ===
+
+// WithInMemoryStore configures the agent to use in-memory vector storage
+// This is the default behavior, so this option is only needed if you want to be explicit
+func WithInMemoryStore() AgentOption {
+	return func(agent *BaseAgent) {
+		agent.store = &stores.MemoryVectorStore{
+			Records: make(map[string]stores.VectorRecord),
+		}
+	}
+}
+
+// WithRedisStore configures the agent to use Redis as the vector storage backend
+// Parameters:
+//   - config: Redis connection configuration (address, password, DB, index name)
+//   - dimension: the dimension of embedding vectors (must match your embedding model)
+//
+// Example:
+//
+//	ragAgent, err := rag.NewBaseAgent(
+//	    ctx,
+//	    agents.Config{EngineURL: "http://localhost:12434/engines/llama.cpp/v1"},
+//	    openai.EmbeddingNewParams{Model: "ai/mxbai-embed-large"},
+//	    rag.WithRedisStore(stores.RedisConfig{
+//	        Address:   "localhost:6379",
+//	        Password:  "",
+//	        DB:        0,
+//	        IndexName: "my_rag_index",
+//	    }, 1024),
+//	)
+func WithRedisStore(config stores.RedisConfig, dimension int) AgentOption {
+	return func(agent *BaseAgent) {
+		redisStore, err := stores.NewRedisVectorStore(agent.ctx, config, dimension)
+		if err != nil {
+			agent.log.Error("Failed to create Redis vector store: %v", err)
+			// Fall back to in-memory store
+			agent.store = &stores.MemoryVectorStore{
+				Records: make(map[string]stores.VectorRecord),
+			}
+			return
+		}
+		agent.store = redisStore
+	}
 }
