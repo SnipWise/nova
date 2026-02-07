@@ -469,6 +469,136 @@ gateway, _ := gatewayserver.NewAgent(ctx,
 
 ---
 
+## 7.3. Architecture Passthrough-First (Avancée)
+
+Ce pattern avancé garantit que toutes les requêtes d'outils sont toujours traitées par un agent capable de gérer les outils en premier, empêchant les erreurs avec les modèles qui ne supportent pas les outils.
+
+### Pourquoi Passthrough-First ?
+
+Lorsqu'on utilise des équipes multi-agents, certains agents peuvent utiliser des modèles qui ne supportent pas les appels de fonctions. Si un client (comme `pi`, `qwen-code`, ou `aider`) envoie une requête avec des outils à un tel agent, cela échouera. L'architecture passthrough-first résout ce problème en routant toutes les requêtes d'outils via un agent "passthrough" désigné qui utilise un modèle capable de gérer les outils.
+
+### Fonctionnement
+
+```
+Requête Client + tools[]
+    ↓
+🔀 AGENT PASSTHROUGH (toujours en premier)
+    ├─ Phase 1 : Détection rapide (non-streaming)
+    │  ├─ Détecte des tool_calls nécessaires ?
+    │  │  ├─ OUI → Phase 2 : Stream la réponse au client
+    │  │  └─ NON → Redirige vers l'agent approprié
+    ↓
+💬 Agent Sélectionné (coder/generic/etc.)
+    └─ Répond sans outils
+```
+
+### Configuration
+
+1. **Créer un agent passthrough** avec un modèle capable de gérer les outils :
+
+```go
+passthroughAgent, err := chat.NewAgent(ctx,
+    agents.Config{
+        Name:                    "passthrough",  // ← L'ID doit être "passthrough"
+        EngineURL:               engineURL,
+        SystemInstructions:      "Vous répondez de manière appropriée aux requêtes d'outils.",
+        KeepConversationHistory: true,
+    },
+    models.Config{
+        Name:        "hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m",  // ← Modèle supportant les outils
+        Temperature: models.Float64(0.0),
+    },
+)
+```
+
+2. **Ajouter à l'équipe** avec l'ID `"passthrough"` :
+
+```go
+agentCrew := map[string]*chat.Agent{
+    "coder":       coderAgent,
+    "generic":     genericAgent,
+    "passthrough": passthroughAgent,  // ← Doit avoir exactement cet ID
+}
+```
+
+3. **Créer la gateway** (aucune configuration supplémentaire nécessaire) :
+
+```go
+gateway, err := gatewayserver.NewAgent(ctx,
+    gatewayserver.WithAgentCrew(agentCrew, "generic"),
+    // ToolModePassthrough est le mode par défaut
+)
+```
+
+### Validation
+
+La gateway valide au démarrage qu'un agent `"passthrough"` existe lorsqu'elle est en mode `ToolModePassthrough` :
+
+```
+Erreur : le mode passthrough nécessite un agent avec l'ID 'passthrough' dans l'équipe.
+Veuillez ajouter un agent avec l'ID 'passthrough' qui supporte les appels de fonctions.
+```
+
+### Détection en Deux Phases
+
+**Phase 1 : Détection (Toujours Non-Streaming)**
+- Appel API rapide pour déterminer si des outils sont nécessaires
+- Analyse le `finish_reason` et les `tool_calls` dans la réponse
+- Coût : 1 appel API
+
+**Phase 2 : Réponse (Conditionnelle)**
+- Si `tool_calls` détectés + streaming demandé → Fait un appel streaming
+- Si `tool_calls` détectés + non-streaming → Utilise la réponse de détection
+- Si pas de `tool_calls` → Redirige vers l'agent approprié
+- Coût : 0-1 appel API supplémentaire
+
+### Exemple de Flux
+
+**Requête d'outil détectée :**
+```
+Client : "Quelle est la météo à Paris ?" + tools[]
+    ↓
+🔀 PASSTHROUGH : Phase 1 détecte des tool_calls nécessaires
+    ↓
+🔀 PASSTHROUGH : Phase 2 stream les tool_calls au client
+    ↓
+Client exécute get_weather() localement
+    ↓
+Réponse finale
+```
+
+**Pas de requête d'outil :**
+```
+Client : "Combien font 2+2 ?" + tools[]
+    ↓
+🔀 PASSTHROUGH : Phase 1 détecte AUCUN tool_calls nécessaire
+    ↓
+💬 GENERIC : Répond directement "4"
+```
+
+### Considération de Coût
+
+- **Meilleur cas** (pas d'outils nécessaires) : 1 appel API (détection seulement)
+- **Pire cas** (outils + streaming) : 2 appels API (détection + réponse streaming)
+- **Cas moyen** (outils + non-streaming) : 1 appel API (réponse de détection réutilisée)
+
+### Notes Importantes
+
+1. **L'ID de l'agent est critique** : L'agent doit avoir exactement l'ID `"passthrough"` pour que la validation fonctionne.
+2. **Modèle capable d'outils requis** : Utilisez des modèles comme Qwen2.5-Coder, GPT-4, Claude, ou similaires qui supportent les appels de fonctions.
+3. **Activation automatique** : Aucune configuration spéciale nécessaire au-delà de l'ajout de l'agent à l'équipe.
+4. **Support du streaming** : Supporte pleinement les clients streaming et non-streaming.
+
+### Exemple d'Implémentation
+
+Voir [samples/89-gateway-compose-cagent](../../samples/89-gateway-compose-cagent) pour un exemple complet fonctionnel avec :
+- Routage d'agents basé sur la configuration
+- Gestion passthrough-first des outils
+- Hooks BeforeCompletion pour le traçage
+- Script de test pour valider le comportement
+
+---
+
 ## 8. Routage intelligent (Orchestrateur)
 
 Lorsqu'un agent orchestrateur est attaché, la gateway peut automatiquement router les questions vers l'agent spécialisé le plus approprié.

@@ -76,6 +76,9 @@ func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
 			Name:        modelID,
 			Temperature: models.Float64(0.8),
 		},
+		chat.BeforeCompletion(func(agent *chat.Agent) {
+			display.Styledln("🔧 [CODER AGENT] Processing request...", display.ColorCyan)
+		}),
 	)
 }
 
@@ -93,6 +96,29 @@ func getGenericAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 			Name:        modelID,
 			Temperature: models.Float64(0.8),
 		},
+		chat.BeforeCompletion(func(agent *chat.Agent) {
+			display.Styledln("💬 [GENERIC AGENT] Processing request...", display.ColorGreen)
+		}),
+	)
+}
+
+func getToolPassthroughtAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
+	modelID := env.GetEnvOrDefault("PASSTHROUGHT_MODEL_ID", "hf.co/menlo/jan-nano-gguf:q4_k_m")
+	return chat.NewAgent(
+		ctx,
+		agents.Config{
+			Name:                    "passthrough",
+			EngineURL:               engineURL,
+			SystemInstructions:      "You respond appropriately to different types of questions. Always start with the most important information.",
+			KeepConversationHistory: true,
+		},
+		models.Config{
+			Name:        modelID,
+			Temperature: models.Float64(0.0),
+		},
+		chat.BeforeCompletion(func(agent *chat.Agent) {
+			display.Styledln("🔀 [PASSTHROUGH AGENT] Checking for tool calls...", display.ColorYellow)
+		}),
 	)
 }
 
@@ -118,9 +144,15 @@ func main() {
 		panic(err)
 	}
 
+	passthroughAgent, err := getToolPassthroughtAgent(ctx, engineURL)
+	if err != nil {
+		panic(err)
+	}
+
 	agentCrew := map[string]*chat.Agent{
 		"coder":   coderAgent,
 		"generic": genericAgent,
+		"passthrough": passthroughAgent,
 	}
 
 	// ------------------------------------------------

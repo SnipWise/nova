@@ -295,6 +295,14 @@ func NewAgent(ctx context.Context, options ...GatewayServerAgentOption) (*Gatewa
 		return nil, fmt.Errorf("agent crew must be set using WithAgentCrew or WithSingleAgent option")
 	}
 
+	// Validate that passthrough agent exists when in ToolModePassthrough
+	if agent.toolMode == ToolModePassthrough {
+		if _, exists := agent.chatAgents["passthrough"]; !exists {
+			return nil, fmt.Errorf("passthrough mode requires an agent with ID 'passthrough' in the crew. " +
+				"Please add an agent with ID 'passthrough' that supports tool calling to ensure proper tool request handling")
+		}
+	}
+
 	// Default matchAgentIdToTopicFn: return first available agent
 	if agent.matchAgentIdToTopicFn == nil {
 		agent.matchAgentIdToTopicFn = func(currentAgent, topic string) string {
