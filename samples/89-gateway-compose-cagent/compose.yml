@@ -16,6 +16,14 @@ services:
     ports:
       - 8080:8080
 
+    configs:
+      - source: orchestrator.instructions.md
+        target:
+          /app/orchestrator.instructions.md
+      - source: agent-routing.json
+        target:
+          /app/agent-routing.json
+
     environment:
       # Application configuration
       NOVA_LOG_LEVEL: INFO
@@ -38,33 +46,73 @@ services:
         endpoint_var: ENGINE_URL      # Environment variable for LLM endpoint
         model_var: COMPRESSOR_MODEL_ID  
 
-  bob-agent:
-    image: docker/cagent:1.20.4
-    environment:
-      OPENAI_API_KEY: none
-    configs:
-      - source: bob.yaml
-        target:
-          /app/bob.yaml
+  # bob-agent:
+  #   image: docker/cagent:1.20.4
+  #   environment:
+  #     OPENAI_API_KEY: none
+  #   configs:
+  #     - source: bob.yaml
+  #       target:
+  #         /app/bob.yaml
 
-    command: ["run", "/app/bob.yaml"]
+  #   command: ["run", "/app/bob.yaml"]
 
-    tty: true
-    stdin_open: true  
+  #   tty: true
+  #   stdin_open: true  
 
-    depends_on:
-      - agents-service
+  #   depends_on:
+  #     - agents-service
 
 configs:
-  bob.yaml:
+  orchestrator.instructions.md:
     content: |
-      #version: 1
-      agents:        
-        root:
-          model: openai/crew
-          instruction: You are a helpful coding assistant
-          provider:
-            base_url: http://agents-service:8080/v1
+      You role is to identify the topic of a conversation.
+      Possible topics: 
+      - Coding,
+      - Code,
+      - Software,
+      - Debugging,
+      - Computing, 
+      - Programming,
+      - Development,
+      - Technology,
+      - Tools,
+      - Read,
+      - Write,
+      - Command,
+      - Run,
+      - Bash
+      Respond in JSON with the field 'topic_discussion'.
+  agent-routing.json:
+    content: |
+      {
+        "routing": [
+          {
+            "topics": ["coding", "programming", "development", "code", "software", "debugging", "technology", "computing"],
+            "agent": "coder"
+          },
+          {
+            "topics": ["health", "science", "mathematics", "philosophy", "food", "education"],
+            "agent": "generic"
+          },
+          {
+            "topics": ["read", "list", "write", "command"],
+            "agent": "generic"
+          }
+        ],
+        "default_agent": "generic"
+      }
+
+
+  # bob.yaml:
+  #   content: |
+  #     #version: 1
+  #     agents:        
+  #       root:
+  #         model: openai/crew
+  #         instruction: You are a helpful coding assistant
+  #         provider:
+  #           base_url: http://agents-service:8080/v1
 
 models:
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -13,8 +14,53 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/orchestrator"
 	"github.com/snipwise/nova/nova-sdk/models"
 	"github.com/snipwise/nova/nova-sdk/toolbox/env"
+	"github.com/snipwise/nova/nova-sdk/toolbox/files"
 	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
+
+// AgentRoutingConfig represents the routing configuration
+type AgentRoutingConfig struct {
+	Routing []struct {
+		Topics []string `json:"topics"`
+		Agent  string   `json:"agent"`
+	} `json:"routing"`
+	DefaultAgent string `json:"default_agent"`
+}
+
+// loadRoutingConfig loads the agent routing configuration from a JSON file
+func loadRoutingConfig(filename string) (*AgentRoutingConfig, error) {
+	data, err := files.ReadTextFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read routing config: %w", err)
+	}
+
+	var config AgentRoutingConfig
+	if err := json.Unmarshal([]byte(data), &config); err != nil {
+		return nil, fmt.Errorf("failed to parse routing config: %w", err)
+	}
+
+	return &config, nil
+}
+
+// createMatchAgentFunction creates a routing function based on the configuration
+func createMatchAgentFunction(config *AgentRoutingConfig) func(string, string) string {
+	return func(currentAgentId, topic string) string {
+		fmt.Println("🔵 Matching agent for topic:", topic)
+		topicLower := strings.ToLower(topic)
+
+		// Search through routing rules
+		for _, rule := range config.Routing {
+			for _, configTopic := range rule.Topics {
+				if strings.ToLower(configTopic) == topicLower {
+					return rule.Agent
+				}
+			}
+		}
+
+		// Return default agent if no match found
+		return config.DefaultAgent
+	}
+}
 
 func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
 	modelID := env.GetEnvOrDefault("CODER_MODEL_ID", "hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m")
@@ -78,21 +124,14 @@ func main() {
 	}
 
 	// ------------------------------------------------
-	// Topic-to-agent routing function
+	// Load routing configuration and create routing function
 	// ------------------------------------------------
-	matchAgentFunction := func(currentAgentId, topic string) string {
-		fmt.Println("🔵 Matching agent for topic:", topic)
-		switch strings.ToLower(topic) {
-		case "coding", "programming", "development", "code", "software", "debugging", "technology", "computing":
-			return "coder"
-		// case "health", "science", "mathematics", "philosophy", "food", "education":
-		// 	return "generic"
-		// case "read", "list", "write", "command":
-		// 	return "generic"
-		default:
-			return "generic"
-		}
+	routingConfig, err := loadRoutingConfig("agent-routing.json")
+	if err != nil {
+		panic(err)
 	}
+
+	matchAgentFunction := createMatchAgentFunction(routingConfig)
 
 	// ------------------------------------------------
 	// Tools agent - Not needed in Passthrough mode
@@ -108,29 +147,16 @@ func main() {
 	// Create the orchestrator agent
 	// ------------------------------------------------
 	orchestratorModelID := env.GetEnvOrDefault("ORCHESTRATOR_MODEL_ID", "hf.co/menlo/lucy-gguf:q4_k_m")
+	orchestratorInstructions, err := files.ReadTextFile("orchestrator.instructions.md")
+	if err != nil {
+		panic(err)
+	}
 	orchestratorAgent, err := orchestrator.NewAgent(
 		ctx,
 		agents.Config{
 			Name:      "orchestrator-agent",
 			EngineURL: engineURL,
-			SystemInstructions: `You role is to identify the topic of a conversation.
-			Possible topics: 
-			    - Coding,
-				- Code,
-				- Software,
-				- Debugging,
-				- Computing, 
-				- Programming,
-				- Development,
-				- Technology,
-				- Tools,
-				- Read,
-				- Write,
-				- Command,
-				- Run,
-				- Bash,
-
-			Respond in JSON with the field 'topic_discussion'.`,
+			SystemInstructions: orchestratorInstructions,
 		},
 		models.Config{
 			Name:        orchestratorModelID,
