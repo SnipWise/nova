@@ -13,6 +13,7 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/orchestrator"
 	"github.com/snipwise/nova/nova-sdk/models"
 	"github.com/snipwise/nova/nova-sdk/toolbox/env"
+	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
 func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
@@ -82,8 +83,12 @@ func main() {
 	matchAgentFunction := func(currentAgentId, topic string) string {
 		fmt.Println("🔵 Matching agent for topic:", topic)
 		switch strings.ToLower(topic) {
-		case "coding", "programming", "development", "code", "software", "debugging", "technology":
+		case "coding", "programming", "development", "code", "software", "debugging", "technology", "computing":
 			return "coder"
+		// case "health", "science", "mathematics", "philosophy", "food", "education":
+		// 	return "generic"
+		// case "read", "list", "write", "command":
+		// 	return "generic"
 		default:
 			return "generic"
 		}
@@ -106,8 +111,23 @@ func main() {
 		agents.Config{
 			Name:      "orchestrator-agent",
 			EngineURL: engineURL,
-			SystemInstructions: `You identify the topic of a conversation in one word.
-			Possible topics: Computing, Programming, Technology, Health, Science, Mathematics, Philosophy, Food, Education.
+			SystemInstructions: `You role is to identify the topic of a conversation.
+			Possible topics: 
+			    - Coding,
+				- Code,
+				- Software,
+				- Debugging,
+				- Computing, 
+				- Programming,
+				- Development,
+				- Technology,
+				- Tools,
+				- Read,
+				- Write,
+				- Command,
+				- Run,
+				- Bash,
+
 			Respond in JSON with the field 'topic_discussion'.`,
 		},
 		models.Config{
@@ -164,21 +184,21 @@ func main() {
 
 		gatewayserver.BeforeCompletion(func(agent *gatewayserver.GatewayServerAgent) {
 			fmt.Printf("📥 Request received (current agent: %s)\n", agent.GetSelectedAgentId())
-			// messsagesFromCli := agent.GetMessages()
-			// for _, msg := range messsagesFromCli {
-			// 	var color string
-			// 	switch msg.Role {
-			// 	case "system":
-			// 		color = display.ColorRed
-			// 	case "user":
-			// 		color = display.ColorGreen
-			// 	case "assistant":
-			// 		color = display.ColorMagenta
-			// 	default:
-			// 		color = display.ColorBrightYellow
-			// 	}
-			// 	display.Styledln(fmt.Sprintf("   - %s: %s", msg.Role, msg.Content), color)
-			// }
+			messsagesFromCli := agent.GetMessages()
+			for _, msg := range messsagesFromCli {
+				var color string
+				switch msg.Role {
+				case "system":
+					color = display.ColorRed
+				case "user":
+					color = display.ColorGreen
+				case "assistant":
+					color = display.ColorMagenta
+				default:
+					color = display.ColorBrightYellow
+				}
+				display.Styledln(fmt.Sprintf("   - %s: %s", msg.Role, msg.Content), color)
+			}
 		}),
 		gatewayserver.AfterCompletion(func(agent *gatewayserver.GatewayServerAgent) {
 			fmt.Printf("📤 Response sent (agent used: %s)\n", agent.GetSelectedAgentId())
