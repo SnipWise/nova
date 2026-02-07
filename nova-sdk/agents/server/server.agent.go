@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -34,6 +35,12 @@ type ServerAgent struct {
 	similarityLimitConfig    float64
 	maxSimilaritiesConfig    int
 	contextSizeLimitConfig   int
+
+	// TLS/HTTPS configuration
+	tlsCertData []byte
+	tlsKeyData  []byte
+	tlsCertPath string
+	tlsKeyPath  string
 
 	// Lifecycle hooks
 	beforeCompletion func(*ServerAgent)
@@ -73,6 +80,34 @@ func WithExecuteFn(fn func(string, string) (string, error)) ServerAgentOption {
 func WithConfirmationPromptFn(fn func(string, string) tools.ConfirmationResponse) ServerAgentOption {
 	return func(agent *ServerAgent) error {
 		agent.confirmationPromptFnConfig = fn
+		return nil
+	}
+}
+
+// WithTLSCert sets the TLS certificate and key data for HTTPS support.
+// When provided, the server will use HTTPS instead of HTTP.
+// certData and keyData should be PEM-encoded certificate and private key.
+func WithTLSCert(certData, keyData []byte) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		if len(certData) == 0 || len(keyData) == 0 {
+			return fmt.Errorf("TLS certificate and key data cannot be empty")
+		}
+		agent.tlsCertData = certData
+		agent.tlsKeyData = keyData
+		return nil
+	}
+}
+
+// WithTLSCertFromFile sets the TLS certificate and key file paths for HTTPS support.
+// When provided, the server will use HTTPS instead of HTTP.
+// certPath and keyPath should point to PEM-encoded certificate and private key files.
+func WithTLSCertFromFile(certPath, keyPath string) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		if certPath == "" || keyPath == "" {
+			return fmt.Errorf("TLS certificate and key file paths cannot be empty")
+		}
+		agent.tlsCertPath = certPath
+		agent.tlsKeyPath = keyPath
 		return nil
 	}
 }
@@ -142,6 +177,8 @@ func AfterCompletion(fn func(*ServerAgent)) ServerAgentOption {
 //   - WithPort(port) - Sets the HTTP server port as int (default: 8080)
 //   - WithExecuteFn(fn) - Sets the custom function executor for tool execution
 //   - WithConfirmationPromptFn(fn) - Sets the confirmation prompt function for human-in-the-loop
+//   - WithTLSCert(certData, keyData) - Enables HTTPS with PEM-encoded certificate and key data
+//   - WithTLSCertFromFile(certPath, keyPath) - Enables HTTPS with certificate and key files
 //   - WithToolsAgent(toolsAgent) - Attaches a tools agent for function calling capabilities
 //   - WithCompressorAgent(compressorAgent) - Attaches a compressor agent for context compression
 //   - WithCompressorAgentAndContextSize(compressorAgent, contextSizeLimit) - Attaches a compressor agent and sets the context size limit
@@ -357,6 +394,30 @@ func (agent *ServerAgent) StartServer() error {
 	// Apply CORS middleware
 	handler := corsMiddleware(mux)
 
+	// Check if TLS is configured
+	if len(agent.tlsCertData) > 0 && len(agent.tlsKeyData) > 0 {
+		// HTTPS mode with certificate data in memory
+		cert, err := tls.X509KeyPair(agent.tlsCertData, agent.tlsKeyData)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificate: %w", err)
+		}
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
+		server := &http.Server{
+			Addr:      agent.Port,
+			Handler:   handler,
+			TLSConfig: tlsConfig,
+		}
+		agent.Log.Info("🔒 Server started on https://localhost%s", agent.Port)
+		return server.ListenAndServeTLS("", "")
+	} else if agent.tlsCertPath != "" && agent.tlsKeyPath != "" {
+		// HTTPS mode with certificate files
+		agent.Log.Info("🔒 Server started on https://localhost%s", agent.Port)
+		return http.ListenAndServeTLS(agent.Port, agent.tlsCertPath, agent.tlsKeyPath, handler)
+	}
+
+	// Default HTTP mode (backward compatible)
 	agent.Log.Info("🚀 Server started on http://localhost%s", agent.Port)
 	return http.ListenAndServe(agent.Port, handler)
 }
