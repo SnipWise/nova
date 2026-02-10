@@ -21,10 +21,11 @@ func main() {
 		ctx,
 		agents.Config{
 			Name:      "RAG",
-			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+			//EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+			EngineURL: "http://localhost:12434/v1",
 		},
 		models.Config{
-			Name: "ai/mxbai-embed-large:latest",
+			Name: "ai/mxbai-embed-large",
 		},
 		// BeforeCompletion hook: called before each embedding generation
 		rag.BeforeCompletion(func(a *rag.Agent) {
