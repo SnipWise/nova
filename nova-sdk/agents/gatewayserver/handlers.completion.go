@@ -54,8 +54,23 @@ func (agent *GatewayServerAgent) handleChatCompletions(w http.ResponseWriter, r 
 
 	// Handle based on tool mode and whether tools are present
 	if agent.isPassthroughToolRequest(req) {
-		// Passthrough mode: forward tools to the LLM backend, return tool_calls to client
-		agent.handlePassthroughWithTools(w, r, req)
+		// Passthrough mode with tools: ALWAYS route through passthrough agent first
+		// The passthrough agent will:
+		// 1. Check if tool_calls are needed
+		// 2. If yes: send tool_calls to client and return
+		// 3. If no: redirect to the selected agent (orchestrator/default)
+		handled := agent.handlePassthroughFirst(w, r, req)
+		if handled {
+			// Passthrough agent sent tool_calls to client, we're done
+			return
+		}
+		// No tool_calls detected, continue with selected agent
+		// Fall through to normal streaming/non-streaming handling
+		if req.Stream {
+			agent.handleStreamingCompletion(w, r, req)
+		} else {
+			agent.handleNonStreamingCompletion(w, r, req)
+		}
 	} else if agent.toolsAgent != nil && agent.toolMode == ToolModeAutoExecute {
 		// Auto-execute mode: execute tools server-side
 		agent.handleAutoExecuteCompletion(w, r, req)

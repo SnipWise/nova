@@ -469,6 +469,136 @@ gateway, _ := gatewayserver.NewAgent(ctx,
 
 ---
 
+## 7.3. Passthrough-First Architecture (Advanced)
+
+This advanced pattern ensures that all tool requests are always processed by a tool-capable agent first, preventing errors with models that don't support tools.
+
+### Why Passthrough-First?
+
+When using multi-agent crews, some agents may use models that don't support tool calling. If a client (like `pi`, `qwen-code`, or `aider`) sends a request with tools to such an agent, it will fail. The passthrough-first architecture solves this by routing all tool requests through a designated "passthrough" agent that uses a tool-capable model.
+
+### How It Works
+
+```
+Client Request + tools[]
+    ↓
+🔀 PASSTHROUGH AGENT (always first)
+    ├─ Phase 1: Fast detection (non-streaming)
+    │  ├─ Detects tool_calls needed?
+    │  │  ├─ YES → Phase 2: Stream response to client
+    │  │  └─ NO  → Redirect to appropriate agent
+    ↓
+💬 Selected Agent (coder/generic/etc.)
+    └─ Responds without tools
+```
+
+### Setup
+
+1. **Create a passthrough agent** with a tool-capable model:
+
+```go
+passthroughAgent, err := chat.NewAgent(ctx,
+    agents.Config{
+        Name:                    "passthrough",  // ← ID must be "passthrough"
+        EngineURL:               engineURL,
+        SystemInstructions:      "You respond appropriately to tool requests.",
+        KeepConversationHistory: true,
+    },
+    models.Config{
+        Name:        "hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m",  // ← Tool-capable model
+        Temperature: models.Float64(0.0),
+    },
+)
+```
+
+2. **Add to crew** with ID `"passthrough"`:
+
+```go
+agentCrew := map[string]*chat.Agent{
+    "coder":       coderAgent,
+    "generic":     genericAgent,
+    "passthrough": passthroughAgent,  // ← Must have this exact ID
+}
+```
+
+3. **Create gateway** (no additional configuration needed):
+
+```go
+gateway, err := gatewayserver.NewAgent(ctx,
+    gatewayserver.WithAgentCrew(agentCrew, "generic"),
+    // ToolModePassthrough is the default
+)
+```
+
+### Validation
+
+The gateway validates at startup that a `"passthrough"` agent exists when in `ToolModePassthrough`:
+
+```
+Error: passthrough mode requires an agent with ID 'passthrough' in the crew.
+Please add an agent with ID 'passthrough' that supports tool calling.
+```
+
+### Two-Phase Detection
+
+**Phase 1: Detection (Always Non-Streaming)**
+- Fast API call to determine if tools are needed
+- Analyzes `finish_reason` and `tool_calls` in response
+- Cost: 1 API call
+
+**Phase 2: Response (Conditional)**
+- If `tool_calls` detected + streaming requested → Makes streaming call
+- If `tool_calls` detected + non-streaming → Uses detection response
+- If no `tool_calls` → Redirects to appropriate agent
+- Cost: 0-1 additional API call
+
+### Example Flow
+
+**Tool request detected:**
+```
+Client: "What is the weather in Paris?" + tools[]
+    ↓
+🔀 PASSTHROUGH: Phase 1 detects tool_calls needed
+    ↓
+🔀 PASSTHROUGH: Phase 2 streams tool_calls to client
+    ↓
+Client executes get_weather() locally
+    ↓
+Final response
+```
+
+**No tool request:**
+```
+Client: "What is 2+2?" + tools[]
+    ↓
+🔀 PASSTHROUGH: Phase 1 detects NO tool_calls needed
+    ↓
+💬 GENERIC: Responds directly "4"
+```
+
+### Cost Consideration
+
+- **Best case** (no tools needed): 1 API call (detection only)
+- **Worst case** (tools + streaming): 2 API calls (detection + streaming response)
+- **Average case** (tools + non-streaming): 1 API call (detection response reused)
+
+### Important Notes
+
+1. **Agent ID is critical**: The agent must have exactly the ID `"passthrough"` for validation to work.
+2. **Tool-capable model required**: Use models like Qwen2.5-Coder, GPT-4, Claude, or similar that support function calling.
+3. **Automatic activation**: No special configuration needed beyond adding the agent to the crew.
+4. **Streaming support**: Fully supports both streaming and non-streaming clients.
+
+### Sample Implementation
+
+See [samples/89-gateway-compose-cagent](../../samples/89-gateway-compose-cagent) for a complete working example with:
+- Configuration-based agent routing
+- Passthrough-first tool handling
+- BeforeCompletion hooks for tracing
+- Test script to validate behavior
+
+---
+
 ## 8. Intelligent Routing (Orchestrator)
 
 When an orchestrator agent is attached, the gateway can automatically route questions to the most appropriate specialized agent.

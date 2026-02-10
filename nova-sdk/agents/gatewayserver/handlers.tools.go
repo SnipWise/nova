@@ -438,3 +438,212 @@ func (agent *GatewayServerAgent) buildToolCallHistory(question string) []message
 		Content: question,
 	})
 }
+
+// handlePassthroughFirst attempts to process the request with the passthrough agent first.
+// This ensures that tool-capable requests are always handled by the passthrough agent.
+//
+// Returns:
+//   - true if the passthrough agent handled the request and sent a response (tool_calls detected)
+//   - false if the passthrough agent determined no tools are needed (should redirect to selected agent)
+//
+// Flow:
+//  1. Save current agent
+//  2. Switch to passthrough agent
+//  3. PHASE 1: Fast non-streaming call to detect tool_calls
+//  4. If tool_calls detected:
+//     - If streaming requested: Make streaming call and forward to client
+//     - If non-streaming: Send the detection response directly
+//  5. Otherwise: restore original agent, return false (caller should use selected agent)
+func (agent *GatewayServerAgent) handlePassthroughFirst(w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) bool {
+	// Save current agent to restore later if needed
+	originalAgentId := agent.selectedAgentId
+	originalChatAgent := agent.currentChatAgent
+
+	// Switch to passthrough agent
+	passthroughAgent, exists := agent.chatAgents["passthrough"]
+	if !exists {
+		// This should never happen because we validate in NewAgent()
+		agent.log.Error("Passthrough agent not found in crew (should have been caught at startup)")
+		agent.writeAPIError(w, http.StatusInternalServerError, "server_error", "Passthrough agent not configured")
+		return true // Return true to stop further processing
+	}
+
+	agent.log.Info("🔀 Routing to passthrough agent first to check for tool calls")
+	agent.selectedAgentId = "passthrough"
+	agent.currentChatAgent = passthroughAgent
+
+	// Create OpenAI client for passthrough agent
+	agentConfig := agent.currentChatAgent.GetConfig()
+	client := openai.NewClient(
+		option.WithBaseURL(agentConfig.EngineURL),
+		option.WithAPIKey(agentConfig.APIKey),
+	)
+
+	// Build OpenAI-compatible messages and tools
+	openaiMessages := agent.convertToOpenAIMessages(req.Messages)
+	openaiTools := agent.convertToOpenAITools(req.Tools)
+
+	// Build completion params for detection (always non-streaming first)
+	detectionParams := openai.ChatCompletionNewParams{
+		Model:    agent.currentChatAgent.GetModelID(),
+		Messages: openaiMessages,
+		Tools:    openaiTools,
+	}
+
+	// Apply optional parameters from request
+	if req.Temperature != nil {
+		detectionParams.Temperature = openai.Opt(*req.Temperature)
+	}
+	if req.TopP != nil {
+		detectionParams.TopP = openai.Opt(*req.TopP)
+	}
+	if req.MaxTokens != nil {
+		detectionParams.MaxTokens = openai.Opt(*req.MaxTokens)
+	}
+
+	// PHASE 1: Make fast non-streaming call to detect tool_calls
+	agent.log.Info("🔍 Phase 1: Fast detection call (non-streaming)")
+	completion, err := client.Chat.Completions.New(agent.ctx, detectionParams)
+	if err != nil {
+		agent.log.Error("Passthrough agent detection request failed: %v", err)
+		// Restore original agent and let caller handle with fallback
+		agent.selectedAgentId = originalAgentId
+		agent.currentChatAgent = originalChatAgent
+		return false
+	}
+
+	if len(completion.Choices) == 0 {
+		agent.log.Error("Passthrough agent returned no choices")
+		// Restore original agent
+		agent.selectedAgentId = originalAgentId
+		agent.currentChatAgent = originalChatAgent
+		return false
+	}
+
+	choice := completion.Choices[0]
+	finishReason := string(choice.FinishReason)
+
+	// Check if tool_calls were detected
+	if finishReason == "tool_calls" && len(choice.Message.ToolCalls) > 0 {
+		agent.log.Info("✅ Passthrough agent detected tool_calls")
+
+		// PHASE 2: Handle response based on streaming mode
+		if req.Stream {
+			// Client wants streaming, make a new streaming call
+			agent.log.Info("🔄 Phase 2: Making streaming call (client requested stream)")
+			completionID := generateCompletionID()
+			modelName := agent.resolveModelName(req.Model)
+
+			flusher, err := agent.setupSSEHeaders(w)
+			if err != nil {
+				agent.writeAPIError(w, http.StatusInternalServerError, "server_error", "Streaming not supported")
+				return true
+			}
+
+			// Make streaming call with same params
+			stream := client.Chat.Completions.NewStreaming(agent.ctx, detectionParams)
+
+			// Send role chunk first
+			agent.writeStreamChunk(w, flusher, completionID, modelName, &ChatCompletionDelta{
+				Role: "assistant",
+			}, nil)
+
+			// Stream tool_calls
+			var accumulatedToolCalls []ToolCall
+			for stream.Next() {
+				chunk := stream.Current()
+				if len(chunk.Choices) == 0 {
+					continue
+				}
+
+				choice := chunk.Choices[0]
+				delta := ChatCompletionDelta{}
+
+				if choice.Delta.Content != "" {
+					delta.Content = NewMessageContent(choice.Delta.Content)
+				}
+
+				if len(choice.Delta.ToolCalls) > 0 {
+					toolCalls := agent.convertFromOpenAIStreamToolCalls(choice.Delta.ToolCalls)
+					delta.ToolCalls = toolCalls
+					for _, tc := range toolCalls {
+						if tc.ID != "" {
+							accumulatedToolCalls = append(accumulatedToolCalls, tc)
+						}
+					}
+				}
+
+				var finishReasonPtr *string
+				if choice.FinishReason != "" {
+					fr := string(choice.FinishReason)
+					finishReasonPtr = &fr
+				}
+
+				agent.writeStreamChunk(w, flusher, completionID, modelName, &delta, finishReasonPtr)
+
+				// Check for client disconnect
+				select {
+				case <-r.Context().Done():
+					agent.log.Info("Client disconnected during passthrough streaming")
+					return true
+				default:
+				}
+			}
+
+			if err := stream.Err(); err != nil {
+				agent.log.Error("Passthrough stream error: %v", err)
+			}
+
+			agent.writeStreamDone(w, flusher)
+
+		} else {
+			// Non-streaming: use the detection response directly
+			agent.log.Info("📤 Phase 2: Sending non-streaming response (using detection result)")
+			completionID := generateCompletionID()
+			modelName := agent.resolveModelName(req.Model)
+
+			responseMsg := ChatCompletionMessage{
+				Role:      "assistant",
+				ToolCalls: agent.convertFromOpenAIToolCalls(choice.Message.ToolCalls),
+			}
+
+			if choice.Message.Content != "" {
+				responseMsg.Content = NewMessageContent(choice.Message.Content)
+			}
+
+			response := ChatCompletionResponse{
+				ID:      completionID,
+				Object:  "chat.completion",
+				Created: time.Now().Unix(),
+				Model:   modelName,
+				Choices: []ChatCompletionChoice{
+					{
+						Index:        0,
+						Message:      responseMsg,
+						FinishReason: &finishReason,
+					},
+				},
+				Usage: &Usage{
+					PromptTokens:     int(completion.Usage.PromptTokens),
+					CompletionTokens: int(completion.Usage.CompletionTokens),
+					TotalTokens:      int(completion.Usage.TotalTokens),
+				},
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				agent.log.Error("Failed to encode passthrough first response: %v", err)
+			}
+		}
+
+		// Keep passthrough agent as current (for next call with tool results)
+		return true
+	}
+
+	// No tool_calls detected, restore original agent and let caller redirect
+	agent.log.Info("⏭️  Passthrough agent found no tool_calls (finish_reason: %s), redirecting to selected agent", finishReason)
+	agent.selectedAgentId = originalAgentId
+	agent.currentChatAgent = originalChatAgent
+
+	return false
+}
