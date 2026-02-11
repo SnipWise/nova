@@ -3,12 +3,30 @@ package agents
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/snipwise/nova/nova-sdk/models"
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
+
+// normalizeModelName removes common prefixes and suffixes to enable flexible model name matching
+// - Removes "docker.io/" prefix if present
+// - Removes ":latest" suffix if present (but keeps other tags like ":0.5B-F16")
+// Examples:
+//   - "docker.io/ai/mxbai-embed-large:latest" -> "ai/mxbai-embed-large"
+//   - "ai/mxbai-embed-large" -> "ai/mxbai-embed-large"
+//   - "docker.io/ai/qwen2.5:0.5B-F16" -> "ai/qwen2.5:0.5B-F16" (keeps the tag)
+func normalizeModelName(modelName string) string {
+	// Remove "docker.io/" prefix
+	normalized := strings.TrimPrefix(modelName, "docker.io/")
+
+	// Remove ":latest" suffix only (not other tags)
+	normalized = strings.TrimSuffix(normalized, ":latest")
+
+	return normalized
+}
 
 func InitializeConnection(ctx context.Context, agentConfig Config, modelConfig models.Config) (client openai.Client, log logger.Logger, err error) {
 	// export NOVA_LOG_LEVEL=debug  # Shows all logs
@@ -26,18 +44,24 @@ func InitializeConnection(ctx context.Context, agentConfig Config, modelConfig m
 	)
 
 	// Check if the model is available on the specified engine URL
-	// Use client.Models.ListAutoPaging instead of client.Models.Get(ctx, modelConfig.Name)
-	// because Ollma does not support the Get model endpoint with model ID containig slashes
+	// Uses normalizeModelName to handle variations like:
+	// - "ai/mxbai-embed-large" matching "docker.io/ai/mxbai-embed-large:latest"
+	// - "docker.io/ai/qwen2.5:0.5B-F16" matching "ai/qwen2.5:0.5B-F16"
 	modelsList := client.Models.ListAutoPaging(ctx)
 	modelFound := false
+	normalizedSearchName := normalizeModelName(modelConfig.Name)
+
 	for modelsList.Next() {
 		m := modelsList.Current()
-		log.Debug("🤖 Available model: %s, 🔎 searching %s", m.ID, modelConfig.Name)
-		if m.ID == modelConfig.Name {
+		normalizedModelID := normalizeModelName(m.ID)
+
+		log.Debug("🔎 Comparing: '%s' (from '%s') with '%s' (from '%s')",
+			normalizedModelID, m.ID, normalizedSearchName, modelConfig.Name)
+
+		if normalizedModelID == normalizedSearchName {
+			log.Debug("✅ Model matched: '%s' matches '%s'", m.ID, modelConfig.Name)
 			modelFound = true
-		}
-		if m.ID == "docker.io/"+modelConfig.Name {
-			modelFound = true
+			break
 		}
 	}
 
@@ -47,11 +71,11 @@ func InitializeConnection(ctx context.Context, agentConfig Config, modelConfig m
 	}
 
 	if !modelFound {
-		log.Error("Model not available: %s", modelConfig.Name)
+		log.Error("Model not available: %s (normalized: %s)", modelConfig.Name, normalizedSearchName)
 		return openai.Client{}, nil, errors.New("model not available on the specified engine URL")
 	}
 
-	log.Info("Model %s is available on %s", modelConfig.Name, agentConfig.EngineURL)
+	log.Info("✅ Model %s is available on %s", modelConfig.Name, agentConfig.EngineURL)
 
 	// _, err = client.Models.Get(ctx, modelConfig.Name)
 
