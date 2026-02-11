@@ -12,6 +12,7 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/compressor"
 	"github.com/snipwise/nova/nova-sdk/agents/gatewayserver"
 	"github.com/snipwise/nova/nova-sdk/agents/orchestrator"
+	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/models"
 	"github.com/snipwise/nova/nova-sdk/toolbox/env"
 	"github.com/snipwise/nova/nova-sdk/toolbox/files"
@@ -102,22 +103,22 @@ func getGenericAgent(ctx context.Context, engineURL string) (*chat.Agent, error)
 	)
 }
 
-func getToolPassthroughtAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
-	modelID := env.GetEnvOrDefault("PASSTHROUGHT_MODEL_ID", "hf.co/menlo/jan-nano-gguf:q4_k_m")
-	return chat.NewAgent(
+func getClientSideToolsAgent(ctx context.Context, engineURL string) (*tools.Agent, error) {
+	modelID := env.GetEnvOrDefault("CLIENT_SIDE_TOOLS_MODEL_ID", "hf.co/menlo/jan-nano-gguf:q4_k_m")
+	return tools.NewAgent(
 		ctx,
 		agents.Config{
-			Name:                    "passthrough",
+			Name:                    "client-side-tools",
 			EngineURL:               engineURL,
-			SystemInstructions:      "You respond appropriately to different types of questions. Always start with the most important information.",
-			KeepConversationHistory: true,
+			SystemInstructions:      "You are a helpful assistant that can use tools when needed.",
+			KeepConversationHistory: false, // Tools agent doesn't need history
 		},
 		models.Config{
 			Name:        modelID,
 			Temperature: models.Float64(0.0),
 		},
-		chat.BeforeCompletion(func(agent *chat.Agent) {
-			display.Styledln("🔀 [PASSTHROUGH AGENT] Checking for tool calls...", display.ColorYellow)
+		tools.BeforeCompletion(func(agent *tools.Agent) {
+			display.Styledln("🔀 [CLIENT-SIDE TOOLS] Detecting tool calls...", display.ColorYellow)
 		}),
 	)
 }
@@ -144,15 +145,9 @@ func main() {
 		panic(err)
 	}
 
-	passthroughAgent, err := getToolPassthroughtAgent(ctx, engineURL)
-	if err != nil {
-		panic(err)
-	}
-
 	agentCrew := map[string]*chat.Agent{
 		"coder":   coderAgent,
 		"generic": genericAgent,
-		"passthrough": passthroughAgent,
 	}
 
 	// ------------------------------------------------
@@ -166,19 +161,26 @@ func main() {
 	matchAgentFunction := createMatchAgentFunction(routingConfig)
 
 	// ------------------------------------------------
-	// Tools agent - Not needed in Passthrough mode
+	// Create the client-side tools agent
 	// ------------------------------------------------
-	// In Passthrough mode, the client (qwen-code, aider, etc.)
-	// manages tools and their execution.
-	// The gateway simply forwards tool calls and results between
-	// the client and the LLM backend.
-	// ✋ **Important**: you need an agent (in the agents list) with a LLM with tool support
-	// then the orchestrator will select that agent when the conversation involves tools, and the gateway will forward tool calls to the client.
+	// The client-side tools agent detects when tools are needed
+	// and returns tool_calls to the client in OpenAI format.
+	// The client (qwen-code, aider, continue.dev, etc.) then:
+	// 1. Executes the tools locally
+	// 2. Sends results back as messages with role "tool"
+	// 3. The gateway continues the completion with those results
+	//
+	// This is the standard "client-side tool execution" pattern used by
+	// most AI coding assistants.
+	clientSideToolsAgent, err := getClientSideToolsAgent(ctx, engineURL)
+	if err != nil {
+		panic(err)
+	}
 
 	// ------------------------------------------------
 	// Create the orchestrator agent
 	// ------------------------------------------------
-	orchestratorModelID := env.GetEnvOrDefault("ORCHESTRATOR_MODEL_ID", "hf.co/menlo/lucy-gguf:q4_k_m")
+	orchestratorModelID := env.GetEnvOrDefault("ORCHESTRATOR_MODEL_ID", "hf.co/menlo/jan-nano-gguf:q4_k_m")
 	orchestratorInstructions, err := files.ReadTextFile("orchestrator.instructions.md")
 	if err != nil {
 		panic(err)
@@ -233,14 +235,15 @@ func main() {
 		ctx,
 		gatewayserver.WithAgentCrew(agentCrew, "generic"),
 		gatewayserver.WithPort(8080),
+		gatewayserver.WithClientSideToolsAgent(clientSideToolsAgent),
 		gatewayserver.WithOrchestratorAgent(orchestratorAgent),
 		gatewayserver.WithMatchAgentIdToTopicFn(matchAgentFunction),
 		gatewayserver.WithCompressorAgentAndContextSize(compressorAgent, 16384),
 
-		// ToolModePassthrough (default): the client handles tools
-		// The gateway forwards tool calls from the LLM to the client,
-		// and forwards tool results from the client back to the LLM.
-		// The client (qwen-code, aider, etc.) manages tool execution.
+		// Agent execution order (default):
+		// 1. ClientSideTools - Detects tool calls and returns them to client
+		// 2. ServerSideTools - (not configured in this example)
+		// 3. Orchestrator - Routes to appropriate agent based on topic
 
 		gatewayserver.BeforeCompletion(func(agent *gatewayserver.GatewayServerAgent) {
 			fmt.Printf("📥 Request received (current agent: %s)\n", agent.GetSelectedAgentId())
@@ -270,18 +273,23 @@ func main() {
 
 	fmt.Println("🚀 Gateway crew server starting on http://localhost:8080")
 	fmt.Println("📡 OpenAI-compatible endpoint: POST /v1/chat/completions")
-	fmt.Println("👥 Crew agents: coder, thinker, generic")
-	fmt.Println("🔧 Tools mode: passthrough (client-side)")
+	fmt.Println("👥 Crew agents: coder, generic")
+	fmt.Println("🔧 Client-side tools: enabled (tools executed by client)")
+	fmt.Println("🎯 Orchestrator: enabled (topic-based routing)")
+	fmt.Println("🗜️  Compressor: enabled (context compression)")
 	fmt.Println()
-	fmt.Println("Usage with qwen-code:")
+	fmt.Println("Usage with qwen-code (with tools):")
 	fmt.Println(`  OPENAI_BASE_URL=http://localhost:8080/v1 OPENAI_API_KEY=none OPENAI_MODEL=crew qwen-code`)
 	fmt.Println()
-	fmt.Println("Usage with curl:")
+	fmt.Println("Usage with aider (with tools):")
+	fmt.Println(`  OPENAI_API_BASE=http://localhost:8080/v1 OPENAI_API_KEY=none aider --model crew`)
+	fmt.Println()
+	fmt.Println("Usage with curl (no tools):")
 	fmt.Println(`  curl http://localhost:8080/v1/chat/completions \`)
 	fmt.Println(`    -H "Content-Type: application/json" \`)
 	fmt.Println(`    -d '{"model":"crew","messages":[{"role":"user","content":"Write a Go function"}],"stream":true}'`)
 	fmt.Println()
-	fmt.Println("📖 See README-tools.md for detailed documentation on tools usage")
+	fmt.Println("📖 The gateway automatically detects tool calls and returns them to the client")
 
 	if err := gateway.StartServer(); err != nil {
 		panic(err)
