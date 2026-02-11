@@ -25,7 +25,7 @@ func main() {
 			EngineURL: "http://localhost:12434/v1",
 		},
 		models.Config{
-			Name: "ai/mxbai-embed-large",
+			Name: "docker.io/ai/mxbai-embed-large",
 		},
 		// BeforeCompletion hook: called before each embedding generation
 		rag.BeforeCompletion(func(a *rag.Agent) {
