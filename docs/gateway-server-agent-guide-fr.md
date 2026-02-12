@@ -33,8 +33,8 @@ Contrairement au `crewserver.CrewServerAgent` qui utilise un protocole SSE perso
 | Scénario | Agent recommandé |
 |---|---|
 | API compatible OpenAI pour outils externes (qwen-code, aider, etc.) | `gatewayserver.GatewayServerAgent` |
-| Passthrough des tool_calls au client (le client gère l'exécution) | `gatewayserver.GatewayServerAgent` avec `ToolModePassthrough` |
-| Exécution des outils côté serveur avec format API OpenAI | `gatewayserver.GatewayServerAgent` avec `ToolModeAutoExecute` |
+| Exécution des outils côté client (le client gère les outils) | `gatewayserver.GatewayServerAgent` avec `WithClientSideToolsAgent` |
+| Exécution des outils côté serveur (le serveur gère les outils) | `gatewayserver.GatewayServerAgent` avec `WithToolsAgent` |
 | Protocole SSE personnalisé avec confirmation web des outils | `crewserver.CrewServerAgent` |
 | Pipeline multi-agents en CLI uniquement (pas de HTTP) | `crew.CrewAgent` |
 | Accès direct simple au LLM | `chat.Agent` |
@@ -42,7 +42,7 @@ Contrairement au `crewserver.CrewServerAgent` qui utilise un protocole SSE perso
 ### Capacités clés
 
 - **API compatible OpenAI** : Support complet de `POST /v1/chat/completions` (streaming SSE + JSON non-streaming).
-- **Deux modes d'outils** : Passthrough (le client exécute les outils) et auto-execute (le serveur exécute les outils).
+- **Exécution flexible des outils** : Chaîne de responsabilité configurable pour l'exécution des outils côté client et côté serveur.
 - **Équipe multi-agents** : Gestion de plusieurs instances `chat.Agent`, chacune spécialisée pour un sujet.
 - **Routage intelligent** : Routage automatique des questions vers l'agent le plus approprié via un orchestrateur.
 - **Pipeline complet** : Compression du contexte, appels de fonctions, injection RAG et complétion en streaming.
@@ -155,7 +155,12 @@ gateway, err := gatewayserver.NewAgent(ctx,
     gatewayserver.WithAgentCrew(agentCrew, "generic"),
     gatewayserver.WithPort(8080),
     gatewayserver.WithToolsAgent(toolsAgent),
-    gatewayserver.WithToolMode(gatewayserver.ToolModeAutoExecute),
+    gatewayserver.WithClientSideToolsAgent(clientToolsAgent),
+    gatewayserver.WithAgentExecutionOrder([]gatewayserver.AgentExecutionType{
+        gatewayserver.AgentExecutionClientSideTools,
+        gatewayserver.AgentExecutionServerSideTools,
+        gatewayserver.AgentExecutionOrchestrator,
+    }),
     gatewayserver.WithExecuteFn(executeFn),
     gatewayserver.WithRagAgentAndSimilarityConfig(ragAgent, 0.4, 5),
     gatewayserver.WithCompressorAgentAndContextSize(compressorAgent, 7000),
@@ -171,8 +176,9 @@ gateway, err := gatewayserver.NewAgent(ctx,
 | `WithAgentCrew(crew, selectedId)` | Définit l'équipe d'agents et l'agent initialement sélectionné. **Obligatoire** (ou `WithSingleAgent`). |
 | `WithSingleAgent(chatAgent)` | Crée une équipe avec un seul agent (ID : `"single"`). **Obligatoire** (ou `WithAgentCrew`). |
 | `WithPort(port)` | Définit le port du serveur HTTP en int (défaut : `8080`). |
-| `WithToolsAgent(toolsAgent)` | Attache un agent d'outils pour les appels de fonctions. |
-| `WithToolMode(mode)` | Définit le mode d'exécution des outils : `ToolModePassthrough` (défaut) ou `ToolModeAutoExecute`. |
+| `WithToolsAgent(toolsAgent)` | Attache un agent d'outils pour l'exécution côté serveur. |
+| `WithClientSideToolsAgent(toolsAgent)` | Attache un agent d'outils pour l'exécution côté client (outils retournés au client). |
+| `WithAgentExecutionOrder(order []AgentExecutionType)` | Définit l'ordre dans lequel les handlers d'agents traitent les requêtes. Par défaut : `[ClientSideTools, ServerSideTools, Orchestrator]`. |
 | `WithExecuteFn(fn)` | Définit la fonction d'exécution pour l'exécution côté serveur des outils. |
 | `WithConfirmationPromptFn(fn)` | Définit une fonction de confirmation personnalisée pour les appels de fonctions. |
 | `WithTLSCert(certData, keyData []byte)` | Active HTTPS avec des données de certificat et clé PEM en mémoire. |
@@ -191,7 +197,7 @@ gateway, err := gatewayserver.NewAgent(ctx,
 | Paramètre | Défaut |
 |---|---|
 | Port | `:8080` |
-| ToolMode | `ToolModePassthrough` |
+| `AgentExecutionOrder` | `[ClientSideTools, ServerSideTools, Orchestrator]` |
 | `SimilarityLimit` | `0.6` |
 | `MaxSimilarities` | `3` |
 | `ContextSizeLimit` | `8000` |
@@ -279,13 +285,14 @@ Le handler HTTP `handleChatCompletions` est le point d'entrée principal pour le
 4. **Synchronisation des messages** (import de l'historique de conversation depuis la requête)
 5. **Compression du contexte** (si compresseur configuré et contexte dépassant la limite)
 6. **Injection du contexte RAG** (si agent RAG configuré)
-7. **Routage intelligent** (si orchestrateur configuré, détection du sujet et changement d'agent)
-8. **Gestion des outils** (dispatch selon le mode d'outils) :
-   - **Passthrough** : Transmet les définitions d'outils au LLM, retourne les tool_calls au client
-   - **Auto-execute** : Exécute les outils côté serveur, boucle jusqu'à la réponse finale
-9. **Génération de la complétion** (streaming SSE ou JSON non-streaming)
-10. **Nettoyage de l'état des outils**
-11. **Hook AfterCompletion** (si défini)
+7. **Chaîne d'exécution des agents** (traitement selon l'ordre configuré `AgentExecutionOrder`) :
+   - Chaque handler peut soit **traiter la requête** (envoyer une réponse et arrêter) soit **passer au suivant**
+   - **ClientSideTools** : Détecte les appels de fonctions et les retourne au client (si outils dans la requête)
+   - **ServerSideTools** : Exécute les outils côté serveur et continue la boucle (si configuré)
+   - **Orchestrator** : Détecte le sujet et route vers l'agent approprié (si configuré)
+8. **Génération de la complétion** (streaming SSE ou JSON non-streaming, si aucun handler n'a traité la requête)
+9. **Nettoyage de l'état des outils**
+10. **Hook AfterCompletion** (si défini)
 
 ### Format de la requête (compatible OpenAI)
 
@@ -380,30 +387,60 @@ Toutes les réponses incluent des headers CORS autorisant toutes les origines. L
 
 ---
 
-## 7. Modes d'exécution des outils (Tool Modes)
+## 7. Exécution des outils avec ordre d'exécution des agents
 
-Le Gateway Server Agent supporte deux modes distincts d'exécution des outils, contrôlés via `WithToolMode` :
+Le Gateway Server Agent utilise un **pattern de chaîne de responsabilité** flexible pour gérer l'exécution des outils. Au lieu de modes fixes, vous configurez l'ordre dans lequel différents handlers d'agents traitent les requêtes en utilisant `WithAgentExecutionOrder`.
 
-### ToolModePassthrough (par défaut)
+### Types d'exécution d'agents
 
-En mode passthrough, la gateway transmet les définitions d'outils au backend LLM et retourne les `tool_calls` au client. Le client est responsable de l'exécution des outils et de l'envoi des résultats dans les requêtes suivantes. C'est le mode utilisé par des outils comme `qwen-code` et `aider`.
+Trois types d'exécution sont disponibles :
+
+| Type | Description | Quand il traite la requête |
+|---|---|---|
+| `AgentExecutionClientSideTools` | Retourne les appels de fonctions au client pour exécution locale | Quand la requête contient un tableau `tools` et qu'un agent d'outils client est configuré |
+| `AgentExecutionServerSideTools` | Exécute les outils côté serveur et continue la boucle de complétion | Quand un agent d'outils serveur est configuré et qu'il n'y a pas d'outils client dans la requête |
+| `AgentExecutionOrchestrator` | Route vers l'agent approprié basé sur la détection de sujet | Quand l'orchestrateur est configuré (n'arrête jamais la chaîne) |
+
+### Ordre d'exécution par défaut
 
 ```go
+DefaultAgentExecutionOrder = []AgentExecutionType{
+    AgentExecutionClientSideTools,   // Vérifie d'abord les outils côté client
+    AgentExecutionServerSideTools,   // Puis les outils côté serveur
+    AgentExecutionOrchestrator,      // Enfin l'orchestration
+}
+```
+
+### Exécution des outils côté client
+
+Configurez un agent d'outils côté client pour détecter et retourner les appels de fonctions aux clients comme `qwen-code`, `aider`, ou `continue.dev` :
+
+```go
+clientToolsAgent, _ := tools.NewAgent(ctx,
+    agents.Config{
+        Name:      "client-tools",
+        EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+    },
+    models.Config{
+        Name: "hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m",  // Modèle capable d'outils
+    },
+)
+
 gateway, _ := gatewayserver.NewAgent(ctx,
     gatewayserver.WithSingleAgent(chatAgent),
-    gatewayserver.WithPort(8080),
-    // ToolModePassthrough est le mode par défaut
+    gatewayserver.WithClientSideToolsAgent(clientToolsAgent),
+    // L'ordre par défaut vérifiera d'abord les outils côté client
 )
 ```
 
-**Flux d'appel de fonctions côté client :**
+**Flux côté client :**
 
 1. Le client envoie une requête avec un tableau `tools`
-2. La gateway transmet les outils au LLM
-3. Le LLM retourne des `tool_calls` dans la réponse (ou le flux SSE)
+2. La gateway détecte les appels de fonctions en utilisant `clientToolsAgent`
+3. La gateway retourne les `tool_calls` au client au format OpenAI
 4. Le client exécute les outils localement
-5. Le client envoie une nouvelle requête incluant des messages avec le rôle `tool` contenant les résultats
-6. La gateway complète avec la réponse finale
+5. Le client envoie une nouvelle requête avec des messages de rôle `tool` contenant les résultats
+6. La boucle continue jusqu'à la réponse finale
 
 **Réponse non-streaming avec tool_calls :**
 
@@ -425,31 +462,25 @@ gateway, _ := gatewayserver.NewAgent(ctx,
 }
 ```
 
-**Réponse streaming avec tool_calls :**
+### Exécution des outils côté serveur
 
-```
-data: {"choices":[{"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"call_xyz","type":"function","function":{"name":"calculate_sum","arguments":""}}]},"finish_reason":null}]}
-
-data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"a\":3,\"b\":5}"}}]},"finish_reason":null}]}
-
-data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}
-
-data: [DONE]
-```
-
-### ToolModeAutoExecute
-
-En mode auto-execute, la gateway gère l'exécution des outils côté serveur en utilisant la fonction `ExecuteFn` configurée. Le client ne voit que la réponse finale et n'a pas connaissance des appels de fonctions.
+Configurez un agent d'outils côté serveur pour exécuter les outils en interne :
 
 ```go
+serverToolsAgent, _ := tools.NewAgent(ctx,
+    agents.Config{
+        Name:      "server-tools",
+        EngineURL: engineURL,
+    },
+    models.Config{Name: "my-model"},
+)
+
 gateway, _ := gatewayserver.NewAgent(ctx,
     gatewayserver.WithSingleAgent(chatAgent),
-    gatewayserver.WithToolsAgent(toolsAgent),
-    gatewayserver.WithToolMode(gatewayserver.ToolModeAutoExecute),
+    gatewayserver.WithToolsAgent(serverToolsAgent),
     gatewayserver.WithExecuteFn(func(name string, args string) (string, error) {
         switch name {
         case "calculate_sum":
-            // Exécuter la fonction
             return `{"result": 8}`, nil
         default:
             return `{"error": "fonction inconnue"}`, fmt.Errorf("inconnue : %s", name)
@@ -458,144 +489,63 @@ gateway, _ := gatewayserver.NewAgent(ctx,
 )
 ```
 
-**Flux d'exécution des outils côté serveur :**
+**Flux côté serveur :**
 
 1. Le client envoie une requête (pas besoin de tableau `tools`)
-2. La gateway détecte les appels de fonctions via le `tools.Agent`
-3. La gateway exécute chaque outil via `ExecuteFn`
+2. La gateway détecte les appels de fonctions en utilisant `serverToolsAgent`
+3. La gateway exécute les outils via `ExecuteFn`
 4. La gateway renvoie les résultats au LLM
-5. Les étapes 2-4 se répètent jusqu'à ce que le LLM produise une réponse finale
+5. Les étapes 2-4 se répètent jusqu'à la réponse finale
 6. Le client ne reçoit que la réponse finale
 
----
+### Ordre d'exécution personnalisé
 
-## 7.3. Architecture Passthrough-First (Avancée)
-
-Ce pattern avancé garantit que toutes les requêtes d'outils sont toujours traitées par un agent capable de gérer les outils en premier, empêchant les erreurs avec les modèles qui ne supportent pas les outils.
-
-### Pourquoi Passthrough-First ?
-
-Lorsqu'on utilise des équipes multi-agents, certains agents peuvent utiliser des modèles qui ne supportent pas les appels de fonctions. Si un client (comme `pi`, `qwen-code`, ou `aider`) envoie une requête avec des outils à un tel agent, cela échouera. L'architecture passthrough-first résout ce problème en routant toutes les requêtes d'outils via un agent "passthrough" désigné qui utilise un modèle capable de gérer les outils.
-
-### Fonctionnement
-
-```
-Requête Client + tools[]
-    ↓
-🔀 AGENT PASSTHROUGH (toujours en premier)
-    ├─ Phase 1 : Détection rapide (non-streaming)
-    │  ├─ Détecte des tool_calls nécessaires ?
-    │  │  ├─ OUI → Phase 2 : Stream la réponse au client
-    │  │  └─ NON → Redirige vers l'agent approprié
-    ↓
-💬 Agent Sélectionné (coder/generic/etc.)
-    └─ Répond sans outils
-```
-
-### Configuration
-
-1. **Créer un agent passthrough** avec un modèle capable de gérer les outils :
+Vous pouvez personnaliser l'ordre pour prioriser différents handlers :
 
 ```go
-passthroughAgent, err := chat.NewAgent(ctx,
-    agents.Config{
-        Name:                    "passthrough",  // ← L'ID doit être "passthrough"
-        EngineURL:               engineURL,
-        SystemInstructions:      "Vous répondez de manière appropriée aux requêtes d'outils.",
-        KeepConversationHistory: true,
-    },
-    models.Config{
-        Name:        "hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m",  // ← Modèle supportant les outils
-        Temperature: models.Float64(0.0),
-    },
-)
-```
-
-2. **Ajouter à l'équipe** avec l'ID `"passthrough"` :
-
-```go
-agentCrew := map[string]*chat.Agent{
-    "coder":       coderAgent,
-    "generic":     genericAgent,
-    "passthrough": passthroughAgent,  // ← Doit avoir exactement cet ID
-}
-```
-
-3. **Créer la gateway** (aucune configuration supplémentaire nécessaire) :
-
-```go
-gateway, err := gatewayserver.NewAgent(ctx,
+// Exemple : Orchestrer d'abord, puis vérifier les outils client
+gateway, _ := gatewayserver.NewAgent(ctx,
     gatewayserver.WithAgentCrew(agentCrew, "generic"),
-    // ToolModePassthrough est le mode par défaut
+    gatewayserver.WithClientSideToolsAgent(clientToolsAgent),
+    gatewayserver.WithOrchestratorAgent(orchestratorAgent),
+    gatewayserver.WithAgentExecutionOrder([]gatewayserver.AgentExecutionType{
+        gatewayserver.AgentExecutionOrchestrator,      // Router vers l'agent approprié d'abord
+        gatewayserver.AgentExecutionClientSideTools,   // Puis vérifier les outils client
+    }),
 )
 ```
 
-### Validation
+### Fonctionnement de la chaîne
 
-La gateway valide au démarrage qu'un agent `"passthrough"` existe lorsqu'elle est en mode `ToolModePassthrough` :
+Chaque handler dans l'ordre d'exécution peut soit :
+- **Traiter la requête** : Envoyer une réponse et arrêter la chaîne (retourner `true`)
+- **Passer au handler suivant** : Ignorer le traitement (retourner `false`)
 
 ```
-Erreur : le mode passthrough nécessite un agent avec l'ID 'passthrough' dans l'équipe.
-Veuillez ajouter un agent avec l'ID 'passthrough' qui supporte les appels de fonctions.
+Requête arrive
+    ↓
+Handler 1 (ClientSideTools)
+    ├─ Des outils dans la requête ? → OUI : Envoyer tool_calls au client, TERMINÉ
+    └─ NON : Passer au suivant
+         ↓
+Handler 2 (ServerSideTools)
+    ├─ Outils serveur configurés ? → OUI : Exécuter outils, envoyer réponse, TERMINÉ
+    └─ NON : Passer au suivant
+         ↓
+Handler 3 (Orchestrator)
+    ├─ Router vers l'agent approprié (n'arrête jamais la chaîne)
+    └─ Continuer vers la complétion par défaut
+         ↓
+Complétion par défaut
+    └─ Générer une réponse streaming ou non-streaming
 ```
 
-### Détection en Deux Phases
+### Bonnes pratiques
 
-**Phase 1 : Détection (Toujours Non-Streaming)**
-- Appel API rapide pour déterminer si des outils sont nécessaires
-- Analyse le `finish_reason` et les `tool_calls` dans la réponse
-- Coût : 1 appel API
-
-**Phase 2 : Réponse (Conditionnelle)**
-- Si `tool_calls` détectés + streaming demandé → Fait un appel streaming
-- Si `tool_calls` détectés + non-streaming → Utilise la réponse de détection
-- Si pas de `tool_calls` → Redirige vers l'agent approprié
-- Coût : 0-1 appel API supplémentaire
-
-### Exemple de Flux
-
-**Requête d'outil détectée :**
-```
-Client : "Quelle est la météo à Paris ?" + tools[]
-    ↓
-🔀 PASSTHROUGH : Phase 1 détecte des tool_calls nécessaires
-    ↓
-🔀 PASSTHROUGH : Phase 2 stream les tool_calls au client
-    ↓
-Client exécute get_weather() localement
-    ↓
-Réponse finale
-```
-
-**Pas de requête d'outil :**
-```
-Client : "Combien font 2+2 ?" + tools[]
-    ↓
-🔀 PASSTHROUGH : Phase 1 détecte AUCUN tool_calls nécessaire
-    ↓
-💬 GENERIC : Répond directement "4"
-```
-
-### Considération de Coût
-
-- **Meilleur cas** (pas d'outils nécessaires) : 1 appel API (détection seulement)
-- **Pire cas** (outils + streaming) : 2 appels API (détection + réponse streaming)
-- **Cas moyen** (outils + non-streaming) : 1 appel API (réponse de détection réutilisée)
-
-### Notes Importantes
-
-1. **L'ID de l'agent est critique** : L'agent doit avoir exactement l'ID `"passthrough"` pour que la validation fonctionne.
-2. **Modèle capable d'outils requis** : Utilisez des modèles comme Qwen2.5-Coder, GPT-4, Claude, ou similaires qui supportent les appels de fonctions.
-3. **Activation automatique** : Aucune configuration spéciale nécessaire au-delà de l'ajout de l'agent à l'équipe.
-4. **Support du streaming** : Supporte pleinement les clients streaming et non-streaming.
-
-### Exemple d'Implémentation
-
-Voir [samples/89-gateway-compose-cagent](../../samples/89-gateway-compose-cagent) pour un exemple complet fonctionnel avec :
-- Routage d'agents basé sur la configuration
-- Gestion passthrough-first des outils
-- Hooks BeforeCompletion pour le traçage
-- Script de test pour valider le comportement
+1. **Outils client en premier** : Mettez `AgentExecutionClientSideTools` en premier pour gérer correctement les clients externes
+2. **Un seul agent d'outils** : Utilisez soit les outils côté client SOIT côté serveur, pas les deux
+3. **Orchestrateur en dernier** : L'orchestration devrait se produire après la détection d'outils pour router vers le bon agent
+4. **Restez simple** : L'ordre par défaut fonctionne pour la plupart des cas d'usage
 
 ---
 
@@ -859,11 +809,18 @@ func NewAgent(ctx context.Context, options ...GatewayServerAgentOption) (*Gatewa
 ```go
 type GatewayServerAgentOption func(*GatewayServerAgent) error
 
-type ToolMode int
+type AgentExecutionType string
 const (
-    ToolModePassthrough ToolMode = iota
-    ToolModeAutoExecute
+    AgentExecutionClientSideTools AgentExecutionType = "client_side_tools"
+    AgentExecutionServerSideTools AgentExecutionType = "server_side_tools"
+    AgentExecutionOrchestrator    AgentExecutionType = "orchestrator"
 )
+
+var DefaultAgentExecutionOrder = []AgentExecutionType{
+    AgentExecutionClientSideTools,
+    AgentExecutionServerSideTools,
+    AgentExecutionOrchestrator,
+}
 ```
 
 ### Fonctions d'option
@@ -873,10 +830,13 @@ const (
 | `WithAgentCrew(crew, selectedId)` | Définit l'équipe et l'agent initial. |
 | `WithSingleAgent(chatAgent)` | Crée une équipe à agent unique. |
 | `WithPort(port)` | Définit le port du serveur HTTP (défaut : 8080). |
-| `WithToolsAgent(toolsAgent)` | Attache un agent d'outils. |
-| `WithToolMode(mode)` | Définit le mode d'exécution des outils. |
-| `WithExecuteFn(fn)` | Définit la fonction d'exécution des outils. |
+| `WithToolsAgent(toolsAgent)` | Attache un agent d'outils pour l'exécution côté serveur. |
+| `WithClientSideToolsAgent(toolsAgent)` | Attache un agent d'outils pour l'exécution côté client. |
+| `WithAgentExecutionOrder(order []AgentExecutionType)` | Définit l'ordre d'exécution des agents. |
+| `WithExecuteFn(fn)` | Définit la fonction d'exécution des outils (pour les outils côté serveur). |
 | `WithConfirmationPromptFn(fn)` | Définit la fonction de confirmation personnalisée des outils. |
+| `WithTLSCert(certData, keyData []byte)` | Active HTTPS avec des données de certificat. |
+| `WithTLSCertFromFile(certPath, keyPath string)` | Active HTTPS avec des fichiers de certificat. |
 | `WithMatchAgentIdToTopicFn(fn)` | Définit la fonction de correspondance sujet-agent. |
 | `WithRagAgent(ragAgent)` | Attache un agent RAG. |
 | `WithRagAgentAndSimilarityConfig(ragAgent, limit, max)` | Attache un RAG avec configuration. |
@@ -892,8 +852,8 @@ const (
 |---|---|
 | `StartServer() error` | Démarre le serveur HTTP avec toutes les routes. |
 | `GetPort() string` | Obtient le port HTTP. |
-| `GetToolMode() ToolMode` | Obtient le mode d'exécution des outils. |
-| `SetToolMode(mode)` | Définit le mode d'exécution des outils. |
+| `GetAgentExecutionOrder() []AgentExecutionType` | Obtient l'ordre d'exécution des agents actuel. |
+| `SetAgentExecutionOrder(order []AgentExecutionType)` | Définit l'ordre d'exécution des agents. |
 | `StopStream()` | Arrête l'opération de streaming en cours. |
 | `GetMessages() []messages.Message` | Obtient les messages de l'agent actif. |
 | `GetContextSize() int` | Obtient la taille du contexte de l'agent actif. |

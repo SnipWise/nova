@@ -211,3 +211,29 @@ type APIErrorDetail struct {
 	Type    string  `json:"type"`
 	Code    *string `json:"code"`
 }
+
+// --- Agent Execution Order types ---
+
+// AgentExecutionType defines the type of agent processing step
+type AgentExecutionType string
+
+const (
+	// AgentExecutionClientSideTools processes requests with client-side tool execution
+	// The gateway detects tool calls and returns them to the client for execution
+	AgentExecutionClientSideTools AgentExecutionType = "client_side_tools"
+
+	// AgentExecutionServerSideTools processes requests with server-side tool execution
+	// The gateway executes tools internally and continues the completion loop
+	AgentExecutionServerSideTools AgentExecutionType = "server_side_tools"
+
+	// AgentExecutionOrchestrator processes requests through the orchestrator
+	// The orchestrator detects topics and routes to appropriate agents
+	AgentExecutionOrchestrator AgentExecutionType = "orchestrator"
+)
+
+// DefaultAgentExecutionOrder defines the default order of agent processing
+var DefaultAgentExecutionOrder = []AgentExecutionType{
+	AgentExecutionClientSideTools,
+	AgentExecutionServerSideTools,
+	AgentExecutionOrchestrator,
+}

@@ -33,8 +33,8 @@ Unlike the `crewserver.CrewServerAgent` which uses a custom SSE protocol, the Ga
 | Scenario | Recommended agent |
 |---|---|
 | OpenAI-compatible API for external tools (qwen-code, aider, etc.) | `gatewayserver.GatewayServerAgent` |
-| Passthrough tool_calls to client (client manages tool execution) | `gatewayserver.GatewayServerAgent` with `ToolModePassthrough` |
-| Server-side tool execution with OpenAI API format | `gatewayserver.GatewayServerAgent` with `ToolModeAutoExecute` |
+| Client-side tool execution (client manages tools) | `gatewayserver.GatewayServerAgent` with `WithClientSideToolsAgent` |
+| Server-side tool execution (server manages tools) | `gatewayserver.GatewayServerAgent` with `WithToolsAgent` |
 | Custom SSE protocol with web-based tool confirmation | `crewserver.CrewServerAgent` |
 | CLI-only multi-agent pipeline (no HTTP) | `crew.CrewAgent` |
 | Simple direct LLM access | `chat.Agent` |
@@ -42,7 +42,7 @@ Unlike the `crewserver.CrewServerAgent` which uses a custom SSE protocol, the Ga
 ### Key capabilities
 
 - **OpenAI-compatible API**: Full `POST /v1/chat/completions` support (streaming SSE + non-streaming JSON).
-- **Two tool modes**: Passthrough (client executes tools) and auto-execute (server executes tools).
+- **Flexible tool execution**: Configurable chain of responsibility for client-side and server-side tool execution.
 - **Multi-agent crew**: Manage multiple `chat.Agent` instances, each specialized for a topic.
 - **Intelligent routing**: Automatically route questions to the most appropriate agent via an orchestrator.
 - **Full pipeline**: Context compression, tool calls, RAG injection, and streaming completion.
@@ -155,7 +155,12 @@ gateway, err := gatewayserver.NewAgent(ctx,
     gatewayserver.WithAgentCrew(agentCrew, "generic"),
     gatewayserver.WithPort(8080),
     gatewayserver.WithToolsAgent(toolsAgent),
-    gatewayserver.WithToolMode(gatewayserver.ToolModeAutoExecute),
+    gatewayserver.WithClientSideToolsAgent(clientToolsAgent),
+    gatewayserver.WithAgentExecutionOrder([]gatewayserver.AgentExecutionType{
+        gatewayserver.AgentExecutionClientSideTools,
+        gatewayserver.AgentExecutionServerSideTools,
+        gatewayserver.AgentExecutionOrchestrator,
+    }),
     gatewayserver.WithExecuteFn(executeFn),
     gatewayserver.WithRagAgentAndSimilarityConfig(ragAgent, 0.4, 5),
     gatewayserver.WithCompressorAgentAndContextSize(compressorAgent, 7000),
@@ -171,8 +176,9 @@ gateway, err := gatewayserver.NewAgent(ctx,
 | `WithAgentCrew(crew, selectedId)` | Sets the crew of agents and the initially selected agent. **Mandatory** (or `WithSingleAgent`). |
 | `WithSingleAgent(chatAgent)` | Creates a crew with a single agent (ID: `"single"`). **Mandatory** (or `WithAgentCrew`). |
 | `WithPort(port)` | Sets the HTTP server port as int (default: `8080`). |
-| `WithToolsAgent(toolsAgent)` | Attaches a tools agent for function calling. |
-| `WithToolMode(mode)` | Sets tool execution mode: `ToolModePassthrough` (default) or `ToolModeAutoExecute`. |
+| `WithToolsAgent(toolsAgent)` | Attaches a tools agent for server-side tool execution. |
+| `WithClientSideToolsAgent(toolsAgent)` | Attaches a tools agent for client-side tool execution (tools returned to client). |
+| `WithAgentExecutionOrder(order []AgentExecutionType)` | Sets the order in which agent handlers process requests. Default: `[ClientSideTools, ServerSideTools, Orchestrator]`. |
 | `WithExecuteFn(fn)` | Sets the function executor for server-side tool execution. |
 | `WithConfirmationPromptFn(fn)` | Sets a custom confirmation prompt function for tool calls. |
 | `WithTLSCert(certData, keyData []byte)` | Enables HTTPS with PEM-encoded certificate and key data in memory. |
@@ -191,7 +197,7 @@ gateway, err := gatewayserver.NewAgent(ctx,
 | Parameter | Default |
 |---|---|
 | Port | `:8080` |
-| ToolMode | `ToolModePassthrough` |
+| `AgentExecutionOrder` | `[ClientSideTools, ServerSideTools, Orchestrator]` |
 | `SimilarityLimit` | `0.6` |
 | `MaxSimilarities` | `3` |
 | `ContextSizeLimit` | `8000` |
@@ -279,13 +285,14 @@ The `handleChatCompletions` HTTP handler is the main entry point for completion 
 4. **Sync messages** (import conversation history from the request)
 5. **Context compression** (if compressor configured and context exceeds limit)
 6. **RAG context injection** (if RAG agent configured)
-7. **Intelligent routing** (if orchestrator configured, detect topic and switch agent)
-8. **Tool handling** (dispatch based on tool mode):
-   - **Passthrough**: Forward tool definitions to LLM, return tool_calls to client
-   - **Auto-execute**: Execute tools server-side, loop until final response
-9. **Generate completion** (streaming SSE or non-streaming JSON)
-10. **Cleanup tool state**
-11. **AfterCompletion hook** (if set)
+7. **Agent execution chain** (process through configured `AgentExecutionOrder`):
+   - Each handler can either **handle the request** (send response and stop) or **pass to next**
+   - **ClientSideTools**: Detect tool calls and return them to client (if tools in request)
+   - **ServerSideTools**: Execute tools server-side and continue loop (if configured)
+   - **Orchestrator**: Detect topic and route to appropriate agent (if configured)
+8. **Generate completion** (streaming SSE or non-streaming JSON, if no handler processed request)
+9. **Cleanup tool state**
+10. **AfterCompletion hook** (if set)
 
 ### Request format (OpenAI-compatible)
 
@@ -380,30 +387,60 @@ All responses include CORS headers allowing all origins. Preflight `OPTIONS` req
 
 ---
 
-## 7. Tool Execution Modes
+## 7. Tool Execution with Agent Execution Order
 
-The Gateway Server Agent supports two distinct tool execution modes, controlled via `WithToolMode`:
+The Gateway Server Agent uses a flexible **chain of responsibility pattern** to handle tool execution. Instead of fixed modes, you configure the order in which different agent handlers process requests using `WithAgentExecutionOrder`.
 
-### ToolModePassthrough (default)
+### Agent Execution Types
 
-In passthrough mode, the gateway forwards tool definitions to the LLM backend and returns `tool_calls` to the client. The client is responsible for executing the tools and sending results back in subsequent requests. This is the mode used by tools like `qwen-code` and `aider`.
+Three execution types are available:
+
+| Type | Description | When it handles the request |
+|---|---|---|
+| `AgentExecutionClientSideTools` | Returns tool calls to the client for local execution | When request contains `tools` array and client tools agent is configured |
+| `AgentExecutionServerSideTools` | Executes tools server-side and continues completion loop | When server tools agent is configured and no client tools in request |
+| `AgentExecutionOrchestrator` | Routes to appropriate agent based on topic detection | When orchestrator is configured (never stops the chain) |
+
+### Default Execution Order
 
 ```go
+DefaultAgentExecutionOrder = []AgentExecutionType{
+    AgentExecutionClientSideTools,   // Check for client-side tools first
+    AgentExecutionServerSideTools,   // Then server-side tools
+    AgentExecutionOrchestrator,      // Finally orchestration
+}
+```
+
+### Client-Side Tool Execution
+
+Configure a client-side tools agent to detect and return tool calls to clients like `qwen-code`, `aider`, or `continue.dev`:
+
+```go
+clientToolsAgent, _ := tools.NewAgent(ctx,
+    agents.Config{
+        Name:      "client-tools",
+        EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+    },
+    models.Config{
+        Name: "hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m",  // Tool-capable model
+    },
+)
+
 gateway, _ := gatewayserver.NewAgent(ctx,
     gatewayserver.WithSingleAgent(chatAgent),
-    gatewayserver.WithPort(8080),
-    // ToolModePassthrough is the default
+    gatewayserver.WithClientSideToolsAgent(clientToolsAgent),
+    // Default order will check client-side tools first
 )
 ```
 
-**Client-side tool call flow:**
+**Client-side flow:**
 
 1. Client sends request with `tools` array
-2. Gateway forwards tools to LLM
-3. LLM returns `tool_calls` in the response (or SSE stream)
-4. Client executes the tools locally
-5. Client sends a new request including `tool` role messages with results
-6. Gateway completes with the final response
+2. Gateway detects tool calls using `clientToolsAgent`
+3. Gateway returns `tool_calls` to client in OpenAI format
+4. Client executes tools locally
+5. Client sends new request with `tool` role messages containing results
+6. Loop continues until final response
 
 **Non-streaming response with tool_calls:**
 
@@ -425,31 +462,25 @@ gateway, _ := gatewayserver.NewAgent(ctx,
 }
 ```
 
-**Streaming response with tool_calls:**
+### Server-Side Tool Execution
 
-```
-data: {"choices":[{"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"call_xyz","type":"function","function":{"name":"calculate_sum","arguments":""}}]},"finish_reason":null}]}
-
-data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"a\":3,\"b\":5}"}}]},"finish_reason":null}]}
-
-data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}
-
-data: [DONE]
-```
-
-### ToolModeAutoExecute
-
-In auto-execute mode, the gateway handles tool execution server-side using the configured `ExecuteFn`. The client only sees the final response and is not aware of tool calls.
+Configure a server-side tools agent to execute tools internally:
 
 ```go
+serverToolsAgent, _ := tools.NewAgent(ctx,
+    agents.Config{
+        Name:      "server-tools",
+        EngineURL: engineURL,
+    },
+    models.Config{Name: "my-model"},
+)
+
 gateway, _ := gatewayserver.NewAgent(ctx,
     gatewayserver.WithSingleAgent(chatAgent),
-    gatewayserver.WithToolsAgent(toolsAgent),
-    gatewayserver.WithToolMode(gatewayserver.ToolModeAutoExecute),
+    gatewayserver.WithToolsAgent(serverToolsAgent),
     gatewayserver.WithExecuteFn(func(name string, args string) (string, error) {
         switch name {
         case "calculate_sum":
-            // Execute the function
             return `{"result": 8}`, nil
         default:
             return `{"error": "unknown function"}`, fmt.Errorf("unknown: %s", name)
@@ -458,144 +489,63 @@ gateway, _ := gatewayserver.NewAgent(ctx,
 )
 ```
 
-**Server-side tool execution flow:**
+**Server-side flow:**
 
 1. Client sends request (no `tools` array needed)
-2. Gateway detects tool calls using the `tools.Agent`
-3. Gateway executes each tool via `ExecuteFn`
-4. Gateway feeds results back to the LLM
-5. Steps 2-4 repeat until LLM produces a final answer
+2. Gateway detects tool calls using `serverToolsAgent`
+3. Gateway executes tools via `ExecuteFn`
+4. Gateway feeds results back to LLM
+5. Steps 2-4 repeat until final answer
 6. Client receives only the final response
 
----
+### Custom Execution Order
 
-## 7.3. Passthrough-First Architecture (Advanced)
-
-This advanced pattern ensures that all tool requests are always processed by a tool-capable agent first, preventing errors with models that don't support tools.
-
-### Why Passthrough-First?
-
-When using multi-agent crews, some agents may use models that don't support tool calling. If a client (like `pi`, `qwen-code`, or `aider`) sends a request with tools to such an agent, it will fail. The passthrough-first architecture solves this by routing all tool requests through a designated "passthrough" agent that uses a tool-capable model.
-
-### How It Works
-
-```
-Client Request + tools[]
-    ↓
-🔀 PASSTHROUGH AGENT (always first)
-    ├─ Phase 1: Fast detection (non-streaming)
-    │  ├─ Detects tool_calls needed?
-    │  │  ├─ YES → Phase 2: Stream response to client
-    │  │  └─ NO  → Redirect to appropriate agent
-    ↓
-💬 Selected Agent (coder/generic/etc.)
-    └─ Responds without tools
-```
-
-### Setup
-
-1. **Create a passthrough agent** with a tool-capable model:
+You can customize the order to prioritize different handlers:
 
 ```go
-passthroughAgent, err := chat.NewAgent(ctx,
-    agents.Config{
-        Name:                    "passthrough",  // ← ID must be "passthrough"
-        EngineURL:               engineURL,
-        SystemInstructions:      "You respond appropriately to tool requests.",
-        KeepConversationHistory: true,
-    },
-    models.Config{
-        Name:        "hf.co/qwen/qwen2.5-coder-3b-instruct-gguf:q4_k_m",  // ← Tool-capable model
-        Temperature: models.Float64(0.0),
-    },
-)
-```
-
-2. **Add to crew** with ID `"passthrough"`:
-
-```go
-agentCrew := map[string]*chat.Agent{
-    "coder":       coderAgent,
-    "generic":     genericAgent,
-    "passthrough": passthroughAgent,  // ← Must have this exact ID
-}
-```
-
-3. **Create gateway** (no additional configuration needed):
-
-```go
-gateway, err := gatewayserver.NewAgent(ctx,
+// Example: Orchestrate first, then check for client tools
+gateway, _ := gatewayserver.NewAgent(ctx,
     gatewayserver.WithAgentCrew(agentCrew, "generic"),
-    // ToolModePassthrough is the default
+    gatewayserver.WithClientSideToolsAgent(clientToolsAgent),
+    gatewayserver.WithOrchestratorAgent(orchestratorAgent),
+    gatewayserver.WithAgentExecutionOrder([]gatewayserver.AgentExecutionType{
+        gatewayserver.AgentExecutionOrchestrator,      // Route to appropriate agent first
+        gatewayserver.AgentExecutionClientSideTools,   // Then check for client tools
+    }),
 )
 ```
 
-### Validation
+### How the Chain Works
 
-The gateway validates at startup that a `"passthrough"` agent exists when in `ToolModePassthrough`:
+Each handler in the execution order can either:
+- **Handle the request**: Send a response and stop the chain (return `true`)
+- **Pass to next handler**: Skip processing (return `false`)
 
 ```
-Error: passthrough mode requires an agent with ID 'passthrough' in the crew.
-Please add an agent with ID 'passthrough' that supports tool calling.
+Request arrives
+    ↓
+Handler 1 (ClientSideTools)
+    ├─ Has tools in request? → YES: Send tool_calls to client, DONE
+    └─ NO: Pass to next
+         ↓
+Handler 2 (ServerSideTools)
+    ├─ Server tools configured? → YES: Execute tools, send response, DONE
+    └─ NO: Pass to next
+         ↓
+Handler 3 (Orchestrator)
+    ├─ Route to appropriate agent (never stops chain)
+    └─ Continue to default completion
+         ↓
+Default Completion
+    └─ Generate streaming or non-streaming response
 ```
 
-### Two-Phase Detection
+### Best Practices
 
-**Phase 1: Detection (Always Non-Streaming)**
-- Fast API call to determine if tools are needed
-- Analyzes `finish_reason` and `tool_calls` in response
-- Cost: 1 API call
-
-**Phase 2: Response (Conditional)**
-- If `tool_calls` detected + streaming requested → Makes streaming call
-- If `tool_calls` detected + non-streaming → Uses detection response
-- If no `tool_calls` → Redirects to appropriate agent
-- Cost: 0-1 additional API call
-
-### Example Flow
-
-**Tool request detected:**
-```
-Client: "What is the weather in Paris?" + tools[]
-    ↓
-🔀 PASSTHROUGH: Phase 1 detects tool_calls needed
-    ↓
-🔀 PASSTHROUGH: Phase 2 streams tool_calls to client
-    ↓
-Client executes get_weather() locally
-    ↓
-Final response
-```
-
-**No tool request:**
-```
-Client: "What is 2+2?" + tools[]
-    ↓
-🔀 PASSTHROUGH: Phase 1 detects NO tool_calls needed
-    ↓
-💬 GENERIC: Responds directly "4"
-```
-
-### Cost Consideration
-
-- **Best case** (no tools needed): 1 API call (detection only)
-- **Worst case** (tools + streaming): 2 API calls (detection + streaming response)
-- **Average case** (tools + non-streaming): 1 API call (detection response reused)
-
-### Important Notes
-
-1. **Agent ID is critical**: The agent must have exactly the ID `"passthrough"` for validation to work.
-2. **Tool-capable model required**: Use models like Qwen2.5-Coder, GPT-4, Claude, or similar that support function calling.
-3. **Automatic activation**: No special configuration needed beyond adding the agent to the crew.
-4. **Streaming support**: Fully supports both streaming and non-streaming clients.
-
-### Sample Implementation
-
-See [samples/89-gateway-compose-cagent](../../samples/89-gateway-compose-cagent) for a complete working example with:
-- Configuration-based agent routing
-- Passthrough-first tool handling
-- BeforeCompletion hooks for tracing
-- Test script to validate behavior
+1. **Client tools first**: Put `AgentExecutionClientSideTools` first to handle external clients properly
+2. **One tools agent**: Use either client-side OR server-side tools, not both
+3. **Orchestrator last**: Orchestration should happen after tool detection to route to the right agent
+4. **Keep it simple**: The default order works for most use cases
 
 ---
 
@@ -859,11 +809,18 @@ func NewAgent(ctx context.Context, options ...GatewayServerAgentOption) (*Gatewa
 ```go
 type GatewayServerAgentOption func(*GatewayServerAgent) error
 
-type ToolMode int
+type AgentExecutionType string
 const (
-    ToolModePassthrough ToolMode = iota
-    ToolModeAutoExecute
+    AgentExecutionClientSideTools AgentExecutionType = "client_side_tools"
+    AgentExecutionServerSideTools AgentExecutionType = "server_side_tools"
+    AgentExecutionOrchestrator    AgentExecutionType = "orchestrator"
 )
+
+var DefaultAgentExecutionOrder = []AgentExecutionType{
+    AgentExecutionClientSideTools,
+    AgentExecutionServerSideTools,
+    AgentExecutionOrchestrator,
+}
 ```
 
 ### Option Functions
@@ -873,10 +830,13 @@ const (
 | `WithAgentCrew(crew, selectedId)` | Sets the crew and initial agent. |
 | `WithSingleAgent(chatAgent)` | Creates a single-agent crew. |
 | `WithPort(port)` | Sets the HTTP server port (default: 8080). |
-| `WithToolsAgent(toolsAgent)` | Attaches tools agent. |
-| `WithToolMode(mode)` | Sets tool execution mode. |
-| `WithExecuteFn(fn)` | Sets tool execution function. |
+| `WithToolsAgent(toolsAgent)` | Attaches tools agent for server-side execution. |
+| `WithClientSideToolsAgent(toolsAgent)` | Attaches tools agent for client-side execution. |
+| `WithAgentExecutionOrder(order []AgentExecutionType)` | Sets the agent execution order. |
+| `WithExecuteFn(fn)` | Sets tool execution function (for server-side tools). |
 | `WithConfirmationPromptFn(fn)` | Sets custom tool confirmation function. |
+| `WithTLSCert(certData, keyData []byte)` | Enables HTTPS with certificate data. |
+| `WithTLSCertFromFile(certPath, keyPath string)` | Enables HTTPS with certificate files. |
 | `WithMatchAgentIdToTopicFn(fn)` | Sets topic-to-agent mapping function. |
 | `WithRagAgent(ragAgent)` | Attaches RAG agent. |
 | `WithRagAgentAndSimilarityConfig(ragAgent, limit, max)` | Attaches RAG with config. |
@@ -892,8 +852,8 @@ const (
 |---|---|
 | `StartServer() error` | Start the HTTP server with all routes. |
 | `GetPort() string` | Get the HTTP port. |
-| `GetToolMode() ToolMode` | Get the current tool execution mode. |
-| `SetToolMode(mode)` | Set the tool execution mode. |
+| `GetAgentExecutionOrder() []AgentExecutionType` | Get the current agent execution order. |
+| `SetAgentExecutionOrder(order []AgentExecutionType)` | Set the agent execution order. |
 | `StopStream()` | Stop the current streaming operation. |
 | `GetMessages() []messages.Message` | Get messages from active agent. |
 | `GetContextSize() int` | Get context size of active agent. |

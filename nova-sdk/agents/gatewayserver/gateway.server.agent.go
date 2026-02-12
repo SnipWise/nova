@@ -17,20 +17,6 @@ import (
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
-// ToolMode defines how tool calls are handled by the gateway.
-type ToolMode int
-
-const (
-	// ToolModePassthrough returns tool_calls to the client in OpenAI format.
-	// The client is responsible for executing tools and sending results back
-	// as messages with role "tool". This is the mode used by qwen-code, aider, etc.
-	ToolModePassthrough ToolMode = iota
-
-	// ToolModeAutoExecute executes tools server-side using the configured ExecuteFn,
-	// then continues the completion loop internally. The client only sees the final response.
-	ToolModeAutoExecute
-)
-
 // GatewayServerAgent exposes an OpenAI-compatible API (POST /v1/chat/completions)
 // backed by a N.O.V.A. crew of agents. External clients see a single "model".
 type GatewayServerAgent struct {
@@ -46,11 +32,16 @@ type GatewayServerAgent struct {
 	orchestratorAgent     agents.OrchestratorAgent
 	matchAgentIdToTopicFn func(string, string) string
 
-	// Tools
-	toolsAgent       *tools.Agent
-	toolMode         ToolMode
-	executeFn        func(string, string) (string, error)
-	confirmationFn   func(string, string) tools.ConfirmationResponse
+	// Tools - Server-side execution
+	toolsAgent     *tools.Agent
+	executeFn      func(string, string) (string, error)
+	confirmationFn func(string, string) tools.ConfirmationResponse
+
+	// Tools - Client-side execution
+	clientSideToolsAgent *tools.Agent
+
+	// Agent execution order
+	agentExecutionOrder []AgentExecutionType
 
 	// RAG
 	ragAgent        *rag.Agent
@@ -124,7 +115,8 @@ func WithPort(port int) GatewayServerAgentOption {
 	}
 }
 
-// WithToolsAgent attaches a tools agent for function calling capabilities.
+// WithToolsAgent attaches a tools agent for server-side function calling capabilities.
+// Tools are executed on the server and results are used to continue the completion.
 func WithToolsAgent(toolsAgent *tools.Agent) GatewayServerAgentOption {
 	return func(agent *GatewayServerAgent) error {
 		agent.toolsAgent = toolsAgent
@@ -132,15 +124,39 @@ func WithToolsAgent(toolsAgent *tools.Agent) GatewayServerAgentOption {
 	}
 }
 
-// WithToolMode sets the tool execution mode (ToolModePassthrough or ToolModeAutoExecute).
-func WithToolMode(mode ToolMode) GatewayServerAgentOption {
+// WithClientSideToolsAgent attaches a tools agent for client-side tool execution.
+// The gateway detects tool calls and returns them to the client in OpenAI format.
+// The client executes the tools and sends results back as messages with role "tool".
+// This is used by clients like qwen-code, aider, continue.dev, etc.
+func WithClientSideToolsAgent(toolsAgent *tools.Agent) GatewayServerAgentOption {
 	return func(agent *GatewayServerAgent) error {
-		agent.toolMode = mode
+		agent.clientSideToolsAgent = toolsAgent
 		return nil
 	}
 }
 
-// WithExecuteFn sets the function executor for server-side tool execution (ToolModeAutoExecute).
+// WithAgentExecutionOrder sets the order in which different agent types process requests.
+// The default order is: ClientSideTools -> ServerSideTools -> Orchestrator.
+// Each handler in the order can either:
+//  - Handle the request and return (stopping the chain)
+//  - Skip and let the next handler process the request
+//
+// Example custom order:
+//   WithAgentExecutionOrder([]AgentExecutionType{
+//       AgentExecutionOrchestrator,      // Route first
+//       AgentExecutionClientSideTools,   // Then check for client tools
+//   })
+func WithAgentExecutionOrder(order []AgentExecutionType) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		if len(order) == 0 {
+			return fmt.Errorf("agent execution order cannot be empty")
+		}
+		agent.agentExecutionOrder = order
+		return nil
+	}
+}
+
+// WithExecuteFn sets the function executor for server-side tool execution.
 func WithExecuteFn(fn func(string, string) (string, error)) GatewayServerAgentOption {
 	return func(agent *GatewayServerAgent) error {
 		agent.executeFn = fn
@@ -259,9 +275,10 @@ func AfterCompletion(fn func(*GatewayServerAgent)) GatewayServerAgentOption {
 //   - WithAgentCrew(agentCrew, selectedAgentId) - Sets the crew of agents
 //   - WithSingleAgent(chatAgent) - Creates a single-agent crew
 //   - WithPort(port) - Sets the HTTP server port (default: 8080)
-//   - WithToolsAgent(toolsAgent) - Attaches a tools agent
-//   - WithToolMode(mode) - Sets tool execution mode (default: ToolModePassthrough)
-//   - WithExecuteFn(fn) - Sets the tool executor (for ToolModeAutoExecute)
+//   - WithToolsAgent(toolsAgent) - Attaches a tools agent for server-side execution
+//   - WithClientSideToolsAgent(toolsAgent) - Attaches a tools agent for client-side execution
+//   - WithAgentExecutionOrder(order) - Sets the agent execution order
+//   - WithExecuteFn(fn) - Sets the tool executor (for server-side tools)
 //   - WithConfirmationPromptFn(fn) - Sets tool confirmation prompt
 //   - WithTLSCert(certData, keyData) - Enables HTTPS with PEM-encoded certificate and key data
 //   - WithTLSCertFromFile(certPath, keyPath) - Enables HTTPS with certificate and key files
@@ -275,14 +292,14 @@ func AfterCompletion(fn func(*GatewayServerAgent)) GatewayServerAgentOption {
 //   - AfterCompletion(fn) - Hook after completion
 func NewAgent(ctx context.Context, options ...GatewayServerAgentOption) (*GatewayServerAgent, error) {
 	agent := &GatewayServerAgent{
-		ctx:             ctx,
-		log:             logger.GetLoggerFromEnv(),
-		port:            ":8080",
-		toolMode:        ToolModePassthrough,
-		similarityLimit: 0.6,
-		maxSimilarities: 3,
-		contextSizeLimit: 8000,
-		stopStreamChan:  make(chan bool, 1),
+		ctx:                 ctx,
+		log:                 logger.GetLoggerFromEnv(),
+		port:                ":8080",
+		agentExecutionOrder: DefaultAgentExecutionOrder,
+		similarityLimit:     0.6,
+		maxSimilarities:     3,
+		contextSizeLimit:    8000,
+		stopStreamChan:      make(chan bool, 1),
 	}
 
 	for _, option := range options {
@@ -293,14 +310,6 @@ func NewAgent(ctx context.Context, options ...GatewayServerAgentOption) (*Gatewa
 
 	if len(agent.chatAgents) == 0 {
 		return nil, fmt.Errorf("agent crew must be set using WithAgentCrew or WithSingleAgent option")
-	}
-
-	// Validate that passthrough agent exists when in ToolModePassthrough
-	if agent.toolMode == ToolModePassthrough {
-		if _, exists := agent.chatAgents["passthrough"]; !exists {
-			return nil, fmt.Errorf("passthrough mode requires an agent with ID 'passthrough' in the crew. " +
-				"Please add an agent with ID 'passthrough' that supports tool calling to ensure proper tool request handling")
-		}
 	}
 
 	// Default matchAgentIdToTopicFn: return first available agent
@@ -317,7 +326,7 @@ func NewAgent(ctx context.Context, options ...GatewayServerAgentOption) (*Gatewa
 		}
 	}
 
-	agent.log.Info("🌐 GatewayServerAgent initialized (mode: %s, agent: %s)", toolModeName(agent.toolMode), agent.selectedAgentId)
+	agent.log.Info("🌐 GatewayServerAgent initialized (agent: %s)", agent.selectedAgentId)
 
 	return agent, nil
 }
@@ -489,23 +498,12 @@ func (agent *GatewayServerAgent) GetPort() string {
 	return agent.port
 }
 
-// GetToolMode returns the current tool execution mode.
-func (agent *GatewayServerAgent) GetToolMode() ToolMode {
-	return agent.toolMode
+// GetAgentExecutionOrder returns the current agent execution order.
+func (agent *GatewayServerAgent) GetAgentExecutionOrder() []AgentExecutionType {
+	return agent.agentExecutionOrder
 }
 
-// SetToolMode changes the tool execution mode.
-func (agent *GatewayServerAgent) SetToolMode(mode ToolMode) {
-	agent.toolMode = mode
-}
-
-func toolModeName(mode ToolMode) string {
-	switch mode {
-	case ToolModePassthrough:
-		return "passthrough"
-	case ToolModeAutoExecute:
-		return "auto-execute"
-	default:
-		return "unknown"
-	}
+// SetAgentExecutionOrder changes the agent execution order.
+func (agent *GatewayServerAgent) SetAgentExecutionOrder(order []AgentExecutionType) {
+	agent.agentExecutionOrder = order
 }

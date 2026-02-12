@@ -20,7 +20,10 @@ func (agent *GatewayServerAgent) HandleChatCompletionsForTest(w http.ResponseWri
 }
 
 // handleChatCompletions is the main handler for POST /v1/chat/completions.
-// It dispatches to streaming or non-streaming based on the request's "stream" field.
+// It dispatches requests through a configurable chain of agent handlers based on agentExecutionOrder.
+// Each handler can either:
+//  - Handle the request and return (stopping the chain)
+//  - Skip and let the next handler process the request
 func (agent *GatewayServerAgent) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Parse request
 	var req ChatCompletionRequest
@@ -42,39 +45,43 @@ func (agent *GatewayServerAgent) handleChatCompletions(w http.ResponseWriter, r 
 	// Compress context if needed
 	agent.compressContextIfNeeded()
 
-	// Route to appropriate agent if orchestrator is configured
-	lastUserMessage := agent.extractLastUserMessage(req.Messages)
-	agent.routeToAppropriateAgent(lastUserMessage)
-
 	// Add RAG context if available
+	lastUserMessage := agent.extractLastUserMessage(req.Messages)
 	agent.addRAGContext(lastUserMessage)
 
 	// Sync incoming messages to the current chat agent
 	agent.syncMessages(req.Messages)
 
-	// Handle based on tool mode and whether tools are present
-	if agent.isPassthroughToolRequest(req) {
-		// Passthrough mode with tools: ALWAYS route through passthrough agent first
-		// The passthrough agent will:
-		// 1. Check if tool_calls are needed
-		// 2. If yes: send tool_calls to client and return
-		// 3. If no: redirect to the selected agent (orchestrator/default)
-		handled := agent.handlePassthroughFirst(w, r, req)
+	// Process request through the agent execution order chain
+	// Each handler returns true if it handled the request, false otherwise
+	for _, executionType := range agent.agentExecutionOrder {
+		var handled bool
+
+		switch executionType {
+		case AgentExecutionClientSideTools:
+			// Client-side tool execution: detect tool calls and return them to client
+			handled = agent.handleClientSideToolDetection(w, r, req)
+
+		case AgentExecutionServerSideTools:
+			// Server-side tool execution: execute tools and continue completion
+			handled = agent.handleServerSideToolExecution(w, r, req)
+
+		case AgentExecutionOrchestrator:
+			// Orchestrator: detect topic and route to appropriate agent
+			handled = agent.handleOrchestration(lastUserMessage)
+		}
+
+		// If this handler processed the request, we're done
 		if handled {
-			// Passthrough agent sent tool_calls to client, we're done
+			if agent.afterCompletion != nil {
+				agent.afterCompletion(agent)
+			}
 			return
 		}
-		// No tool_calls detected, continue with selected agent
-		// Fall through to normal streaming/non-streaming handling
-		if req.Stream {
-			agent.handleStreamingCompletion(w, r, req)
-		} else {
-			agent.handleNonStreamingCompletion(w, r, req)
-		}
-	} else if agent.toolsAgent != nil && agent.toolMode == ToolModeAutoExecute {
-		// Auto-execute mode: execute tools server-side
-		agent.handleAutoExecuteCompletion(w, r, req)
-	} else if req.Stream {
+	}
+
+	// No specialized handler processed the request, use default completion
+	if req.Stream {
 		agent.handleStreamingCompletion(w, r, req)
 	} else {
 		agent.handleNonStreamingCompletion(w, r, req)
@@ -200,6 +207,47 @@ func (agent *GatewayServerAgent) handleStreamingCompletion(w http.ResponseWriter
 
 	// Send [DONE] marker
 	agent.writeStreamDone(w, flusher)
+}
+
+// handleServerSideToolExecution processes requests with server-side tool execution.
+// Returns true if tools were executed and the request was handled, false otherwise.
+func (agent *GatewayServerAgent) handleServerSideToolExecution(
+	w http.ResponseWriter,
+	r *http.Request,
+	req ChatCompletionRequest,
+) bool {
+	// Check if server-side tools agent is configured
+	if agent.toolsAgent == nil {
+		return false
+	}
+
+	// Server-side tools only execute if tools are NOT sent in the request
+	// (client-side tools take precedence if tools are in the request)
+	if len(req.Tools) > 0 {
+		return false
+	}
+
+	agent.log.Info("🔧 Processing request with server-side tool execution")
+
+	// Execute the auto-execute completion flow
+	agent.handleAutoExecuteCompletion(w, r, req)
+	return true
+}
+
+// handleOrchestration processes requests through the orchestrator.
+// Returns true if orchestration was performed, false otherwise.
+func (agent *GatewayServerAgent) handleOrchestration(lastUserMessage string) bool {
+	// Check if orchestrator is configured
+	if agent.orchestratorAgent == nil {
+		return false
+	}
+
+	// Route to appropriate agent based on topic detection
+	agent.routeToAppropriateAgent(lastUserMessage)
+
+	// Orchestration doesn't stop the chain, it just routes to the right agent
+	// Return false to continue to the completion handler
+	return false
 }
 
 // handleAutoExecuteCompletion handles tool calls with server-side execution,
