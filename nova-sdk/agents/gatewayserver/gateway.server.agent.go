@@ -319,12 +319,7 @@ func NewAgent(ctx context.Context, options ...GatewayServerAgentOption) (*Gatewa
 		}
 	}
 
-	// Default executeFn for auto-execute mode
-	if agent.executeFn == nil {
-		agent.executeFn = func(functionName, arguments string) (string, error) {
-			return fmt.Sprintf(`{"error": "no executor configured for %s"}`, functionName), nil
-		}
-	}
+	// Note: No default executeFn - if not configured, toolsAgent will use its own configured callbacks
 
 	agent.log.Info("🌐 GatewayServerAgent initialized (agent: %s)", agent.selectedAgentId)
 

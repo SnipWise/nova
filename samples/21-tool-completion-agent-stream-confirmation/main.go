@@ -61,9 +61,9 @@ func main() {
 
 	result, err := agent.DetectToolCallsLoopWithConfirmationStream(
 		messages,
+		streamCallback,
 		executeFunction,
 		confirmationPrompt,
-		streamCallback,
 	)
 
 	if err != nil {

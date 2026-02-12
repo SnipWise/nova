@@ -338,11 +338,13 @@ tools.WithMCPTools(mcpTools)                // Outils au format MCP
 
 ### ToolsAgentOption (niveau agent)
 
-`ToolsAgentOption` opère sur l'`*Agent` de haut niveau et configure les hooks de cycle de vie :
+`ToolsAgentOption` opère sur l'`*Agent` de haut niveau et configure les hooks de cycle de vie et les callbacks par défaut :
 
 ```go
-tools.BeforeCompletion(func(a *tools.Agent) { ... })
-tools.AfterCompletion(func(a *tools.Agent) { ... })
+tools.BeforeCompletion(func(a *tools.Agent) { ... })       // Hook avant la détection d'appels d'outils
+tools.AfterCompletion(func(a *tools.Agent) { ... })        // Hook après la détection d'appels d'outils
+tools.WithExecuteFn(executeFunction)                        // Définir le callback d'exécution par défaut
+tools.WithConfirmationPromptFn(confirmationPrompt)          // Définir le callback de confirmation par défaut
 ```
 
 ### Mixer les deux types d'options
@@ -353,6 +355,8 @@ agent, err := tools.NewAgent(
     // ToolAgentOption
     tools.WithTools(myTools),
     // ToolsAgentOption
+    tools.WithExecuteFn(executeFunction),
+    tools.WithConfirmationPromptFn(confirmationPrompt),
     tools.BeforeCompletion(func(a *tools.Agent) {
         fmt.Println("Avant la détection d'appels d'outils...")
     }),
@@ -361,6 +365,11 @@ agent, err := tools.NewAgent(
     }),
 )
 ```
+
+**Avantages d'utiliser WithExecuteFn et WithConfirmationPromptFn :**
+- Définir les callbacks une seule fois lors de la création de l'agent
+- Omettre les paramètres de callback dans les méthodes de détection pour un code plus propre
+- Conserver la flexibilité : les paramètres peuvent toujours remplacer les options si nécessaire
 
 ---
 
@@ -528,6 +537,8 @@ type ToolsAgentOption func(*Agent)
 | `WithTools(tools []*Tool)` | `ToolAgentOption` | Définir les outils via l'API fluide. |
 | `WithOpenAITools(tools []openai.ChatCompletionToolUnionParam)` | `ToolAgentOption` | Définir les outils au format OpenAI. |
 | `WithMCPTools(tools []mcp.Tool)` | `ToolAgentOption` | Définir les outils au format MCP. |
+| `WithExecuteFn(fn ToolCallback)` | `ToolsAgentOption` | Définir le callback d'exécution d'outils par défaut. Utilisé quand le paramètre callback est omis dans les méthodes de détection. |
+| `WithConfirmationPromptFn(fn ConfirmationCallback)` | `ToolsAgentOption` | Définir le callback de confirmation par défaut. Utilisé quand le paramètre confirmation est omis dans les méthodes de confirmation. |
 | `BeforeCompletion(fn func(*Agent))` | `ToolsAgentOption` | Hook appelé avant chaque détection d'appel d'outils. |
 | `AfterCompletion(fn func(*Agent))` | `ToolsAgentOption` | Hook appelé après chaque détection d'appel d'outils. |
 
@@ -537,12 +548,12 @@ type ToolsAgentOption func(*Agent)
 
 | Méthode | Description |
 |---|---|
-| `DetectToolCallsLoop(msgs, callback) (*ToolCallResult, error)` | Détecter et exécuter les appels d'outils en boucle. |
-| `DetectToolCallsLoopWithConfirmation(msgs, callback, confirm) (*ToolCallResult, error)` | Idem avec confirmation utilisateur. |
-| `DetectToolCallsLoopStream(msgs, callback, stream) (*ToolCallResult, error)` | Idem avec streaming. |
-| `DetectToolCallsLoopWithConfirmationStream(msgs, callback, confirm, stream) (*ToolCallResult, error)` | Idem avec confirmation et streaming. |
-| `DetectParallelToolCalls(msgs, callback) (*ToolCallResult, error)` | Détecter les appels d'outils parallèles. |
-| `DetectParallelToolCallsWithConfirmation(msgs, callback, confirm) (*ToolCallResult, error)` | Idem avec confirmation. |
+| `DetectToolCallsLoop(msgs, callback...) (*ToolCallResult, error)` | Détecter et exécuter les appels d'outils en boucle. `callback` est optionnel si défini via `WithExecuteFn`. |
+| `DetectToolCallsLoopWithConfirmation(msgs, callbacks...) (*ToolCallResult, error)` | Idem avec confirmation utilisateur. `callbacks` (toolCallback, confirmationCallback) sont optionnels si définis via options. L'ordre est important ! |
+| `DetectToolCallsLoopStream(msgs, streamCallback, toolCallback...) (*ToolCallResult, error)` | Idem avec streaming. `streamCallback` est requis, `toolCallback` est optionnel. |
+| `DetectToolCallsLoopWithConfirmationStream(msgs, streamCallback, callbacks...) (*ToolCallResult, error)` | Idem avec confirmation et streaming. `streamCallback` est requis, les autres callbacks sont optionnels. |
+| `DetectParallelToolCalls(msgs, callback...) (*ToolCallResult, error)` | Détecter les appels d'outils parallèles. `callback` est optionnel si défini via `WithExecuteFn`. |
+| `DetectParallelToolCallsWithConfirmation(msgs, callbacks...) (*ToolCallResult, error)` | Idem avec confirmation. `callbacks` sont optionnels si définis via options. |
 | `GetMessages() []messages.Message` | Obtenir tous les messages de la conversation. |
 | `AddMessage(role, content)` | Ajouter un message. |
 | `AddMessages(msgs)` | Ajouter plusieurs messages. |

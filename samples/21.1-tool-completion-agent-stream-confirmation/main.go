@@ -26,11 +26,14 @@ func main() {
 		models.Config{
 			Name: "hf.co/menlo/jan-nano-gguf:q4_k_m",
 			Temperature:        models.Float64(0.0),
-			ParallelToolCalls:  models.Bool(false),	
+			ParallelToolCalls:  models.Bool(false),
 		},
-		tools.WithTools(GetToolsIndex()),
-	)
 
+		tools.WithTools(GetToolsIndex()),
+		// NEW: Set both callbacks via options
+		tools.WithExecuteFn(executeFunction),
+		tools.WithConfirmationPromptFn(confirmationPrompt),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -47,15 +50,26 @@ func main() {
 		},
 	}
 
+	// Stream callback for real-time content display
+	streamCallback := func(content string) error {
+		fmt.Print(content)
+		return nil
+	}
 
-	result, err := agent.DetectToolCallsLoopWithConfirmation(
+	display.Colorf(display.ColorCyan, "🚀 Starting streaming tool completion...\n")
+	display.Separator()
+
+	// NEW: Omit callbacks to use those set via options - only streamCallback is required
+	result, err := agent.DetectToolCallsLoopWithConfirmationStream(
 		messages,
-		executeFunction,
-		confirmationPrompt,
+		streamCallback,
 	)
+
 	if err != nil {
 		panic(err)
 	}
+	display.NewLine()
+	display.Separator()
 
 	display.KeyValue("Finish Reason", result.FinishReason)
 	for _, value := range result.Results {
@@ -73,7 +87,6 @@ func confirmationPrompt(functionName string, arguments string) tools.Confirmatio
 }
 
 func GetToolsIndex() []*tools.Tool {
-
 	calculateSumTool := tools.NewTool("calculate_sum").
 		SetDescription("Calculate the sum of two numbers").
 		AddParameter("a", "number", "The first number", true).
@@ -95,9 +108,7 @@ func GetToolsIndex() []*tools.Tool {
 
 func executeFunction(functionName string, arguments string) (string, error) {
 
-	display.Colorf(display.ColorGreen, "🟢 Executing function: %s with arguments: %s\n", functionName, arguments)
-
-	// here human check
+	display.Colorf(display.ColorBrightRed, "🚀 Executing function: %s with arguments: %s\n", functionName, arguments)
 
 	switch functionName {
 	case "say_hello":

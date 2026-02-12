@@ -464,7 +464,43 @@ gateway, _ := gatewayserver.NewAgent(ctx,
 
 ### Exécution des outils côté serveur
 
-Configurez un agent d'outils côté serveur pour exécuter les outils en interne :
+Configurez un agent d'outils côté serveur pour exécuter les outils en interne. Vous pouvez configurer la fonction d'exécution à deux niveaux :
+
+**Option 1 : Configurer la fonction d'exécution dans l'agent d'outils (recommandé)**
+
+```go
+executeFunction := func(functionName string, arguments string) (string, error) {
+    switch functionName {
+    case "calculate_sum":
+        var args struct {
+            A float64 `json:"a"`
+            B float64 `json:"b"`
+        }
+        json.Unmarshal([]byte(arguments), &args)
+        return fmt.Sprintf(`{"result": %g}`, args.A + args.B), nil
+    default:
+        return `{"error": "fonction inconnue"}`, fmt.Errorf("inconnue : %s", functionName)
+    }
+}
+
+serverToolsAgent, _ := tools.NewAgent(ctx,
+    agents.Config{
+        Name:      "server-tools",
+        EngineURL: engineURL,
+    },
+    models.Config{Name: "my-model"},
+    tools.WithTools(toolsIndex),
+    tools.WithExecuteFn(executeFunction),  // Configuration ici
+)
+
+gateway, _ := gatewayserver.NewAgent(ctx,
+    gatewayserver.WithSingleAgent(chatAgent),
+    gatewayserver.WithToolsAgent(serverToolsAgent),
+    // Pas besoin de WithExecuteFn au niveau de la gateway - elle utilisera la fonction configurée dans l'agent
+)
+```
+
+**Option 2 : Configurer la fonction d'exécution au niveau de la gateway (remplacement)**
 
 ```go
 serverToolsAgent, _ := tools.NewAgent(ctx,
@@ -473,12 +509,14 @@ serverToolsAgent, _ := tools.NewAgent(ctx,
         EngineURL: engineURL,
     },
     models.Config{Name: "my-model"},
+    tools.WithTools(toolsIndex),
 )
 
 gateway, _ := gatewayserver.NewAgent(ctx,
     gatewayserver.WithSingleAgent(chatAgent),
     gatewayserver.WithToolsAgent(serverToolsAgent),
     gatewayserver.WithExecuteFn(func(name string, args string) (string, error) {
+        // Ceci remplace toute fonction d'exécution configurée dans l'agent d'outils
         switch name {
         case "calculate_sum":
             return `{"result": 8}`, nil
@@ -493,10 +531,15 @@ gateway, _ := gatewayserver.NewAgent(ctx,
 
 1. Le client envoie une requête (pas besoin de tableau `tools`)
 2. La gateway détecte les appels de fonctions en utilisant `serverToolsAgent`
-3. La gateway exécute les outils via `ExecuteFn`
-4. La gateway renvoie les résultats au LLM
-5. Les étapes 2-4 se répètent jusqu'à la réponse finale
-6. Le client ne reçoit que la réponse finale
+3. La gateway exécute les outils via la fonction d'exécution configurée (depuis l'agent ou la gateway)
+4. **La gateway génère immédiatement la réponse finale avec les résultats des outils dans le contexte**
+5. Le client reçoit la réponse finale (**pas de tool_calls à exécuter**)
+
+**Important** : Quand les outils sont exécutés côté serveur, la gateway :
+- Ajoute les résultats des outils au contexte de conversation
+- Génère immédiatement la completion finale
+- Ignore la détection des outils côté client
+- Le client ne voit jamais de `tool_calls` dans la réponse
 
 ### Ordre d'exécution personnalisé
 
