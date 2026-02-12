@@ -26,9 +26,12 @@ func main() {
 		models.Config{
 			Name: "hf.co/menlo/jan-nano-gguf:q4_k_m",
 			Temperature:        models.Float64(0.0),
-			ParallelToolCalls:  models.Bool(false),	
+			ParallelToolCalls:  models.Bool(false),
 		},
 		tools.WithTools(GetToolsIndex()),
+		// NEW: Set both callbacks via options
+		tools.WithExecuteFn(executeFunction),
+		tools.WithConfirmationPromptFn(confirmationPrompt),
 	)
 
 	if err != nil {
@@ -47,12 +50,8 @@ func main() {
 		},
 	}
 
-
-	result, err := agent.DetectToolCallsLoopWithConfirmation(
-		messages,
-		executeFunction,
-		confirmationPrompt,
-	)
+	// NEW: Omit callbacks to use those set via options
+	result, err := agent.DetectToolCallsLoopWithConfirmation(messages)
 	if err != nil {
 		panic(err)
 	}

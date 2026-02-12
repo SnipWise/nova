@@ -58,7 +58,7 @@ func main() {
 	display.Colorf(display.ColorCyan, "🚀 Starting streaming tool completion...\n")
 	display.Separator()
 
-	result, err := agent.DetectToolCallsLoopStream(messages, executeFunction, streamCallback)
+	result, err := agent.DetectToolCallsLoopStream(messages, streamCallback, executeFunction)
 	if err != nil {
 		panic(err)
 	}

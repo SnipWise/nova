@@ -6,16 +6,26 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/joho/godotenv"
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 	"github.com/snipwise/nova/nova-sdk/models"
+	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 	"github.com/snipwise/nova/nova-sdk/ui/display"
-	"github.com/snipwise/nova/nova-sdk/ui/prompt"
 )
 
 func main() {
+	// Create logger from environment variable
+	log := logger.GetLoggerFromEnv()
+
+	envFile := ".env"
+	// Load environment variables from env file
+	if err := godotenv.Load(envFile); err != nil {
+		log.Error("Warning: Error loading env file: %v\n", err)
+	}
+
 	ctx := context.Background()
 	agent, err := tools.NewAgent(
 		ctx,
@@ -23,12 +33,16 @@ func main() {
 			EngineURL:          "http://localhost:12434/engines/llama.cpp/v1",
 			SystemInstructions: "You are Bob, a helpful AI assistant.",
 		},
+
 		models.Config{
-			Name: "hf.co/menlo/jan-nano-gguf:q4_k_m",
-			Temperature:        models.Float64(0.0),
-			ParallelToolCalls:  models.Bool(false),	
+			Name:              "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Temperature:       models.Float64(0.0),
+			ParallelToolCalls: models.Bool(false),
 		},
+
 		tools.WithTools(GetToolsIndex()),
+		// NEW: Set the tool execution function via option
+		tools.WithExecuteFn(executeFunction),
 	)
 
 	if err != nil {
@@ -47,12 +61,8 @@ func main() {
 		},
 	}
 
-
-	result, err := agent.DetectToolCallsLoopWithConfirmation(
-		messages,
-		executeFunction,
-		confirmationPrompt,
-	)
+	// NEW: No need to pass executeFunction as parameter - it's already set via WithExecuteFn
+	result, err := agent.DetectToolCallsLoop(messages)
 	if err != nil {
 		panic(err)
 	}
@@ -63,13 +73,6 @@ func main() {
 	}
 	display.KeyValue("Assistant Message", result.LastAssistantMessage)
 
-}
-
-func confirmationPrompt(functionName string, arguments string) tools.ConfirmationResponse {
-	display.Colorf(display.ColorGreen, "🟢 Detected function: %s with arguments: %s\n", functionName, arguments)
-
-	choice := prompt.HumanConfirmation(fmt.Sprintf("Execute %s with %v?", functionName, arguments))
-	return choice
 }
 
 func GetToolsIndex() []*tools.Tool {

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -138,9 +137,14 @@ func getToolsAgent(ctx context.Context, engineURL string) (*tools.Agent, error) 
 			SetDescription("Say hello to the given name").
 			AddParameter("name", "string", "The name to greet", true)
 
+		klingonGreetingTool := tools.NewTool("klingon_greeting").
+			SetDescription("Greet someone in Klingon").
+			AddParameter("name", "string", "The name to greet in Klingon", true)
+
 		return []*tools.Tool{
 			calculateSumTool,
 			sayHelloTool,
+			klingonGreetingTool,
 		}
 	}
 
@@ -170,6 +174,16 @@ func getToolsAgent(ctx context.Context, engineURL string) (*tools.Agent, error) 
 			sum := args.A + args.B
 			return fmt.Sprintf(`{"result": %g}`, sum), nil
 
+		case "klingon_greeting":
+			var args struct {
+				Name string `json:"name"`
+			}
+			if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+				return `{"error": "Invalid arguments for klingon_greeting"}`, nil
+			}
+			greeting := fmt.Sprintf("nuqneH, %s! Qapla'! 🖖", args.Name)
+			return fmt.Sprintf(`{"message": "%s"}`, greeting), nil
+
 		default:
 			return `{"error": "Unknown function"}`, fmt.Errorf("unknown function: %s", functionName)
 		}
@@ -188,10 +202,10 @@ func getToolsAgent(ctx context.Context, engineURL string) (*tools.Agent, error) 
 			Temperature: models.Float64(0.0),
 		},
 		tools.BeforeCompletion(func(agent *tools.Agent) {
-			display.Styledln("🔀 [TOOLS] Detecting tool calls...", display.ColorYellow)
+			display.Styledln("🔴🟢🟡🔵🟠 [TOOLS] Detecting tool calls...", display.ColorYellow)
 		}),
 		tools.WithTools(getToolsIndex()),
-		//tools.WithExecuteFunction(executeFunction),
+		tools.WithExecuteFn(executeFunction),
 	)
 
 }
@@ -246,6 +260,11 @@ func main() {
 	// This is the standard "client-side tool execution" pattern used by
 	// most AI coding assistants.
 	clientSideToolsAgent, err := getClientSideToolsAgent(ctx, engineURL)
+	if err != nil {
+		panic(err)
+	}
+
+	toolsAgent, err := getToolsAgent(ctx, engineURL)
 	if err != nil {
 		panic(err)
 	}
@@ -312,10 +331,17 @@ func main() {
 		gatewayserver.WithOrchestratorAgent(orchestratorAgent),
 		gatewayserver.WithMatchAgentIdToTopicFn(matchAgentFunction),
 		gatewayserver.WithCompressorAgentAndContextSize(compressorAgent, 16384),
-		
+		gatewayserver.WithToolsAgent(toolsAgent),
+
+		// gatewayserver.WithAgentExecutionOrder([]gatewayserver.AgentExecutionType{
+		// 	gatewayserver.AgentExecutionServerSideTools,
+		// 	gatewayserver.AgentExecutionClientSideTools, // Puis vérifier les outils client
+		// 	gatewayserver.AgentExecutionOrchestrator,    // Router vers l'agent approprié d'abord
+		// }),
+
 		//gatewayserver.WithExecuteFn(fn func(string, string) (string, error))
 		//gatewayserver.WithConfirmationPromptFn(fn func(string, string) tools.ConfirmationResponse)
-		
+
 		// Agent execution order (default):
 		// 1. ClientSideTools - Detects tool calls and returns them to client
 		// 2. ServerSideTools - (not configured in this example)

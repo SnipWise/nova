@@ -210,7 +210,10 @@ func (agent *GatewayServerAgent) handleStreamingCompletion(w http.ResponseWriter
 }
 
 // handleServerSideToolExecution processes requests with server-side tool execution.
-// Returns true if tools were executed and the request was handled, false otherwise.
+// Returns false to continue the execution chain (context enrichment mode).
+//
+// This handler executes server-side tools and adds results to the context,
+// then lets subsequent handlers (ClientSideTools, Orchestrator) continue the flow.
 func (agent *GatewayServerAgent) handleServerSideToolExecution(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -221,17 +224,123 @@ func (agent *GatewayServerAgent) handleServerSideToolExecution(
 		return false
 	}
 
-	// Server-side tools only execute if tools are NOT sent in the request
-	// (client-side tools take precedence if tools are in the request)
-	if len(req.Tools) > 0 {
+	// Check if server has tools configured
+	serverTools := agent.toolsAgent.GetTools()
+	if len(serverTools) == 0 {
+		// No server-side tools configured, let client-side handle it
 		return false
 	}
 
-	agent.log.Info("🔧 Processing request with server-side tool execution")
+	// Execute server-side tools and enrich context
+	agent.log.Info("🔧 Executing server-side tools (context enrichment mode)")
+	toolsExecuted, err := agent.executeToolsAndEnrichContext(req)
+	if err != nil {
+		agent.log.Error("Server-side tool execution failed: %v", err)
+		return false
+	}
 
-	// Execute the auto-execute completion flow
-	agent.handleAutoExecuteCompletion(w, r, req)
-	return true
+	if toolsExecuted {
+		// Tools were executed successfully, generate final completion
+		agent.log.Info("✅ Server-side tools executed, generating final response")
+		if req.Stream {
+			agent.handleStreamingCompletion(w, r, req)
+		} else {
+			agent.handleNonStreamingCompletion(w, r, req)
+		}
+		return true // Stop the chain, we've handled the request
+	}
+
+	// No tools executed, continue the execution chain
+	// (ClientSideTools and Orchestrator will process next)
+	return false
+}
+
+// executeToolsAndEnrichContext executes tools via toolsAgent and adds results to currentChatAgent context
+// Returns (toolsExecuted bool, error)
+func (agent *GatewayServerAgent) executeToolsAndEnrichContext(req ChatCompletionRequest) (bool, error) {
+	lastUserMessage := agent.extractLastUserMessage(req.Messages)
+
+	// Build history for tool detection
+	historyMessages := agent.currentChatAgent.GetMessages()
+	historyMessages = append(historyMessages, messages.Message{
+		Role:    roles.User,
+		Content: lastUserMessage,
+	})
+
+	agent.toolsAgent.ResetMessages()
+
+	var toolCallsResult *toolCallResultWrapper
+	var err error
+
+	modelConfig := agent.toolsAgent.GetModelConfig()
+	isParallel := modelConfig.ParallelToolCalls != nil && *modelConfig.ParallelToolCalls
+
+	// Execute tools based on parallel/sequential mode
+	// Note: We don't pass nil callbacks - let toolsAgent use its own configured callbacks
+	if isParallel {
+		if agent.confirmationFn != nil && agent.executeFn != nil {
+			result, e := agent.toolsAgent.DetectParallelToolCallsWithConfirmation(historyMessages, agent.executeFn, agent.confirmationFn)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		} else if agent.executeFn != nil {
+			result, e := agent.toolsAgent.DetectParallelToolCalls(historyMessages, agent.executeFn)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		} else if agent.confirmationFn != nil {
+			// Only confirmation callback, pass it
+			result, e := agent.toolsAgent.DetectParallelToolCallsWithConfirmation(historyMessages, agent.confirmationFn)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		} else {
+			// No callbacks from gateway, use toolsAgent's configured callbacks
+			result, e := agent.toolsAgent.DetectParallelToolCalls(historyMessages)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		}
+	} else {
+		if agent.confirmationFn != nil && agent.executeFn != nil {
+			result, e := agent.toolsAgent.DetectToolCallsLoopWithConfirmation(historyMessages, agent.executeFn, agent.confirmationFn)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		} else if agent.executeFn != nil {
+			result, e := agent.toolsAgent.DetectToolCallsLoop(historyMessages, agent.executeFn)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		} else if agent.confirmationFn != nil {
+			// Only confirmation callback, pass it
+			result, e := agent.toolsAgent.DetectToolCallsLoopWithConfirmation(historyMessages, agent.confirmationFn)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		} else {
+			// No callbacks from gateway, use toolsAgent's configured callbacks
+			result, e := agent.toolsAgent.DetectToolCallsLoop(historyMessages)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		}
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("tool execution failed: %w", err)
+	}
+
+	// Add tool results to context if tools executed successfully
+	if toolCallsResult != nil && toolCallsResult.result != nil {
+		state := agent.toolsAgent.GetLastStateToolCalls()
+		finishReason := state.ExecutionResult.ExecFinishReason
+
+		if len(toolCallsResult.result.Results) > 0 && finishReason == "function_executed" {
+			// Add tool results to currentChatAgent context
+			agent.log.Info("✅ Adding tool results to context: %s", toolCallsResult.result.LastAssistantMessage)
+			agent.currentChatAgent.AddMessage(roles.System, toolCallsResult.result.LastAssistantMessage)
+			// Return true to indicate tools were executed
+			return true, nil
+		} else {
+			agent.log.Info("ℹ️  No tools executed (finish_reason: %s)", finishReason)
+		}
+	}
+
+	// No tools were executed
+	return false, nil
 }
 
 // handleOrchestration processes requests through the orchestrator.
@@ -270,23 +379,45 @@ func (agent *GatewayServerAgent) handleAutoExecuteCompletion(w http.ResponseWrit
 	modelConfig := agent.toolsAgent.GetModelConfig()
 	isParallel := modelConfig.ParallelToolCalls != nil && *modelConfig.ParallelToolCalls
 
+	// Execute tools based on parallel/sequential mode
+	// Only pass non-nil callbacks from gateway - otherwise let toolsAgent use its own configured callbacks
 	if isParallel {
-		if agent.confirmationFn != nil {
+		if agent.confirmationFn != nil && agent.executeFn != nil {
 			result, e := agent.toolsAgent.DetectParallelToolCallsWithConfirmation(historyMessages, agent.executeFn, agent.confirmationFn)
 			toolCallsResult = &toolCallResultWrapper{result: result}
 			err = e
-		} else {
+		} else if agent.executeFn != nil {
 			result, e := agent.toolsAgent.DetectParallelToolCalls(historyMessages, agent.executeFn)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		} else if agent.confirmationFn != nil {
+			// Only confirmation callback, pass it
+			result, e := agent.toolsAgent.DetectParallelToolCallsWithConfirmation(historyMessages, agent.confirmationFn)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		} else {
+			// No callbacks from gateway, use toolsAgent's configured callbacks
+			result, e := agent.toolsAgent.DetectParallelToolCalls(historyMessages)
 			toolCallsResult = &toolCallResultWrapper{result: result}
 			err = e
 		}
 	} else {
-		if agent.confirmationFn != nil {
+		if agent.confirmationFn != nil && agent.executeFn != nil {
 			result, e := agent.toolsAgent.DetectToolCallsLoopWithConfirmation(historyMessages, agent.executeFn, agent.confirmationFn)
 			toolCallsResult = &toolCallResultWrapper{result: result}
 			err = e
-		} else {
+		} else if agent.executeFn != nil {
 			result, e := agent.toolsAgent.DetectToolCallsLoop(historyMessages, agent.executeFn)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		} else if agent.confirmationFn != nil {
+			// Only confirmation callback, pass it
+			result, e := agent.toolsAgent.DetectToolCallsLoopWithConfirmation(historyMessages, agent.confirmationFn)
+			toolCallsResult = &toolCallResultWrapper{result: result}
+			err = e
+		} else {
+			// No callbacks from gateway, use toolsAgent's configured callbacks
+			result, e := agent.toolsAgent.DetectToolCallsLoop(historyMessages)
 			toolCallsResult = &toolCallResultWrapper{result: result}
 			err = e
 		}

@@ -198,6 +198,7 @@ tools.WithMCPTools(mcpToolsList)
 
 The primary method for tool call detection. Runs a loop: sends messages to the LLM, detects tool calls, executes them, feeds results back, until the LLM stops.
 
+**Traditional usage (callback as parameter):**
 ```go
 result, err := agent.DetectToolCallsLoop(
     []messages.Message{
@@ -206,6 +207,22 @@ result, err := agent.DetectToolCallsLoop(
     func(functionName string, arguments string) (string, error) {
         // Execute the tool and return the result as JSON
         return `{"result": 42}`, nil
+    },
+)
+```
+
+**Modern usage (callback from options - requires WithExecuteFn):**
+```go
+// Set callback once during agent creation
+agent, err := tools.NewAgent(ctx, agentConfig, modelConfig,
+    tools.WithTools(myTools),
+    tools.WithExecuteFn(executeFunction),
+)
+
+// Omit callback parameter
+result, err := agent.DetectToolCallsLoop(
+    []messages.Message{
+        {Role: roles.User, Content: "What is 40 + 2?"},
     },
 )
 ```
@@ -236,8 +253,9 @@ type ToolCallResult struct {
 
 ### DetectToolCallsLoopWithConfirmation
 
-Adds a confirmation step before each tool execution:
+Adds a confirmation step before each tool execution. Callbacks can be provided as parameters or set via options.
 
+**Traditional usage (both callbacks as parameters):**
 ```go
 result, err := agent.DetectToolCallsLoopWithConfirmation(
     userMessages,
@@ -247,6 +265,29 @@ result, err := agent.DetectToolCallsLoopWithConfirmation(
         // Return tools.Confirmed, tools.Denied, or tools.Quit
         return tools.Confirmed
     },
+)
+```
+
+**Modern usage (callbacks from options):**
+```go
+// Set callbacks once during agent creation
+agent, err := tools.NewAgent(ctx, agentConfig, modelConfig,
+    tools.WithTools(myTools),
+    tools.WithExecuteFn(executeFunction),
+    tools.WithConfirmationPromptFn(confirmationPrompt),
+)
+
+// Omit callback parameters
+result, err := agent.DetectToolCallsLoopWithConfirmation(userMessages)
+```
+
+**Mixed usage (override one callback):**
+```go
+// Override only the tool callback, use confirmation from options
+result, err := agent.DetectToolCallsLoopWithConfirmation(
+    userMessages,
+    customToolCallback,  // Override
+    // confirmationPrompt from options will be used
 )
 ```
 
@@ -338,11 +379,13 @@ tools.WithMCPTools(mcpTools)                // Set tools using MCP format
 
 ### ToolsAgentOption (agent level)
 
-`ToolsAgentOption` operates on the high-level `*Agent` and configures lifecycle hooks:
+`ToolsAgentOption` operates on the high-level `*Agent` and configures lifecycle hooks and default callbacks:
 
 ```go
-tools.BeforeCompletion(func(a *tools.Agent) { ... })
-tools.AfterCompletion(func(a *tools.Agent) { ... })
+tools.BeforeCompletion(func(a *tools.Agent) { ... })       // Hook before tool call detection
+tools.AfterCompletion(func(a *tools.Agent) { ... })        // Hook after tool call detection
+tools.WithExecuteFn(executeFunction)                        // Set default tool execution callback
+tools.WithConfirmationPromptFn(confirmationPrompt)          // Set default confirmation callback
 ```
 
 ### Mixing both option types
@@ -353,6 +396,8 @@ agent, err := tools.NewAgent(
     // ToolAgentOption
     tools.WithTools(myTools),
     // ToolsAgentOption
+    tools.WithExecuteFn(executeFunction),
+    tools.WithConfirmationPromptFn(confirmationPrompt),
     tools.BeforeCompletion(func(a *tools.Agent) {
         fmt.Println("Before tool call detection...")
     }),
@@ -361,6 +406,11 @@ agent, err := tools.NewAgent(
     }),
 )
 ```
+
+**Benefits of using WithExecuteFn and WithConfirmationPromptFn:**
+- Set callbacks once during agent creation
+- Omit callback parameters in detection methods for cleaner code
+- Maintain flexibility: parameters can still override options when needed
 
 ---
 
@@ -528,6 +578,8 @@ type ToolsAgentOption func(*Agent)
 | `WithTools(tools []*Tool)` | `ToolAgentOption` | Set tools using the fluent builder API. |
 | `WithOpenAITools(tools []openai.ChatCompletionToolUnionParam)` | `ToolAgentOption` | Set tools using OpenAI format. |
 | `WithMCPTools(tools []mcp.Tool)` | `ToolAgentOption` | Set tools using MCP format. |
+| `WithExecuteFn(fn ToolCallback)` | `ToolsAgentOption` | Set default tool execution callback. Used when callback parameter is omitted in detection methods. |
+| `WithConfirmationPromptFn(fn ConfirmationCallback)` | `ToolsAgentOption` | Set default confirmation callback. Used when confirmation parameter is omitted in confirmation methods. |
 | `BeforeCompletion(fn func(*Agent))` | `ToolsAgentOption` | Hook called before each tool call detection. |
 | `AfterCompletion(fn func(*Agent))` | `ToolsAgentOption` | Hook called after each tool call detection. |
 
@@ -537,12 +589,12 @@ type ToolsAgentOption func(*Agent)
 
 | Method | Description |
 |---|---|
-| `DetectToolCallsLoop(msgs, callback) (*ToolCallResult, error)` | Detect and execute tool calls in a loop. |
-| `DetectToolCallsLoopWithConfirmation(msgs, callback, confirm) (*ToolCallResult, error)` | Same with user confirmation. |
-| `DetectToolCallsLoopStream(msgs, callback, stream) (*ToolCallResult, error)` | Same with streaming. |
-| `DetectToolCallsLoopWithConfirmationStream(msgs, callback, confirm, stream) (*ToolCallResult, error)` | Same with confirmation and streaming. |
-| `DetectParallelToolCalls(msgs, callback) (*ToolCallResult, error)` | Detect parallel tool calls. |
-| `DetectParallelToolCallsWithConfirmation(msgs, callback, confirm) (*ToolCallResult, error)` | Same with confirmation. |
+| `DetectToolCallsLoop(msgs, callback...) (*ToolCallResult, error)` | Detect and execute tool calls in a loop. `callback` is optional if set via `WithExecuteFn`. |
+| `DetectToolCallsLoopWithConfirmation(msgs, callbacks...) (*ToolCallResult, error)` | Same with user confirmation. `callbacks` (toolCallback, confirmationCallback) are optional if set via options. Order matters! |
+| `DetectToolCallsLoopStream(msgs, streamCallback, toolCallback...) (*ToolCallResult, error)` | Same with streaming. `streamCallback` is required, `toolCallback` is optional. |
+| `DetectToolCallsLoopWithConfirmationStream(msgs, streamCallback, callbacks...) (*ToolCallResult, error)` | Same with confirmation and streaming. `streamCallback` is required, other callbacks are optional. |
+| `DetectParallelToolCalls(msgs, callback...) (*ToolCallResult, error)` | Detect parallel tool calls. `callback` is optional if set via `WithExecuteFn`. |
+| `DetectParallelToolCallsWithConfirmation(msgs, callbacks...) (*ToolCallResult, error)` | Same with confirmation. `callbacks` are optional if set via options. |
 | `GetMessages() []messages.Message` | Get all conversation messages. |
 | `AddMessage(role, content)` | Add a single message. |
 | `AddMessages(msgs)` | Add multiple messages. |
