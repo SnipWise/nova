@@ -312,8 +312,10 @@ func main() {
 		gatewayserver.WithOrchestratorAgent(orchestratorAgent),
 		gatewayserver.WithMatchAgentIdToTopicFn(matchAgentFunction),
 		gatewayserver.WithCompressorAgentAndContextSize(compressorAgent, 16384),
-		gatewayserver.WithExecuteFn(fn func(string, string) (string, error))
-
+		
+		//gatewayserver.WithExecuteFn(fn func(string, string) (string, error))
+		//gatewayserver.WithConfirmationPromptFn(fn func(string, string) tools.ConfirmationResponse)
+		
 		// Agent execution order (default):
 		// 1. ClientSideTools - Detects tool calls and returns them to client
 		// 2. ServerSideTools - (not configured in this example)
