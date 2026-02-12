@@ -58,7 +58,7 @@ func main() {
 			Role: roles.User,
 		},
 	}
-
+	
 	result, err := agent.DetectToolCallsLoop(messages, executeFunction)
 	if err != nil {
 		panic(err)
