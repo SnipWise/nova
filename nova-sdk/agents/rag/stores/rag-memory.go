@@ -3,6 +3,7 @@ package stores
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/google/uuid"
@@ -131,8 +132,13 @@ func (mvs *MemoryVectorStore) Persist(storeFilePath string) error {
 		return err
 	}
 
-	// Write the JSON to a file
+	// Create parent directory if it doesn't exist
+	dir := filepath.Dir(storeFilePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
 
+	// Write the JSON to a file
 	err = os.WriteFile(storeFilePath, storeJSON, 0644)
 	if err != nil {
 		return err

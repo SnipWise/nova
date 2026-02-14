@@ -10,13 +10,15 @@
 6. [Sauvegarde d'embeddings](#6-sauvegarde-dembeddings)
 7. [Recherche de contenu similaire](#7-recherche-de-contenu-similaire)
 8. [Persistance du store](#8-persistance-du-store)
-9. [Redis Vector Store](#9-redis-vector-store)
-10. [Utilitaires de chunking](#10-utilitaires-de-chunking)
-11. [Options : AgentOption et RagAgentOption](#11-options--agentoption-et-ragagentoption)
-12. [Hooks de cycle de vie (RagAgentOption)](#12-hooks-de-cycle-de-vie-ragagentoption)
-13. [Gestion du contexte et de l'état](#13-gestion-du-contexte-et-de-létat)
-14. [Export JSON et débogage](#14-export-json-et-débogage)
-15. [Référence API](#15-référence-api)
+9. [Store JSON avec WithJsonStore](#9-store-json-avec-withjsonstore)
+10. [Initialisation de documents avec WithDocuments](#10-initialisation-de-documents-avec-withdocuments)
+11. [Redis Vector Store](#11-redis-vector-store)
+12. [Utilitaires de chunking](#12-utilitaires-de-chunking)
+13. [Options : AgentOption et RagAgentOption](#13-options--agentoption-et-ragagentoption)
+14. [Hooks de cycle de vie (RagAgentOption)](#14-hooks-de-cycle-de-vie-ragagentoption)
+15. [Gestion du contexte et de l'état](#15-gestion-du-contexte-et-de-létat)
+16. [Export JSON et débogage](#16-export-json-et-débogage)
+17. [Référence API](#17-référence-api)
 
 ---
 
@@ -317,7 +319,330 @@ if agent.StoreFileExists(storeFile) {
 
 ---
 
-## 9. Redis Vector Store
+## 9. Store JSON avec WithJsonStore
+
+### Introduction
+
+L'option `WithJsonStore` offre un moyen pratique de charger et persister automatiquement votre vector store depuis un fichier JSON lors de la création de l'agent. Cela élimine le besoin d'appels manuels à `LoadStore`/`PersistStore` dans de nombreux scénarios courants.
+
+### Utilisation de base
+
+```go
+agent, err := rag.NewAgent(
+    ctx,
+    agents.Config{
+        EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+    },
+    models.Config{
+        Name: "ai/mxbai-embed-large:latest",
+    },
+    rag.WithJsonStore("./store/embeddings.json"),
+)
+```
+
+### Fonctionnement
+
+1. **À la création** : L'agent tente de charger les embeddings existants depuis le fichier JSON spécifié
+2. **Fichier existant** : Les données sont chargées en mémoire automatiquement
+3. **Fichier manquant** : Un store en mémoire vide est créé
+4. **Persistance automatique** : Lorsque combiné avec `WithDocuments`, le store est automatiquement persisté si de nouveaux documents sont ajoutés
+5. **Persistance manuelle** : Vous pouvez toujours appeler `agent.PersistStore(filePath)` manuellement pour sauvegarder à tout moment
+
+### ✨ Persistance automatique (Nouveau !)
+
+Lorsque vous utilisez `WithJsonStore` avec `WithDocuments`, l'agent **persiste automatiquement** le store si de nouveaux documents sont ajoutés lors de l'initialisation :
+
+```go
+agent, err := rag.NewAgent(
+    ctx,
+    agentConfig,
+    modelConfig,
+    rag.WithJsonStore("./store/embeddings.json"),
+    rag.WithDocuments(documents),  // Persiste automatiquement si des documents sont ajoutés !
+)
+// Plus besoin d'appeler agent.PersistStore() manuellement !
+```
+
+**Comment ça fonctionne :**
+- Si le store est vide ou que de nouveaux documents sont ajoutés → **persistance automatique**
+- Si vous utilisez `DocumentLoadModeSkip` et que le store contient déjà des données → pas de persistance (aucun nouveau document ajouté)
+- Si vous utilisez `DocumentLoadModeSkipDuplicates` → persiste uniquement si des documents non-dupliqués sont ajoutés
+- Le répertoire parent est automatiquement créé s'il n'existe pas
+
+### Exemple complet
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/snipwise/nova/nova-sdk/agents"
+    "github.com/snipwise/nova/nova-sdk/agents/rag"
+    "github.com/snipwise/nova/nova-sdk/models"
+)
+
+func main() {
+    ctx := context.Background()
+    storeFile := "./store/knowledge.json"
+
+    // Créer l'agent avec store JSON - charge automatiquement si le fichier existe
+    agent, err := rag.NewAgent(
+        ctx,
+        agents.Config{
+            EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+        },
+        models.Config{
+            Name: "ai/mxbai-embed-large:latest",
+        },
+        rag.WithJsonStore(storeFile),
+    )
+    if err != nil {
+        panic(err)
+    }
+
+    // Ajouter de nouveaux documents
+    agent.SaveEmbedding("Nouveau document à ajouter")
+
+    // Sauvegarder les changements sur disque
+    agent.PersistStore(storeFile)
+}
+```
+
+### Avantages
+
+- ✅ Chargement automatique à la création de l'agent
+- ✅ Configuration déclarative et propre
+- ✅ Pas besoin de vérifier si le fichier existe
+- ✅ Repli transparent vers un store vide
+- ✅ Contrôle total sur quand persister
+
+### Quand utiliser WithJsonStore
+
+| Scénario | Approche recommandée |
+|----------|---------------------|
+| Persistance JSON simple | `WithJsonStore` ✅ |
+| Contrôle manuel load/persist | `LoadStore`/`PersistStore` |
+| Production, grands datasets | `WithRedisStore` (voir section suivante) |
+| Temporaire/test | Store en mémoire par défaut |
+
+---
+
+## 10. Initialisation de documents avec WithDocuments
+
+### Introduction
+
+L'option `WithDocuments` permet d'initialiser votre agent RAG avec une liste prédéfinie de documents. C'est parfait pour :
+- Pré-charger une base de connaissances
+- Amorcer l'agent avec des données initiales
+- Simplifier la configuration de l'agent avec du contenu connu
+
+### Utilisation de base
+
+```go
+documents := []string{
+    "Les écureuils courent dans la forêt",
+    "Les oiseaux volent dans le ciel",
+    "Les grenouilles nagent dans l'étang",
+}
+
+agent, err := rag.NewAgent(
+    ctx,
+    agentConfig,
+    modelConfig,
+    rag.WithDocuments(documents),
+)
+```
+
+### Modes de chargement de documents
+
+Lors de l'utilisation de `WithDocuments`, vous pouvez spécifier comment gérer les données existantes dans le store :
+
+```go
+type DocumentLoadMode string
+
+const (
+    DocumentLoadModeOverwrite  // Effacer les données existantes et charger les nouveaux documents
+    DocumentLoadModeMerge      // Ajouter les documents aux données existantes (défaut)
+    DocumentLoadModeSkip       // Ignorer le chargement si le store contient déjà des données
+    DocumentLoadModeError      // Logger une erreur si le store n'est pas vide
+)
+```
+
+### Utilisation avec différents modes
+
+#### Mode Merge (par défaut)
+
+Ajoute les nouveaux documents aux documents existants :
+
+```go
+agent, err := rag.NewAgent(
+    ctx,
+    agentConfig,
+    modelConfig,
+    rag.WithJsonStore(storeFile),
+    rag.WithDocuments(documents, rag.DocumentLoadModeMerge), // ou juste rag.WithDocuments(documents)
+)
+```
+
+#### Mode Overwrite
+
+Remplace toutes les données existantes :
+
+```go
+rag.WithDocuments(documents, rag.DocumentLoadModeOverwrite)
+```
+
+#### Mode Skip
+
+Préserve les données existantes, ignore le chargement si le store a du contenu :
+
+```go
+rag.WithDocuments(documents, rag.DocumentLoadModeSkip)
+```
+
+#### Mode Error
+
+Empêche les écrasements accidentels en loggant une erreur :
+
+```go
+rag.WithDocuments(documents, rag.DocumentLoadModeError)
+```
+
+### Exemple complet avec Store JSON
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/snipwise/nova/nova-sdk/agents"
+    "github.com/snipwise/nova/nova-sdk/agents/rag"
+    "github.com/snipwise/nova/nova-sdk/models"
+)
+
+func main() {
+    ctx := context.Background()
+    storeFile := "./store/animals.json"
+
+    // Base de connaissances initiale
+    documents := []string{
+        "Les écureuils courent dans la forêt",
+        "Les oiseaux volent dans le ciel",
+        "Les grenouilles nagent dans l'étang",
+        "Les poissons nagent dans la mer",
+        "Les lions rugissent dans la savane",
+    }
+
+    // Créer l'agent avec store JSON et documents initiaux
+    agent, err := rag.NewAgent(
+        ctx,
+        agents.Config{
+            EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+        },
+        models.Config{
+            Name: "ai/mxbai-embed-large:latest",
+        },
+        rag.WithJsonStore(storeFile),  // Charger le store existant (s'il existe)
+        rag.WithDocuments(documents, rag.DocumentLoadModeSkipDuplicates), // Ajouter les documents, ignorer les doublons
+    )
+    if err != nil {
+        panic(err)
+    }
+
+    // ✨ Plus besoin d'appeler agent.PersistStore() - c'est automatique !
+    // Le store a été automatiquement persisté lorsque les documents ont été ajoutés
+
+    // Recherche
+    results, _ := agent.SearchSimilar("Quels animaux vivent dans l'eau ?", 0.6)
+    for _, r := range results {
+        fmt.Printf("Résultat : %s (%.3f)\n", r.Prompt, r.Similarity)
+    }
+}
+```
+
+### ⚠️ Important : Ordre des options
+
+Toujours appliquer `WithDocuments` **APRÈS** `WithJsonStore` ou `WithRedisStore` :
+
+```go
+// ✅ Ordre correct
+agent, err := rag.NewAgent(
+    ctx,
+    agentConfig,
+    modelConfig,
+    rag.WithJsonStore(storeFile),      // 1. Configurer le store d'abord
+    rag.WithDocuments(documents),      // 2. Puis charger les documents
+)
+
+// ❌ Mauvais ordre - les documents seront chargés dans le store par défaut, puis écrasés par JsonStore
+agent, err := rag.NewAgent(
+    ctx,
+    agentConfig,
+    modelConfig,
+    rag.WithDocuments(documents),      // ❌ Chargé dans le store par défaut
+    rag.WithJsonStore(storeFile),      // ❌ Remplace le store, perdant les documents
+)
+```
+
+### Comportement de persistance
+
+#### Avec Store JSON
+
+✨ **Persistance automatique** lorsque combiné avec `WithDocuments` :
+
+```go
+agent, err := rag.NewAgent(
+    ctx, agentConfig, modelConfig,
+    rag.WithJsonStore(storeFile),
+    rag.WithDocuments(documents),
+)
+// ✅ Automatiquement persisté si de nouveaux documents ont été ajoutés !
+```
+
+**Quand la persistance automatique se produit :**
+- ✅ Nouveaux documents ajoutés (première exécution ou modes Merge/Overwrite)
+- ✅ Documents non-dupliqués ajoutés (mode SkipDuplicates)
+- ❌ Aucun nouveau document ajouté (mode Skip avec données existantes)
+
+**Persistance manuelle toujours disponible :**
+```go
+// Ajouter des documents après la création de l'agent
+agent.SaveEmbedding("Nouveau document")
+// Persister manuellement les changements
+agent.PersistStore(storeFile)
+```
+
+#### Avec Store Redis
+
+Les documents sont automatiquement persistés dans Redis :
+
+```go
+agent, err := rag.NewAgent(
+    ctx, agentConfig, modelConfig,
+    rag.WithRedisStore(redisConfig, dimension),
+    rag.WithDocuments(documents),
+)
+// Les documents sont automatiquement sauvegardés dans Redis
+```
+
+### Cas d'usage
+
+| Cas d'usage | Mode recommandé |
+|----------|-----------------|
+| Configuration initiale | `Overwrite` ou `Merge` |
+| Mises à jour quotidiennes | `Merge` |
+| Garder les données existantes inchangées | `Skip` |
+| Empêcher les changements accidentels | `Error` |
+| Tests avec ardoise vierge | `Overwrite` |
+
+### Exemple de code
+
+Voir `samples/110-rag-agent-with-json-store/` pour un exemple complet fonctionnel démontrant `WithJsonStore` et `WithDocuments` avec différents modes.
+
+---
+
+## 11. Redis Vector Store
 
 ### Introduction : Redis vs In-Memory
 
@@ -613,6 +938,36 @@ for _, section := range sections {
 }
 ```
 
+### ChunkXML
+
+Découper du contenu XML en chunks basés sur un tag cible spécifié :
+
+```go
+xml := `<menu>
+  <item id="1">
+    <name>Margherita Pizza</name>
+    <price currency="USD">12.99</price>
+  </item>
+  <item id="2">
+    <name>Caesar Salad</name>
+    <price currency="USD">8.50</price>
+  </item>
+</menu>`
+
+chunks := chunks.ChunkXML(xml, "item")
+for _, chunk := range chunks {
+    agent.SaveEmbedding(chunk)
+}
+// Chaque chunk contient : <item id="1">...</item>, <item id="2">...</item>, etc.
+```
+
+**Fonctionnalités :**
+- Extrait tous les éléments correspondant au nom du tag cible
+- Préserve automatiquement tous les attributs XML
+- Support des tags auto-fermants (`<item ... />`)
+- Support des tags avec contenu (`<item>...</item>`)
+- Gère correctement les éléments imbriqués
+
 ---
 
 ## 11. Options : AgentOption et RagAgentOption
@@ -621,20 +976,23 @@ L'agent RAG supporte deux types d'options distincts, tous deux passés comme arg
 
 ### AgentOption (niveau de base)
 
-`AgentOption` opère sur le `*BaseAgent` interne et configure le comportement de bas niveau :
+`AgentOption` opère sur le `*BaseAgent` interne et configure le comportement de bas niveau tel que le backend de stockage :
 
 ```go
-// Actuellement disponible pour l'extensibilité
+// Options de configuration du store
+rag.WithInMemoryStore()
+rag.WithJsonStore(storeFilePath)
+rag.WithRedisStore(stores.RedisConfig{...}, dimension)
+rag.WithDocuments(documents, mode)
 ```
 
 ### RagAgentOption (niveau agent)
 
-`RagAgentOption` opère sur l'`*Agent` de haut niveau et configure les hooks de cycle de vie et le backend de stockage :
+`RagAgentOption` opère sur l'`*Agent` de haut niveau et configure les hooks de cycle de vie :
 
 ```go
 rag.BeforeCompletion(func(a *rag.Agent) { ... })
 rag.AfterCompletion(func(a *rag.Agent) { ... })
-rag.WithRedisStore(stores.RedisConfig{...}, dimension)
 ```
 
 ### Mixer les deux types d'options
@@ -831,6 +1189,16 @@ type RedisConfig struct {
     DB        int    // Numéro de base de données Redis (défaut: 0)
     IndexName string // Nom de l'index de recherche Redis (défaut: "nova_rag_index")
 }
+
+// DocumentLoadMode définit comment les documents doivent être chargés quand le store contient des données
+type DocumentLoadMode string
+
+const (
+    DocumentLoadModeOverwrite  // Effacer les données existantes et charger les nouveaux documents
+    DocumentLoadModeMerge      // Ajouter les documents aux données existantes (défaut)
+    DocumentLoadModeSkip       // Ignorer le chargement si le store contient déjà des données
+    DocumentLoadModeError      // Logger une erreur si le store n'est pas vide
+)
 ```
 
 ---
@@ -841,7 +1209,10 @@ type RedisConfig struct {
 |---|---|---|
 | `BeforeCompletion(fn func(*Agent))` | `RagAgentOption` | Définit un hook appelé avant chaque génération d'embedding dans `GenerateEmbedding`. |
 | `AfterCompletion(fn func(*Agent))` | `RagAgentOption` | Définit un hook appelé après chaque génération d'embedding dans `GenerateEmbedding`. |
-| `WithRedisStore(config RedisConfig, dimension int)` | `RagAgentOption` | Configure Redis comme backend de vector store au lieu du store en mémoire. Le paramètre `dimension` doit correspondre à la dimension du modèle d'embedding. |
+| `WithInMemoryStore()` | `AgentOption` | Configure l'agent pour utiliser le stockage vectoriel en mémoire (comportement par défaut). |
+| `WithJsonStore(storePathFile string)` | `AgentOption` | Configure l'agent pour utiliser le stockage basé sur fichier JSON. Charge automatiquement les données existantes depuis le fichier si il existe. |
+| `WithRedisStore(config RedisConfig, dimension int)` | `AgentOption` | Configure Redis comme backend de vector store. Le paramètre `dimension` doit correspondre à la dimension du modèle d'embedding. |
+| `WithDocuments(documents []string, mode ...DocumentLoadMode)` | `AgentOption` | Initialise l'agent avec des documents prédéfinis. Le paramètre mode optionnel contrôle le comportement quand le store contient des données (défaut: `DocumentLoadModeMerge`). Doit être appliqué APRÈS les options de configuration du store. |
 
 ---
 
@@ -856,7 +1227,7 @@ type RedisConfig struct {
 | `SearchSimilar(content string, limit float64) ([]VectorRecord, error)` | Rechercher les enregistrements similaires au-dessus d'un seuil de similarité. |
 | `SearchTopN(content string, limit float64, n int) ([]VectorRecord, error)` | Rechercher les N enregistrements les plus similaires au-dessus d'un seuil. |
 | `LoadStore(path string) error` | Charger le vector store depuis un fichier JSON. |
-| `PersistStore(path string) error` | Sauvegarder le vector store dans un fichier JSON. |
+| `PersistStore(path string) error` | Sauvegarder le vector store dans un fichier JSON. Note : Appelé automatiquement lors de l'utilisation de `WithJsonStore` + `WithDocuments` si de nouveaux documents sont ajoutés. |
 | `StoreFileExists(path string) bool` | Vérifier si un fichier de store existe au chemin donné. |
 | `GetConfig() agents.Config` | Obtient la configuration de l'agent. |
 | `SetConfig(config agents.Config)` | Met à jour la configuration de l'agent. |

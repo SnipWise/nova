@@ -21,9 +21,29 @@ type BaseAgent struct {
 
 	store stores.VectorStore
 
+	// Internal fields for automatic persistence
+	jsonStorePathFile    string // Path to JSON store file (set by WithJsonStore)
+	documentsAddedCount  int    // Number of documents added by WithDocuments
+
 	lastRequestJSON  string
 	lastResponseJSON string
 }
+
+// DocumentLoadMode defines how documents should be loaded when a store already contains data
+type DocumentLoadMode string
+
+const (
+	// DocumentLoadModeOverwrite replaces all existing data with new documents
+	DocumentLoadModeOverwrite DocumentLoadMode = "overwrite"
+	// DocumentLoadModeMerge adds new documents to existing data (default)
+	DocumentLoadModeMerge DocumentLoadMode = "merge"
+	// DocumentLoadModeSkip does nothing if store already contains data
+	DocumentLoadModeSkip DocumentLoadMode = "skip"
+	// DocumentLoadModeSkipDuplicates checks each document individually and skips only duplicates based on Prompt content
+	DocumentLoadModeSkipDuplicates DocumentLoadMode = "skip_duplicates"
+	// DocumentLoadModeError returns an error if store is not empty
+	DocumentLoadModeError DocumentLoadMode = "error"
+)
 
 type AgentOption func(*BaseAgent)
 
@@ -58,6 +78,15 @@ func NewBaseAgent(
 	// Apply options (which may override the default store)
 	for _, opt := range options {
 		opt(ragAgent)
+	}
+
+	// Automatic persistence: if using JsonStore and documents were added, persist automatically
+	if ragAgent.jsonStorePathFile != "" && ragAgent.documentsAddedCount > 0 {
+		if err := ragAgent.PersistStore(ragAgent.jsonStorePathFile); err != nil {
+			ragAgent.log.Error("Failed to automatically persist store to %s: %v", ragAgent.jsonStorePathFile, err)
+		} else {
+			ragAgent.log.Debug("Automatically persisted %d documents to %s", ragAgent.documentsAddedCount, ragAgent.jsonStorePathFile)
+		}
 	}
 
 	return ragAgent, nil
@@ -162,6 +191,26 @@ func (agent *BaseAgent) SearchTopNSimilarities(content string, limit float64, n 
 	return results, nil
 }
 
+// === Store Management ===
+
+// PersistStore saves the in-memory vector store to a file (JSON format)
+// This method is automatically called by NewBaseAgent when using WithJsonStore + WithDocuments
+// Parameters:
+//   - storeFilePath: path to the file where the store will be saved
+//
+// Returns an error if:
+//   - The store doesn't support file-based persistence (e.g., Redis stores)
+//   - There's an error during file writing
+func (agent *BaseAgent) PersistStore(storeFilePath string) error {
+	// Check if the store supports persistence
+	if persistable, ok := agent.store.(interface {
+		Persist(string) error
+	}); ok {
+		return persistable.Persist(storeFilePath)
+	}
+	return nil // Redis stores don't need explicit persistence
+}
+
 // === Config Getters and Setters ===
 
 // GetConfig returns the agent configuration
@@ -232,6 +281,45 @@ func WithInMemoryStore() AgentOption {
 	}
 }
 
+// WithJsonStore configures the agent to use JSON file-based vector storage
+// It creates an in-memory store and automatically loads data from the specified file if it exists.
+// If the file doesn't exist or is empty, it initializes an empty in-memory store.
+//
+// Parameters:
+//   - storePathFile: path to the JSON file for storing vector embeddings
+//
+// Example:
+//
+//	ragAgent, err := rag.NewAgent(
+//	    ctx,
+//	    agents.Config{EngineURL: "http://localhost:12434/engines/llama.cpp/v1"},
+//	    models.Config{Name: "ai/mxbai-embed-large:latest"},
+//	    rag.WithJsonStore("./store/embeddings.json"),
+//	)
+//
+// Note: You can later persist changes using agent.PersistStore(storePathFile)
+func WithJsonStore(storePathFile string) AgentOption {
+	return func(agent *BaseAgent) {
+		// Store the file path for automatic persistence
+		agent.jsonStorePathFile = storePathFile
+
+		// Create a new in-memory store
+		memStore := &stores.MemoryVectorStore{
+			Records: make(map[string]stores.VectorRecord),
+		}
+
+		// Try to load existing data from file
+		if err := memStore.Load(storePathFile); err != nil {
+			// File doesn't exist or is invalid - use empty store
+			agent.log.Debug("Could not load store from %s (will use empty store): %v", storePathFile, err)
+		} else {
+			agent.log.Debug("Successfully loaded store from %s", storePathFile)
+		}
+
+		agent.store = memStore
+	}
+}
+
 // WithRedisStore configures the agent to use Redis as the vector storage backend
 // Parameters:
 //   - config: Redis connection configuration (address, password, DB, index name)
@@ -262,5 +350,167 @@ func WithRedisStore(config stores.RedisConfig, dimension int) AgentOption {
 			return
 		}
 		agent.store = redisStore
+	}
+}
+
+// documentExistsInStore checks if a document with the given prompt already exists in the store
+// It performs an exact match comparison on the Prompt field of VectorRecords
+func documentExistsInStore(store stores.VectorStore, prompt string) (bool, error) {
+	existingRecords, err := store.GetAll()
+	if err != nil {
+		return false, err
+	}
+
+	for _, record := range existingRecords {
+		if record.Prompt == prompt {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// WithDocuments initializes the RAG agent with a predefined list of documents
+// This option generates embeddings for each document and saves them to the store.
+//
+// Parameters:
+//   - documents: slice of strings to be embedded and stored
+//   - mode: optional DocumentLoadMode defining behavior when store already contains data
+//     (default: DocumentLoadModeMerge - adds to existing data)
+//
+// Modes:
+//   - DocumentLoadModeOverwrite: clears existing data before loading documents
+//   - DocumentLoadModeMerge: adds documents to existing data (default)
+//   - DocumentLoadModeSkip: does nothing if store already contains data
+//   - DocumentLoadModeSkipDuplicates: checks each document individually and skips only duplicates (based on Prompt content)
+//   - DocumentLoadModeError: returns error (logged) if store is not empty
+//
+// Example:
+//
+//	ragAgent, err := rag.NewAgent(
+//	    ctx,
+//	    agents.Config{EngineURL: "http://localhost:12434/engines/llama.cpp/v1"},
+//	    models.Config{Name: "ai/mxbai-embed-large:latest"},
+//	    rag.WithJsonStore("./store/embeddings.json"),
+//	    rag.WithDocuments([]string{
+//	        "Squirrels run in the forest",
+//	        "Birds fly in the sky",
+//	        "Frogs swim in the pond",
+//	    }, rag.DocumentLoadModeMerge),
+//	)
+//
+// Example with Redis and SkipDuplicates (prevents duplicate documents on restart):
+//
+//	ragAgent, err := rag.NewBaseAgent(
+//	    ctx,
+//	    agents.Config{EngineURL: "http://localhost:12434/engines/llama.cpp/v1"},
+//	    openai.EmbeddingNewParams{Model: "ai/mxbai-embed-large"},
+//	    rag.WithRedisStore(stores.RedisConfig{
+//	        Address:   "localhost:6379",
+//	        IndexName: "my_rag_index",
+//	    }, 1024),
+//	    rag.WithDocuments(txtChunks, rag.DocumentLoadModeSkipDuplicates),
+//	)
+//
+// IMPORTANT: This option must be applied AFTER WithJsonStore or WithRedisStore
+// to ensure documents are saved to the correct store.
+//
+// Note: For JSON stores, you may need to call agent.PersistStore(filePath) after
+// agent creation to save the initialized data to disk. Redis stores persist automatically.
+func WithDocuments(documents []string, mode ...DocumentLoadMode) AgentOption {
+	return func(agent *BaseAgent) {
+		// Determine the load mode (default to Merge)
+		loadMode := DocumentLoadModeMerge
+		if len(mode) > 0 {
+			loadMode = mode[0]
+		}
+
+		// Check if store already contains data
+		existingRecords, err := agent.store.GetAll()
+		if err != nil {
+			agent.log.Error("Failed to check existing store data: %v", err)
+			return
+		}
+
+		hasExistingData := len(existingRecords) > 0
+
+		// Handle different load modes
+		switch loadMode {
+		case DocumentLoadModeError:
+			if hasExistingData {
+				agent.log.Error("Store already contains data and DocumentLoadModeError is set")
+				return
+			}
+
+		case DocumentLoadModeSkip:
+			if hasExistingData {
+				agent.log.Debug("Store already contains data, skipping document loading (DocumentLoadModeSkip)")
+				return
+			}
+
+		case DocumentLoadModeSkipDuplicates:
+			// Check each document individually and skip only duplicates
+			if hasExistingData {
+				agent.log.Debug("Checking documents individually for duplicates (DocumentLoadModeSkipDuplicates)")
+			}
+
+		case DocumentLoadModeOverwrite:
+			if hasExistingData {
+				// Clear existing data if the store supports it
+				if resettable, ok := agent.store.(interface{ ResetMemory() error }); ok {
+					if err := resettable.ResetMemory(); err != nil {
+						agent.log.Error("Failed to reset store: %v", err)
+						return
+					}
+					agent.log.Debug("Store cleared (DocumentLoadModeOverwrite)")
+				} else {
+					agent.log.Warn("Store does not support reset, cannot overwrite existing data")
+					return
+				}
+			}
+
+		case DocumentLoadModeMerge:
+			// Default behavior - just add to existing data
+			if hasExistingData {
+				agent.log.Debug("Merging documents with existing data (DocumentLoadModeMerge)")
+			}
+		}
+
+		// Load documents
+		agent.log.Debug("Loading %d documents into store", len(documents))
+		skippedCount := 0
+		addedCount := 0
+
+		for idx, doc := range documents {
+			// Check for duplicates if in SkipDuplicates mode
+			if loadMode == DocumentLoadModeSkipDuplicates {
+				exists, err := documentExistsInStore(agent.store, doc)
+				if err != nil {
+					agent.log.Error("Failed to check document existence for document %d: %v", idx, err)
+					continue
+				}
+				if exists {
+					agent.log.Debug("Document %d already exists, skipping (duplicate)", idx)
+					skippedCount++
+					continue
+				}
+			}
+
+			// Save the document
+			if err := agent.GenerateThenSaveEmbeddingVector(doc); err != nil {
+				agent.log.Error("Failed to save embedding for document %d: %v", idx, err)
+			} else {
+				agent.log.Debug("Successfully saved embedding for document %d", idx)
+				addedCount++
+			}
+		}
+
+		// Log summary if in SkipDuplicates mode
+		if loadMode == DocumentLoadModeSkipDuplicates {
+			agent.log.Debug("Document loading complete: %d added, %d skipped (duplicates)", addedCount, skippedCount)
+		}
+
+		// Track the number of documents added for automatic persistence
+		agent.documentsAddedCount = addedCount
 	}
 }

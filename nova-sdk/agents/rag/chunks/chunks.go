@@ -169,3 +169,57 @@ func SplitMarkdownBySection(sectionLevel int, markdown string) []string {
 
 	return sections
 }
+
+// ChunkXML splits XML content into chunks based on a specified target tag.
+// Each chunk contains a complete XML element matching the target tag, with all its attributes preserved.
+//
+// Parameters:
+//   - xml: The input XML content to be chunked.
+//   - targetTag: The name of the XML tag to extract (e.g., "item").
+//
+// Returns:
+//   - []string: A slice of strings, where each string is a complete XML element.
+//
+// Example:
+//   xml := `<menu>
+//     <item id="1">
+//       <name>Margherita Pizza</name>
+//       <price currency="USD">12.99</price>
+//     </item>
+//     <item id="2">
+//       <name>Caesar Salad</name>
+//       <price currency="USD">8.50</price>
+//     </item>
+//   </menu>`
+//
+//   chunks := ChunkXML(xml, "item")
+//   // Returns: [
+//   //   `<item id="1"><name>Margherita Pizza</name><price currency="USD">12.99</price></item>`,
+//   //   `<item id="2"><name>Caesar Salad</name><price currency="USD">8.50</price></item>`
+//   // ]
+func ChunkXML(xml string, targetTag string) []string {
+	if xml == "" || targetTag == "" {
+		return []string{}
+	}
+
+	var chunks []string
+
+	// Build regex to match both self-closing and content tags
+	// Pattern explanation:
+	// - <targetTag: Opening tag
+	// - (?:\s[^>]*)?: Optional attributes (non-capturing group)
+	// - (?:/>|>[\s\S]*?</targetTag>): Either self-closing /> or content with closing tag
+	pattern := `<` + regexp.QuoteMeta(targetTag) + `(?:\s[^>]*)?(?:/>|>[\s\S]*?</` + regexp.QuoteMeta(targetTag) + `>)`
+
+	re := regexp.MustCompile(pattern)
+	matches := re.FindAllString(xml, -1)
+
+	for _, match := range matches {
+		trimmed := strings.TrimSpace(match)
+		if trimmed != "" {
+			chunks = append(chunks, trimmed)
+		}
+	}
+
+	return chunks
+}

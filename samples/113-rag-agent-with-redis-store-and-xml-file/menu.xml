@@ -1,0 +1,502 @@
+<menu>
+	<item id="1">
+		<name>Margherita Pizza</name>
+		<description>Classic Italian pizza with fresh mozzarella, tomato sauce, and basil</description>
+		<price currency="USD">12.99</price>
+	</item>
+	<item id="2">
+		<name>Caesar Salad</name>
+		<description>Fresh romaine lettuce with parmesan cheese, croutons, and Caesar dressing</description>
+		<price currency="USD">8.50</price>
+	</item>
+	<item id="3">
+		<name>Grilled Salmon</name>
+		<description>Atlantic salmon fillet grilled to perfection with lemon butter sauce</description>
+		<price currency="USD">18.75</price>
+	</item>
+	<item id="4">
+		<name>Beef Burger</name>
+		<description>Angus beef patty with lettuce, tomato, onion, and special sauce on a brioche bun</description>
+		<price currency="USD">14.25</price>
+	</item>
+	<item id="5">
+		<name>Pasta Carbonara</name>
+		<description>Spaghetti with creamy egg sauce, pancetta, and pecorino romano cheese</description>
+		<price currency="USD">13.50</price>
+	</item>
+	<item id="6">
+		<name>Chocolate Lava Cake</name>
+		<description>Warm chocolate cake with a molten center served with vanilla ice cream</description>
+		<price currency="USD">7.99</price>
+	</item>
+	<item id="7">
+		<name>Chicken Tikka Masala</name>
+		<description>Tender chicken in a creamy tomato-based curry sauce with Indian spices</description>
+		<price currency="USD">15.99</price>
+	</item>
+	<item id="8">
+		<name>Greek Salad</name>
+		<description>Fresh tomatoes, cucumbers, olives, feta cheese with olive oil dressing</description>
+		<price currency="USD">9.25</price>
+	</item>
+	<item id="9">
+		<name>Fish and Chips</name>
+		<description>Beer-battered cod with crispy fries and tartar sauce</description>
+		<price currency="USD">16.50</price>
+	</item>
+	<item id="10">
+		<name>Tiramisu</name>
+		<description>Classic Italian dessert with coffee-soaked ladyfingers and mascarpone</description>
+		<price currency="USD">8.50</price>
+	</item>
+	<item id="11">
+		<name>Pad Thai</name>
+		<description>Thai stir-fried rice noodles with shrimp, peanuts, and tamarind sauce</description>
+		<price currency="USD">14.75</price>
+	</item>
+	<item id="12">
+		<name>French Onion Soup</name>
+		<description>Caramelized onions in beef broth topped with gruyere cheese</description>
+		<price currency="USD">10.99</price>
+	</item>
+	<item id="13">
+		<name>BBQ Ribs</name>
+		<description>Slow-cooked pork ribs with smoky BBQ sauce</description>
+		<price currency="USD">22.99</price>
+	</item>
+	<item id="14">
+		<name>Caprese Salad</name>
+		<description>Fresh mozzarella, tomatoes, and basil with balsamic glaze</description>
+		<price currency="USD">11.50</price>
+	</item>
+	<item id="15">
+		<name>Beef Tacos</name>
+		<description>Three soft tortillas with seasoned beef, cheese, lettuce, and salsa</description>
+		<price currency="USD">12.75</price>
+	</item>
+	<item id="16">
+		<name>Crème Brûlée</name>
+		<description>Vanilla custard with caramelized sugar crust</description>
+		<price currency="USD">9.25</price>
+	</item>
+	<item id="17">
+		<name>Sushi Platter</name>
+		<description>Assorted nigiri and maki rolls with wasabi and ginger</description>
+		<price currency="USD">24.99</price>
+	</item>
+	<item id="18">
+		<name>Mushroom Risotto</name>
+		<description>Creamy arborio rice with wild mushrooms and parmesan</description>
+		<price currency="USD">16.99</price>
+	</item>
+	<item id="19">
+		<name>Vegetable Stir Fry</name>
+		<description>Mixed vegetables in garlic ginger sauce with jasmine rice</description>
+		<price currency="USD">13.25</price>
+	</item>
+	<item id="20">
+		<name>New York Cheesecake</name>
+		<description>Classic creamy cheesecake with graham cracker crust</description>
+		<price currency="USD">8.99</price>
+	</item>
+	<item id="21">
+		<name>Lobster Roll</name>
+		<description>Fresh lobster meat with mayo on a toasted roll</description>
+		<price currency="USD">26.50</price>
+	</item>
+	<item id="22">
+		<name>Beef Wellington</name>
+		<description>Tender beef fillet wrapped in puff pastry with mushroom duxelles</description>
+		<price currency="USD">34.99</price>
+	</item>
+	<item id="23">
+		<name>Tomato Bruschetta</name>
+		<description>Grilled bread topped with fresh tomatoes, garlic, and basil</description>
+		<price currency="USD">7.50</price>
+	</item>
+	<item id="24">
+		<name>Chicken Caesar Wrap</name>
+		<description>Grilled chicken, romaine, parmesan, and caesar dressing in a tortilla</description>
+		<price currency="USD">11.99</price>
+	</item>
+	<item id="25">
+		<name>Apple Pie</name>
+		<description>Homemade apple pie with cinnamon and a flaky crust</description>
+		<price currency="USD">6.99</price>
+	</item>
+	<item id="26">
+		<name>Seafood Paella</name>
+		<description>Spanish rice dish with shrimp, mussels, and saffron</description>
+		<price currency="USD">28.50</price>
+	</item>
+	<item id="27">
+		<name>Chicken Quesadilla</name>
+		<description>Grilled tortilla with chicken, cheese, peppers, and onions</description>
+		<price currency="USD">10.99</price>
+	</item>
+	<item id="28">
+		<name>Beef Stroganoff</name>
+		<description>Tender beef in creamy mushroom sauce over egg noodles</description>
+		<price currency="USD">17.50</price>
+	</item>
+	<item id="29">
+		<name>Ice Cream Sundae</name>
+		<description>Three scoops of ice cream with hot fudge, whipped cream, and cherry</description>
+		<price currency="USD">7.25</price>
+	</item>
+	<item id="30">
+		<name>Duck Confit</name>
+		<description>Slow-cooked duck leg with crispy skin and roasted potatoes</description>
+		<price currency="USD">29.99</price>
+	</item>
+	<item id="31">
+		<name>Spinach Artichoke Dip</name>
+		<description>Creamy dip with spinach and artichokes served with tortilla chips</description>
+		<price currency="USD">9.99</price>
+	</item>
+	<item id="32">
+		<name>Lamb Chops</name>
+		<description>Grilled lamb chops with rosemary and garlic</description>
+		<price currency="USD">31.99</price>
+	</item>
+	<item id="33">
+		<name>Panna Cotta</name>
+		<description>Italian cream dessert with berry compote</description>
+		<price currency="USD">8.25</price>
+	</item>
+	<item id="34">
+		<name>Shrimp Scampi</name>
+		<description>Garlic butter shrimp over linguine pasta</description>
+		<price currency="USD">19.99</price>
+	</item>
+	<item id="35">
+		<name>Buffalo Wings</name>
+		<description>Crispy chicken wings tossed in spicy buffalo sauce</description>
+		<price currency="USD">12.50</price>
+	</item>
+	<item id="36">
+		<name>Pulled Pork Sandwich</name>
+		<description>Slow-cooked pulled pork with coleslaw on a bun</description>
+		<price currency="USD">13.99</price>
+	</item>
+	<item id="37">
+		<name>Chocolate Mousse</name>
+		<description>Light and airy chocolate mousse with whipped cream</description>
+		<price currency="USD">7.50</price>
+	</item>
+	<item id="38">
+		<name>Tuna Poke Bowl</name>
+		<description>Fresh tuna with rice, edamame, and sesame dressing</description>
+		<price currency="USD">16.75</price>
+	</item>
+	<item id="39">
+		<name>Chicken Parmesan</name>
+		<description>Breaded chicken breast with marinara sauce and melted mozzarella</description>
+		<price currency="USD">17.99</price>
+	</item>
+	<item id="40">
+		<name>Banoffee Pie</name>
+		<description>Toffee and banana pie with whipped cream</description>
+		<price currency="USD">8.75</price>
+	</item>
+	<item id="41">
+		<name>Ramen Bowl</name>
+		<description>Japanese noodle soup with pork, soft-boiled egg, and vegetables</description>
+		<price currency="USD">15.50</price>
+	</item>
+	<item id="42">
+		<name>Steak Frites</name>
+		<description>Grilled sirloin steak with french fries and herb butter</description>
+		<price currency="USD">27.99</price>
+	</item>
+	<item id="43">
+		<name>Mozzarella Sticks</name>
+		<description>Breaded mozzarella with marinara dipping sauce</description>
+		<price currency="USD">8.99</price>
+	</item>
+	<item id="44">
+		<name>Key Lime Pie</name>
+		<description>Tangy lime custard in graham cracker crust</description>
+		<price currency="USD">7.99</price>
+	</item>
+	<item id="45">
+		<name>Chicken Enchiladas</name>
+		<description>Rolled tortillas with chicken, cheese, and red sauce</description>
+		<price currency="USD">14.50</price>
+	</item>
+	<item id="46">
+		<name>Clam Chowder</name>
+		<description>New England style creamy clam soup</description>
+		<price currency="USD">11.25</price>
+	</item>
+	<item id="47">
+		<name>Beef Burritos</name>
+		<description>Large flour tortilla with beef, rice, beans, and cheese</description>
+		<price currency="USD">13.99</price>
+	</item>
+	<item id="48">
+		<name>Lemon Tart</name>
+		<description>Tangy lemon custard in buttery pastry shell</description>
+		<price currency="USD">8.50</price>
+	</item>
+	<item id="49">
+		<name>Falafel Wrap</name>
+		<description>Crispy chickpea balls with tahini sauce in pita</description>
+		<price currency="USD">10.75</price>
+	</item>
+	<item id="50">
+		<name>Peking Duck</name>
+		<description>Crispy duck with pancakes, scallions, and hoisin sauce</description>
+		<price currency="USD">32.99</price>
+	</item>
+	<item id="51">
+		<name>Onion Rings</name>
+		<description>Beer-battered onion rings with ranch dipping sauce</description>
+		<price currency="USD">7.50</price>
+	</item>
+	<item id="52">
+		<name>Chicken Alfredo</name>
+		<description>Fettuccine pasta with grilled chicken in creamy alfredo sauce</description>
+		<price currency="USD">16.99</price>
+	</item>
+	<item id="53">
+		<name>Red Velvet Cake</name>
+		<description>Rich chocolate cake with cream cheese frosting</description>
+		<price currency="USD">9.50</price>
+	</item>
+	<item id="54">
+		<name>Spring Rolls</name>
+		<description>Crispy vegetable spring rolls with sweet chili sauce</description>
+		<price currency="USD">8.25</price>
+	</item>
+	<item id="55">
+		<name>Lasagna</name>
+		<description>Layers of pasta, meat sauce, ricotta, and mozzarella</description>
+		<price currency="USD">15.99</price>
+	</item>
+	<item id="56">
+		<name>Brownie Sundae</name>
+		<description>Warm brownie with ice cream, hot fudge, and nuts</description>
+		<price currency="USD">8.99</price>
+	</item>
+	<item id="57">
+		<name>Pork Dumplings</name>
+		<description>Steamed dumplings with pork and vegetable filling</description>
+		<price currency="USD">9.75</price>
+	</item>
+	<item id="58">
+		<name>Chicken Satay</name>
+		<description>Grilled chicken skewers with peanut sauce</description>
+		<price currency="USD">11.50</price>
+	</item>
+	<item id="59">
+		<name>Carrot Cake</name>
+		<description>Spiced cake with carrots, walnuts, and cream cheese frosting</description>
+		<price currency="USD">8.75</price>
+	</item>
+	<item id="60">
+		<name>Beef Nachos</name>
+		<description>Tortilla chips with seasoned beef, cheese, jalapeños, and sour cream</description>
+		<price currency="USD">14.99</price>
+	</item>
+	<item id="61">
+		<name>Crab Cakes</name>
+		<description>Pan-fried crab cakes with remoulade sauce</description>
+		<price currency="USD">21.99</price>
+	</item>
+	<item id="62">
+		<name>Chicken Wings Platter</name>
+		<description>Mixed flavors: buffalo, BBQ, and honey garlic</description>
+		<price currency="USD">18.50</price>
+	</item>
+	<item id="63">
+		<name>Fruit Tart</name>
+		<description>Pastry cream tart topped with fresh seasonal fruits</description>
+		<price currency="USD">9.25</price>
+	</item>
+	<item id="64">
+		<name>Pork Schnitzel</name>
+		<description>Breaded pork cutlet with lemon and potato salad</description>
+		<price currency="USD">18.99</price>
+	</item>
+	<item id="65">
+		<name>Stuffed Mushrooms</name>
+		<description>Mushroom caps stuffed with herbs, breadcrumbs, and cheese</description>
+		<price currency="USD">10.50</price>
+	</item>
+	<item id="66">
+		<name>Chicken Teriyaki</name>
+		<description>Grilled chicken with teriyaki glaze and steamed rice</description>
+		<price currency="USD">15.75</price>
+	</item>
+	<item id="67">
+		<name>Pecan Pie</name>
+		<description>Sweet pie with pecans and caramel filling</description>
+		<price currency="USD">7.99</price>
+	</item>
+	<item id="68">
+		<name>Eggplant Parmesan</name>
+		<description>Breaded eggplant with marinara and melted mozzarella</description>
+		<price currency="USD">14.99</price>
+	</item>
+	<item id="69">
+		<name>Calamari</name>
+		<description>Fried squid rings with marinara dipping sauce</description>
+		<price currency="USD">12.75</price>
+	</item>
+	<item id="70">
+		<name>Monte Cristo Sandwich</name>
+		<description>Ham and cheese sandwich dipped in egg batter and fried</description>
+		<price currency="USD">13.50</price>
+	</item>
+	<item id="71">
+		<name>Macarons</name>
+		<description>French almond cookies with various flavored fillings</description>
+		<price currency="USD">12.99</price>
+	</item>
+	<item id="72">
+		<name>Beef Fajitas</name>
+		<description>Sizzling beef strips with peppers, onions, and tortillas</description>
+		<price currency="USD">19.50</price>
+	</item>
+	<item id="73">
+		<name>Garlic Bread</name>
+		<description>Toasted bread with garlic butter and herbs</description>
+		<price currency="USD">5.99</price>
+	</item>
+	<item id="74">
+		<name>Chicken Soup</name>
+		<description>Homemade chicken soup with vegetables and noodles</description>
+		<price currency="USD">9.50</price>
+	</item>
+	<item id="75">
+		<name>Profiteroles</name>
+		<description>Cream puffs with chocolate sauce</description>
+		<price currency="USD">10.25</price>
+	</item>
+	<item id="76">
+		<name>Gyros</name>
+		<description>Greek pita with lamb, tzatziki, tomatoes, and onions</description>
+		<price currency="USD">12.99</price>
+	</item>
+	<item id="77">
+		<name>Pot Stickers</name>
+		<description>Pan-fried dumplings with soy dipping sauce</description>
+		<price currency="USD">9.99</price>
+	</item>
+	<item id="78">
+		<name>Chicken Fried Rice</name>
+		<description>Wok-fried rice with chicken, egg, and vegetables</description>
+		<price currency="USD">11.99</price>
+	</item>
+	<item id="79">
+		<name>Bread Pudding</name>
+		<description>Warm bread pudding with whiskey sauce</description>
+		<price currency="USD">7.75</price>
+	</item>
+	<item id="80">
+		<name>Beef Sliders</name>
+		<description>Three mini burgers with cheese and pickles</description>
+		<price currency="USD">13.99</price>
+	</item>
+	<item id="81">
+		<name>Hummus Platter</name>
+		<description>Creamy hummus with pita bread and vegetables</description>
+		<price currency="USD">10.99</price>
+	</item>
+	<item id="82">
+		<name>Pork Tenderloin</name>
+		<description>Herb-crusted pork tenderloin with roasted vegetables</description>
+		<price currency="USD">23.99</price>
+	</item>
+	<item id="83">
+		<name>Churros</name>
+		<description>Fried dough pastries with cinnamon sugar and chocolate sauce</description>
+		<price currency="USD">6.99</price>
+	</item>
+	<item id="84">
+		<name>Chicken Fajitas</name>
+		<description>Sizzling chicken strips with peppers, onions, and tortillas</description>
+		<price currency="USD">17.50</price>
+	</item>
+	<item id="85">
+		<name>Deviled Eggs</name>
+		<description>Hard-boiled eggs with seasoned yolk filling</description>
+		<price currency="USD">7.50</price>
+	</item>
+	<item id="86">
+		<name>Beef Kabobs</name>
+		<description>Grilled beef skewers with vegetables and rice pilaf</description>
+		<price currency="USD">20.99</price>
+	</item>
+	<item id="87">
+		<name>Baklava</name>
+		<description>Layered phyllo pastry with honey and nuts</description>
+		<price currency="USD">7.99</price>
+	</item>
+	<item id="88">
+		<name>Chicken Noodle Soup</name>
+		<description>Classic soup with tender chicken and egg noodles</description>
+		<price currency="USD">8.99</price>
+	</item>
+	<item id="89">
+		<name>Pork Chops</name>
+		<description>Grilled pork chops with apple chutney</description>
+		<price currency="USD">19.99</price>
+	</item>
+	<item id="90">
+		<name>Gelato Trio</name>
+		<description>Three flavors of Italian gelato</description>
+		<price currency="USD">9.99</price>
+	</item>
+	<item id="91">
+		<name>Chicken Shawarma</name>
+		<description>Marinated chicken in pita with garlic sauce</description>
+		<price currency="USD">12.50</price>
+	</item>
+	<item id="92">
+		<name>Biscotti</name>
+		<description>Italian almond cookies perfect for dipping in coffee</description>
+		<price currency="USD">5.99</price>
+	</item>
+	<item id="93">
+		<name>Fish Tacos</name>
+		<description>Grilled fish in soft tortillas with cabbage slaw</description>
+		<price currency="USD">14.99</price>
+	</item>
+	<item id="94">
+		<name>Bacon Wrapped Dates</name>
+		<description>Dates stuffed with cheese and wrapped in bacon</description>
+		<price currency="USD">11.50</price>
+	</item>
+	<item id="95">
+		<name>Chicken Cordon Bleu</name>
+		<description>Chicken breast stuffed with ham and swiss cheese</description>
+		<price currency="USD">18.50</price>
+	</item>
+	<item id="96">
+		<name>Cannoli</name>
+		<description>Crispy pastry tubes filled with sweet ricotta cream</description>
+		<price currency="USD">6.99</price>
+	</item>
+	<item id="97">
+		<name>Shrimp Cocktail</name>
+		<description>Chilled shrimp with cocktail sauce and lemon</description>
+		<price currency="USD">16.99</price>
+	</item>
+	<item id="98">
+		<name>Chicken Lo Mein</name>
+		<description>Stir-fried noodles with chicken and vegetables</description>
+		<price currency="USD">13.99</price>
+	</item>
+	<item id="99">
+		<name>Sopapillas</name>
+		<description>Fried pastry pillows with honey and cinnamon</description>
+		<price currency="USD">6.50</price>
+	</item>
+	<item id="100">
+		<name>Prime Rib</name>
+		<description>Slow-roasted prime rib with au jus and horseradish</description>
+		<price currency="USD">39.99</price>
+	</item>
+</menu>
