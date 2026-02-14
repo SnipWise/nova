@@ -50,12 +50,12 @@ func main() {
 
 	// Persist the store to file
 	// This saves the embeddings to the JSON file for future use
-	err = agent.PersistStore(storePathFile)
-	if err != nil {
-		fmt.Printf("❌ Failed to persist RAG store to %s: %v\n", storePathFile, err)
-	} else {
-		fmt.Printf("💾 Successfully saved RAG store to %s\n", storePathFile)
-	}
+	// err = agent.PersistStore(storePathFile)
+	// if err != nil {
+	// 	fmt.Printf("❌ Failed to persist RAG store to %s: %v\n", storePathFile, err)
+	// } else {
+	// 	fmt.Printf("💾 Successfully saved RAG store to %s\n", storePathFile)
+	// }
 
 	fmt.Println(strings.Repeat("=", 60))
 
