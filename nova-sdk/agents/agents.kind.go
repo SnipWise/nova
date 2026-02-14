@@ -15,5 +15,6 @@ const (
 	Structured Kind = "Structured"
 	Macro Kind = "Macro"
 	Composite Kind = "Composite"
+	Tasks Kind = "Tasks"
 )
 
