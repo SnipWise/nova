@@ -2,15 +2,14 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
 	"github.com/snipwise/nova/nova-sdk/agents/gatewayserver"
+	"github.com/snipwise/nova/nova-sdk/agents/orchestrator"
 	"github.com/snipwise/nova/nova-sdk/toolbox/env"
-	"github.com/snipwise/nova/nova-sdk/toolbox/files"
 	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
@@ -23,23 +22,8 @@ type AgentRoutingConfig struct {
 	DefaultAgent string `json:"default_agent"`
 }
 
-// loadRoutingConfig loads the agent routing configuration from a JSON file
-func loadRoutingConfig(filename string) (*AgentRoutingConfig, error) {
-	data, err := files.ReadTextFile(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read routing config: %w", err)
-	}
-
-	var config AgentRoutingConfig
-	if err := json.Unmarshal([]byte(data), &config); err != nil {
-		return nil, fmt.Errorf("failed to parse routing config: %w", err)
-	}
-
-	return &config, nil
-}
-
 // createMatchAgentFunction creates a routing function based on the configuration
-func createMatchAgentFunction(config *AgentRoutingConfig) func(string, string) string {
+func createMatchAgentFunction(config *orchestrator.AgentRoutingConfig) func(string, string) string {
 	return func(currentAgentId, topic string) string {
 		fmt.Println("🔵 Matching agent for topic:", topic)
 		topicLower := strings.ToLower(topic)
@@ -85,15 +69,6 @@ func main() {
 		"generic": genericAgent,
 	}
 
-	// ------------------------------------------------
-	// Load routing configuration and create routing function
-	// ------------------------------------------------
-	routingConfig, err := loadRoutingConfig("agent-routing.json")
-	if err != nil {
-		panic(err)
-	}
-
-	matchAgentFunction := createMatchAgentFunction(routingConfig)
 
 	// ------------------------------------------------
 	// Create the client-side tools agent
@@ -124,6 +99,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	matchAgentFunction := createMatchAgentFunction(orchestratorAgent.GetRoutingConfig())
+
 
 	// ------------------------------------------------
 	// Create the compressor agent
