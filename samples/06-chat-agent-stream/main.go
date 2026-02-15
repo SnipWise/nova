@@ -24,7 +24,8 @@ func main() {
 			KeepConversationHistory: true,
 		},
 		models.Config{
-			Name:        "ai/qwen2.5:1.5B-F16",
+			//Name:        "ai/qwen2.5:1.5B-F16",
+			Name: "hf.co/menlo/lucy-gguf:q4_k_m",
 			Temperature: models.Float64(0.8),
 		},
 	)
