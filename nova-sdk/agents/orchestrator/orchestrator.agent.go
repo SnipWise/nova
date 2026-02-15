@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/structured"
@@ -29,6 +30,23 @@ func AfterCompletion(fn func(*Agent)) OrchestratorAgentOption {
 	}
 }
 
+// WithRoutingConfig sets the agent routing configuration
+func WithRoutingConfig(config AgentRoutingConfig) OrchestratorAgentOption {
+	return func(a *Agent) {
+		a.agentRoutingConfig = &config
+	}
+}
+
+// AgentRoutingConfig defines the routing configuration for the orchestrator
+// It maps topics to specific agents and provides a default fallback
+type AgentRoutingConfig struct {
+	Routing []struct {
+		Topics []string `json:"topics"`
+		Agent  string   `json:"agent"`
+	} `json:"routing"`
+	DefaultAgent string `json:"default_agent"`
+}
+
 // Agent represents an orchestrator agent that identifies topics/intents from user input
 // It's a specialized structured agent that uses agents.Intent as its output type
 type Agent struct {
@@ -36,6 +54,7 @@ type Agent struct {
 	modelConfig         models.Config
 	internalStructAgent *structured.Agent[agents.Intent]
 	log                 logger.Logger
+	agentRoutingConfig  *AgentRoutingConfig
 
 	// Lifecycle hooks
 	beforeCompletion func(*Agent)
@@ -172,6 +191,16 @@ func (agent *Agent) SetModelConfig(config models.Config) {
 	agent.internalStructAgent.SetModelConfig(config)
 }
 
+// GetRoutingConfig returns the agent routing configuration
+// Returns nil if no routing config is set
+func (agent *Agent) GetRoutingConfig() *AgentRoutingConfig {
+	return agent.agentRoutingConfig
+}
+
+// SetRoutingConfig updates the agent routing configuration
+func (agent *Agent) SetRoutingConfig(config *AgentRoutingConfig) {
+	agent.agentRoutingConfig = config
+}
 
 func (agent *Agent) GetLastRequestRawJSON() string {
 	return agent.internalStructAgent.GetLastRequestRawJSON()
@@ -196,4 +225,27 @@ func (agent *Agent) GetContext() context.Context {
 // SetContext updates the agent's context
 func (agent *Agent) SetContext(ctx context.Context) {
 	agent.internalStructAgent.SetContext(ctx)
+}
+
+// GetAgentForTopic returns the agent ID for a given topic based on routing configuration
+// Returns empty string if no routing config is set or no match is found
+func (agent *Agent) GetAgentForTopic(topic string) string {
+	// Return empty string if no routing config is set
+	if agent.agentRoutingConfig == nil {
+		return ""
+	}
+
+	topicLower := strings.ToLower(topic)
+
+	// Search through routing rules
+	for _, rule := range agent.agentRoutingConfig.Routing {
+		for _, configTopic := range rule.Topics {
+			if strings.ToLower(configTopic) == topicLower {
+				return rule.Agent
+			}
+		}
+	}
+
+	// Return default agent if no match found
+	return agent.agentRoutingConfig.DefaultAgent
 }

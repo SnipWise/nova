@@ -9,10 +9,11 @@
 5. [Méthodes de détection d'intent](#5-méthodes-de-détection-dintent)
 6. [Historique de conversation et messages](#6-historique-de-conversation-et-messages)
 7. [Hooks de cycle de vie (OrchestratorAgentOption)](#7-hooks-de-cycle-de-vie-orchestratoragentoption)
-8. [Utilisation avec le Crew Agent](#8-utilisation-avec-le-crew-agent)
-9. [Gestion du contexte et de l'état](#9-gestion-du-contexte-et-de-létat)
-10. [Débogage JSON](#10-débogage-json)
-11. [Référence API](#11-référence-api)
+8. [Configuration du routage d'agents](#8-configuration-du-routage-dagents)
+9. [Utilisation avec le Crew Agent](#9-utilisation-avec-le-crew-agent)
+10. [Gestion du contexte et de l'état](#10-gestion-du-contexte-et-de-létat)
+11. [Débogage JSON](#11-débogage-json)
+12. [Référence API](#12-référence-api)
 
 ---
 
@@ -339,7 +340,192 @@ Puisque `IdentifyTopicFromText` appelle `IdentifyIntent` en interne, les hooks s
 
 ---
 
-## 8. Utilisation avec le Crew Agent
+## 8. Configuration du routage d'agents
+
+### Vue d'ensemble
+
+L'orchestrator agent supporte le routage automatique des topics vers des agents spécifiques grâce à la fonctionnalité `AgentRoutingConfig`. Cela vous permet de définir des règles qui mappent des topics à des IDs d'agents, avec un fallback vers un agent par défaut lorsqu'aucune correspondance n'est trouvée.
+
+### Structure AgentRoutingConfig
+
+```go
+type AgentRoutingConfig struct {
+	Routing []struct {
+		Topics []string `json:"topics"`
+		Agent  string   `json:"agent"`
+	} `json:"routing"`
+	DefaultAgent string `json:"default_agent"`
+}
+```
+
+| Champ | Type | Description |
+|---|---|---|
+| `Routing` | `[]struct` | Tableau de règles de routage. Chaque règle contient une liste de topics et l'ID de l'agent vers lequel router. |
+| `Topics` | `[]string` | Liste des noms de topics (correspondance insensible à la casse). |
+| `Agent` | `string` | ID de l'agent vers lequel router lorsqu'un des topics correspond. |
+| `DefaultAgent` | `string` | ID de l'agent de fallback lorsqu'aucun topic ne correspond. |
+
+### Configuration du routage
+
+#### Utilisation de l'option WithRoutingConfig
+
+Configurez le routage lors de la création de l'agent en utilisant l'option `WithRoutingConfig` :
+
+```go
+routingConfig := orchestrator.AgentRoutingConfig{
+	Routing: []struct {
+		Topics []string `json:"topics"`
+		Agent  string   `json:"agent"`
+	}{
+		{
+			Topics: []string{"code", "programmation", "debug", "coding"},
+			Agent:  "code-agent-id",
+		},
+		{
+			Topics: []string{"base de données", "sql", "requête", "data"},
+			Agent:  "database-agent-id",
+		},
+		{
+			Topics: []string{"réflexion", "philosophie", "raisonnement"},
+			Agent:  "thinker-agent-id",
+		},
+	},
+	DefaultAgent: "general-agent-id",
+}
+
+agent, err := orchestrator.NewAgent(
+	ctx,
+	agentConfig,
+	modelConfig,
+	orchestrator.WithRoutingConfig(routingConfig),
+)
+```
+
+#### Utilisation de la méthode SetRoutingConfig
+
+Vous pouvez également définir ou mettre à jour la configuration de routage après la création de l'agent :
+
+```go
+agent.SetRoutingConfig(&routingConfig)
+
+// Ou effacer la configuration de routage
+agent.SetRoutingConfig(nil)
+```
+
+### Utilisation de GetAgentForTopic
+
+Une fois configuré, utilisez `GetAgentForTopic` pour récupérer l'ID d'agent approprié pour un topic donné :
+
+```go
+// Identifier d'abord le topic
+topic, err := agent.IdentifyTopicFromText("Comment écrire une recherche binaire en Go ?")
+if err != nil {
+	// gérer l'erreur
+}
+
+// Obtenir l'ID d'agent approprié basé sur le topic
+agentID := agent.GetAgentForTopic(topic)
+fmt.Println("Router vers l'agent:", agentID) // "code-agent-id"
+
+// Un topic inconnu revient à l'agent par défaut
+agentID = agent.GetAgentForTopic("topic-inconnu")
+fmt.Println("Router vers l'agent:", agentID) // "general-agent-id"
+```
+
+### Fonctionnement de la correspondance de topics
+
+- **Insensible à la casse** : La correspondance de topics est insensible à la casse (`"Code"`, `"code"`, `"CODE"` correspondent tous).
+- **Correspondance exacte** : Les topics doivent correspondre exactement (pas de wildcards ou patterns).
+- **La première correspondance gagne** : La première règle correspondante dans le tableau de routage est utilisée.
+- **Fallback par défaut** : Si aucune règle ne correspond, le `DefaultAgent` est retourné.
+- **Sans configuration** : Si aucune config de routage n'est définie, `GetAgentForTopic` retourne une chaîne vide.
+
+### Exemple complet avec routage
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/orchestrator"
+	"github.com/snipwise/nova/nova-sdk/models"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// Définir la configuration de routage
+	routingConfig := orchestrator.AgentRoutingConfig{
+		Routing: []struct {
+			Topics []string `json:"topics"`
+			Agent  string   `json:"agent"`
+		}{
+			{
+				Topics: []string{"code", "programmation", "coding"},
+				Agent:  "coder-agent",
+			},
+			{
+				Topics: []string{"cuisine", "recette", "nourriture"},
+				Agent:  "chef-agent",
+			},
+		},
+		DefaultAgent: "general-agent",
+	}
+
+	// Créer l'orchestrateur avec la config de routage
+	agent, err := orchestrator.NewAgent(
+		ctx,
+		agents.Config{
+			Name:      "orchestrator-agent",
+			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: `Classifiez le message de l'utilisateur dans l'un de ces topics :
+- code: programmation, développement, débogage
+- cuisine: recettes, nourriture, ingrédients
+- générique: tout le reste
+
+Répondez au format JSON avec le champ 'topic_discussion'.`,
+		},
+		models.Config{
+			Name:        "ai/qwen2.5:1.5B-F16",
+			Temperature: models.Float64(0.0),
+		},
+		orchestrator.WithRoutingConfig(routingConfig),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	// Identifier le topic et router
+	topic, err := agent.IdentifyTopicFromText("Comment implémenter le tri à bulles en Python ?")
+	if err != nil {
+		panic(err)
+	}
+
+	agentID := agent.GetAgentForTopic(topic)
+	fmt.Printf("Topic: %s -> Router vers: %s\n", topic, agentID)
+	// Sortie: Topic: code -> Router vers: coder-agent
+}
+```
+
+### Accès à la configuration de routage
+
+```go
+// Obtenir la configuration de routage actuelle
+config := agent.GetRoutingConfig()
+if config != nil {
+	fmt.Println("Agent par défaut:", config.DefaultAgent)
+	for _, rule := range config.Routing {
+		fmt.Printf("Topics %v -> Agent %s\n", rule.Topics, rule.Agent)
+	}
+}
+```
+
+---
+
+## 9. Utilisation avec le Crew Agent
 
 L'orchestrator agent est conçu pour fonctionner avec `CrewServerAgent` pour le routage automatique des requêtes dans les systèmes multi-agents.
 
@@ -404,7 +590,7 @@ crewServerAgent.StartServer()
 
 ---
 
-## 9. Gestion du contexte et de l'état
+## 10. Gestion du contexte et de l'état
 
 ### Obtenir et définir le contexte
 
@@ -435,7 +621,7 @@ agent.GetModelID() // Retourne le nom du modèle depuis la config modèle
 
 ---
 
-## 10. Débogage JSON
+## 11. Débogage JSON
 
 Pour le débogage, vous pouvez accéder au JSON brut envoyé et reçu du moteur LLM :
 
@@ -451,7 +637,7 @@ prettyResp, err := agent.GetLastResponseJSON()
 
 ---
 
-## 11. Référence API
+## 12. Référence API
 
 ### Constructeur
 
@@ -479,6 +665,15 @@ type Intent struct {
     TopicDiscussion string `json:"topic_discussion"`
 }
 
+// AgentRoutingConfig définit la configuration de routage pour l'orchestrateur
+type AgentRoutingConfig struct {
+    Routing []struct {
+        Topics []string `json:"topics"`
+        Agent  string   `json:"agent"`
+    } `json:"routing"`
+    DefaultAgent string `json:"default_agent"`
+}
+
 // OrchestratorAgent est l'interface implémentée par l'orchestrator agent
 type OrchestratorAgent interface {
     IdentifyIntent(userMessages []messages.Message) (intent *Intent, finishReason string, err error)
@@ -494,6 +689,7 @@ type OrchestratorAgent interface {
 |---|---|
 | `BeforeCompletion(fn func(*Agent))` | Définit un hook appelé avant chaque identification d'intention. |
 | `AfterCompletion(fn func(*Agent))` | Définit un hook appelé après chaque identification d'intention. |
+| `WithRoutingConfig(config AgentRoutingConfig)` | Définit la configuration de routage pour le mapping automatique topic-vers-agent. |
 
 ---
 
@@ -511,6 +707,9 @@ type OrchestratorAgent interface {
 | `SetConfig(config agents.Config)` | Met à jour la configuration de l'agent. |
 | `GetModelConfig() models.Config` | Obtient la configuration du modèle. |
 | `SetModelConfig(config models.Config)` | Met à jour la configuration du modèle. |
+| `GetRoutingConfig() *AgentRoutingConfig` | Obtient la configuration de routage de l'agent. Retourne nil si non définie. |
+| `SetRoutingConfig(config *AgentRoutingConfig)` | Met à jour la configuration de routage de l'agent. |
+| `GetAgentForTopic(topic string) string` | Retourne l'ID de l'agent pour un topic donné basé sur la configuration de routage. |
 | `GetContext() context.Context` | Obtient le contexte de l'agent. |
 | `SetContext(ctx context.Context)` | Met à jour le contexte de l'agent. |
 | `GetLastRequestRawJSON() string` | Obtient le JSON brut de la dernière requête. |

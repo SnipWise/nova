@@ -9,10 +9,11 @@
 5. [Intent Detection Methods](#5-intent-detection-methods)
 6. [Conversation History and Messages](#6-conversation-history-and-messages)
 7. [Lifecycle Hooks (OrchestratorAgentOption)](#7-lifecycle-hooks-orchestratoragentoption)
-8. [Usage with Crew Agent](#8-usage-with-crew-agent)
-9. [Context and State Management](#9-context-and-state-management)
-10. [JSON Debugging](#10-json-debugging)
-11. [API Reference](#11-api-reference)
+8. [Agent Routing Configuration](#8-agent-routing-configuration)
+9. [Usage with Crew Agent](#9-usage-with-crew-agent)
+10. [Context and State Management](#10-context-and-state-management)
+11. [JSON Debugging](#11-json-debugging)
+12. [API Reference](#12-api-reference)
 
 ---
 
@@ -339,7 +340,192 @@ Since `IdentifyTopicFromText` calls `IdentifyIntent` internally, hooks are trigg
 
 ---
 
-## 8. Usage with Crew Agent
+## 8. Agent Routing Configuration
+
+### Overview
+
+The orchestrator agent supports automatic routing of topics to specific agents through the `AgentRoutingConfig` feature. This allows you to define rules that map topics to agent IDs, with a fallback to a default agent when no match is found.
+
+### AgentRoutingConfig Structure
+
+```go
+type AgentRoutingConfig struct {
+	Routing []struct {
+		Topics []string `json:"topics"`
+		Agent  string   `json:"agent"`
+	} `json:"routing"`
+	DefaultAgent string `json:"default_agent"`
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `Routing` | `[]struct` | Array of routing rules. Each rule contains a list of topics and the agent ID to route to. |
+| `Topics` | `[]string` | List of topic names (case-insensitive matching). |
+| `Agent` | `string` | Agent ID to route to when one of the topics matches. |
+| `DefaultAgent` | `string` | Fallback agent ID when no topic matches. |
+
+### Configuring Routing
+
+#### Using WithRoutingConfig Option
+
+Configure routing when creating the agent using the `WithRoutingConfig` option:
+
+```go
+routingConfig := orchestrator.AgentRoutingConfig{
+	Routing: []struct {
+		Topics []string `json:"topics"`
+		Agent  string   `json:"agent"`
+	}{
+		{
+			Topics: []string{"code", "programming", "debug", "coding"},
+			Agent:  "code-agent-id",
+		},
+		{
+			Topics: []string{"database", "sql", "query", "data"},
+			Agent:  "database-agent-id",
+		},
+		{
+			Topics: []string{"thinking", "philosophy", "reasoning"},
+			Agent:  "thinker-agent-id",
+		},
+	},
+	DefaultAgent: "general-agent-id",
+}
+
+agent, err := orchestrator.NewAgent(
+	ctx,
+	agentConfig,
+	modelConfig,
+	orchestrator.WithRoutingConfig(routingConfig),
+)
+```
+
+#### Using SetRoutingConfig Method
+
+You can also set or update the routing configuration after agent creation:
+
+```go
+agent.SetRoutingConfig(&routingConfig)
+
+// Or clear the routing configuration
+agent.SetRoutingConfig(nil)
+```
+
+### Using GetAgentForTopic
+
+Once configured, use `GetAgentForTopic` to retrieve the appropriate agent ID for a given topic:
+
+```go
+// Identify the topic first
+topic, err := agent.IdentifyTopicFromText("How do I write a binary search in Go?")
+if err != nil {
+	// handle error
+}
+
+// Get the appropriate agent ID based on the topic
+agentID := agent.GetAgentForTopic(topic)
+fmt.Println("Route to agent:", agentID) // "code-agent-id"
+
+// Unknown topic falls back to default agent
+agentID = agent.GetAgentForTopic("unknown-topic")
+fmt.Println("Route to agent:", agentID) // "general-agent-id"
+```
+
+### How Topic Matching Works
+
+- **Case-insensitive**: Topic matching is case-insensitive (`"Code"`, `"code"`, `"CODE"` all match).
+- **Exact match**: Topics must match exactly (no wildcards or patterns).
+- **First match wins**: The first matching rule in the routing array is used.
+- **Default fallback**: If no rule matches, the `DefaultAgent` is returned.
+- **No config**: If no routing config is set, `GetAgentForTopic` returns an empty string.
+
+### Complete Example with Routing
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/snipwise/nova/nova-sdk/agents"
+	"github.com/snipwise/nova/nova-sdk/agents/orchestrator"
+	"github.com/snipwise/nova/nova-sdk/models"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// Define routing configuration
+	routingConfig := orchestrator.AgentRoutingConfig{
+		Routing: []struct {
+			Topics []string `json:"topics"`
+			Agent  string   `json:"agent"`
+		}{
+			{
+				Topics: []string{"code", "programming", "coding"},
+				Agent:  "coder-agent",
+			},
+			{
+				Topics: []string{"cooking", "recipe", "food"},
+				Agent:  "chef-agent",
+			},
+		},
+		DefaultAgent: "general-agent",
+	}
+
+	// Create orchestrator with routing config
+	agent, err := orchestrator.NewAgent(
+		ctx,
+		agents.Config{
+			Name:      "orchestrator-agent",
+			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
+			SystemInstructions: `Classify the user's message into one of these topics:
+- code: programming, development, debugging
+- cooking: recipes, food, ingredients
+- generic: everything else
+
+Respond in JSON format with the field 'topic_discussion'.`,
+		},
+		models.Config{
+			Name:        "ai/qwen2.5:1.5B-F16",
+			Temperature: models.Float64(0.0),
+		},
+		orchestrator.WithRoutingConfig(routingConfig),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	// Identify topic and route
+	topic, err := agent.IdentifyTopicFromText("How do I implement bubble sort in Python?")
+	if err != nil {
+		panic(err)
+	}
+
+	agentID := agent.GetAgentForTopic(topic)
+	fmt.Printf("Topic: %s -> Route to: %s\n", topic, agentID)
+	// Output: Topic: code -> Route to: coder-agent
+}
+```
+
+### Accessing Routing Configuration
+
+```go
+// Get current routing configuration
+config := agent.GetRoutingConfig()
+if config != nil {
+	fmt.Println("Default agent:", config.DefaultAgent)
+	for _, rule := range config.Routing {
+		fmt.Printf("Topics %v -> Agent %s\n", rule.Topics, rule.Agent)
+	}
+}
+```
+
+---
+
+## 9. Usage with Crew Agent
 
 The orchestrator agent is designed to work with `CrewServerAgent` for automatic query routing in multi-agent systems.
 
@@ -404,7 +590,7 @@ crewServerAgent.StartServer()
 
 ---
 
-## 9. Context and State Management
+## 10. Context and State Management
 
 ### Getting and setting context
 
@@ -435,7 +621,7 @@ agent.GetModelID() // Returns the model name from model config
 
 ---
 
-## 10. JSON Debugging
+## 11. JSON Debugging
 
 For debugging, you can access the raw JSON sent to and received from the LLM engine:
 
@@ -451,7 +637,7 @@ prettyResp, err := agent.GetLastResponseJSON()
 
 ---
 
-## 11. API Reference
+## 12. API Reference
 
 ### Constructor
 
@@ -479,6 +665,15 @@ type Intent struct {
     TopicDiscussion string `json:"topic_discussion"`
 }
 
+// AgentRoutingConfig defines the routing configuration for the orchestrator
+type AgentRoutingConfig struct {
+    Routing []struct {
+        Topics []string `json:"topics"`
+        Agent  string   `json:"agent"`
+    } `json:"routing"`
+    DefaultAgent string `json:"default_agent"`
+}
+
 // OrchestratorAgent is the interface implemented by the orchestrator agent
 type OrchestratorAgent interface {
     IdentifyIntent(userMessages []messages.Message) (intent *Intent, finishReason string, err error)
@@ -494,6 +689,7 @@ type OrchestratorAgent interface {
 |---|---|
 | `BeforeCompletion(fn func(*Agent))` | Sets a hook called before each intent identification. |
 | `AfterCompletion(fn func(*Agent))` | Sets a hook called after each intent identification. |
+| `WithRoutingConfig(config AgentRoutingConfig)` | Sets the agent routing configuration for automatic topic-to-agent mapping. |
 
 ---
 
@@ -511,6 +707,9 @@ type OrchestratorAgent interface {
 | `SetConfig(config agents.Config)` | Update the agent configuration. |
 | `GetModelConfig() models.Config` | Get the model configuration. |
 | `SetModelConfig(config models.Config)` | Update the model configuration. |
+| `GetRoutingConfig() *AgentRoutingConfig` | Get the agent routing configuration. Returns nil if not set. |
+| `SetRoutingConfig(config *AgentRoutingConfig)` | Update the agent routing configuration. |
+| `GetAgentForTopic(topic string) string` | Returns the agent ID for a given topic based on routing configuration. |
 | `GetContext() context.Context` | Get the agent's context. |
 | `SetContext(ctx context.Context)` | Update the agent's context. |
 | `GetLastRequestRawJSON() string` | Get the raw JSON of the last request. |
