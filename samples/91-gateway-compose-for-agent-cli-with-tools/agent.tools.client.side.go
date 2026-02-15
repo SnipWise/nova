@@ -23,6 +23,7 @@ func GetClientSideToolsAgent(ctx context.Context, engineURL string) (*tools.Agen
 		models.Config{
 			Name:        modelID,
 			Temperature: models.Float64(0.0),
+			ParallelToolCalls: models.Bool(false),
 		},
 		tools.BeforeCompletion(func(agent *tools.Agent) {
 			display.Styledln("🔀 [CLIENT-SIDE TOOLS] Detecting tool calls...", display.ColorYellow)

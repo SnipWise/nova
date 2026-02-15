@@ -87,8 +87,9 @@ func GetToolsAgent(ctx context.Context, engineURL string) (*tools.Agent, error) 
 			KeepConversationHistory: false, // Tools agent doesn't need history
 		},
 		models.Config{
-			Name:        modelID,
-			Temperature: models.Float64(0.0),
+			Name:              modelID,
+			Temperature:       models.Float64(0.0),
+			ParallelToolCalls: models.Bool(false),
 		},
 		tools.BeforeCompletion(func(agent *tools.Agent) {
 			display.Styledln("[TOOLS] Detecting tool calls...", display.ColorYellow)

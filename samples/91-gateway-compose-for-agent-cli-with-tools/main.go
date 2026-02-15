@@ -4,43 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
 	"github.com/snipwise/nova/nova-sdk/agents/gatewayserver"
-	"github.com/snipwise/nova/nova-sdk/agents/orchestrator"
 	"github.com/snipwise/nova/nova-sdk/toolbox/env"
 	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
-
-// AgentRoutingConfig represents the routing configuration
-type AgentRoutingConfig struct {
-	Routing []struct {
-		Topics []string `json:"topics"`
-		Agent  string   `json:"agent"`
-	} `json:"routing"`
-	DefaultAgent string `json:"default_agent"`
-}
-
-// createMatchAgentFunction creates a routing function based on the configuration
-func createMatchAgentFunction(config *orchestrator.AgentRoutingConfig) func(string, string) string {
-	return func(currentAgentId, topic string) string {
-		fmt.Println("🔵 Matching agent for topic:", topic)
-		topicLower := strings.ToLower(topic)
-
-		// Search through routing rules
-		for _, rule := range config.Routing {
-			for _, configTopic := range rule.Topics {
-				if strings.ToLower(configTopic) == topicLower {
-					return rule.Agent
-				}
-			}
-		}
-
-		// Return default agent if no match found
-		return config.DefaultAgent
-	}
-}
 
 func main() {
 	if err := os.Setenv("NOVA_LOG_LEVEL", "INFO"); err != nil {
@@ -68,7 +37,6 @@ func main() {
 		"coder":   coderAgent,
 		"generic": genericAgent,
 	}
-
 
 	// ------------------------------------------------
 	// Create the client-side tools agent
