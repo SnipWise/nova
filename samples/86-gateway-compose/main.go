@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
@@ -78,16 +78,19 @@ func main() {
 	}
 
 	// ------------------------------------------------
-	// Topic-to-agent routing function
+	// Agent routing configuration
 	// ------------------------------------------------
-	matchAgentFunction := func(currentAgentId, topic string) string {
-		fmt.Println("🔵 Matching agent for topic:", topic)
-		switch strings.ToLower(topic) {
-		case "coding", "programming", "development", "code", "software", "debugging", "technology":
-			return "coder"
-		default:
-			return "generic"
-		}
+	var routingConfig orchestrator.AgentRoutingConfig
+	if err := json.Unmarshal([]byte(`{
+		"routing": [
+			{
+				"topics": ["coding", "programming", "development", "code", "software", "debugging", "technology"],
+				"agent": "coder"
+			}
+		],
+		"default_agent": "generic"
+	}`), &routingConfig); err != nil {
+		panic(fmt.Errorf("failed to parse routing config: %w", err))
 	}
 
 	// ------------------------------------------------
@@ -115,7 +118,8 @@ func main() {
 			Name:        orchestratorModelID,
 			Temperature: models.Float64(0.0),
 		},
-		orchestrator.BeforeCompletion(func(agent *orchestrator.Agent){
+		orchestrator.WithRoutingConfig(routingConfig),
+		orchestrator.BeforeCompletion(func(agent *orchestrator.Agent) {
 			fmt.Println("🔶 Orchestrator processing request...")
 		}),
 	)
@@ -154,8 +158,7 @@ func main() {
 		ctx,
 		gatewayserver.WithAgentCrew(agentCrew, "generic"),
 		gatewayserver.WithPort(8080),
-		gatewayserver.WithOrchestratorAgent(orchestratorAgent),
-		gatewayserver.WithMatchAgentIdToTopicFn(matchAgentFunction),
+		gatewayserver.WithOrchestratorAgent(orchestratorAgent), // Auto-configures routing with GetAgentForTopic
 		gatewayserver.WithCompressorAgentAndContextSize(compressorAgent, 16384),
 
 		// ToolModePassthrough (default): the client handles tools

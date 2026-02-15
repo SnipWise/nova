@@ -236,9 +236,20 @@ func WithCompressorAgentAndContextSize(compressorAgent *compressor.Agent, contex
 }
 
 // WithOrchestratorAgent attaches an orchestrator agent for topic detection and routing.
+// Automatically configures matchAgentIdToTopicFn to use the orchestrator's GetAgentForTopic method
+// unless explicitly overridden with WithMatchAgentIdToTopicFn.
 func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) GatewayServerAgentOption {
 	return func(agent *GatewayServerAgent) error {
 		agent.orchestratorAgent = orchestratorAgent
+
+		// Auto-configure routing function using the orchestrator's GetAgentForTopic method
+		// This can still be overridden by calling WithMatchAgentIdToTopicFn after this
+		if agent.matchAgentIdToTopicFn == nil {
+			agent.matchAgentIdToTopicFn = func(currentAgentId, topic string) string {
+				return orchestratorAgent.GetAgentForTopic(topic)
+			}
+		}
+
 		return nil
 	}
 }

@@ -13,5 +13,9 @@ type OrchestratorAgent interface {
 
 	// IdentifyTopicFromText is a convenience method that takes a text string and returns the topic
 	IdentifyTopicFromText(text string) (string, error)
+
+	// GetAgentForTopic returns the agent ID for a given topic based on routing configuration
+	// Returns empty string if no routing config is set or no match is found
+	GetAgentForTopic(topic string) string
 }
 
