@@ -213,9 +213,20 @@ func WithTLSCertFromFile(certPath, keyPath string) CrewServerAgentOption {
 }
 
 // WithOrchestratorAgent sets the orchestrator agent for routing/topic detection
+// Automatically configures matchAgentIdToTopicFn to use the orchestrator's GetAgentForTopic method
+// unless explicitly overridden with WithMatchAgentIdToTopicFn.
 func WithOrchestratorAgent(orchestratorAgent agents.OrchestratorAgent) CrewServerAgentOption {
 	return func(agent *CrewServerAgent) error {
 		agent.orchestratorAgent = orchestratorAgent
+
+		// Auto-configure routing function using the orchestrator's GetAgentForTopic method
+		// This can still be overridden by calling WithMatchAgentIdToTopicFn after this
+		if agent.matchAgentIdToTopicFn == nil {
+			agent.matchAgentIdToTopicFn = func(currentAgentId, topic string) string {
+				return orchestratorAgent.GetAgentForTopic(topic)
+			}
+		}
+
 		return nil
 	}
 }

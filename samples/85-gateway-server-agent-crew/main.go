@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
@@ -97,18 +96,23 @@ func main() {
 	}
 
 	// ------------------------------------------------
-	// Topic-to-agent routing function
+	// Agent routing configuration
 	// ------------------------------------------------
-	matchAgentFunction := func(currentAgentId, topic string) string {
-		fmt.Println("🔵 Matching agent for topic:", topic)
-		switch strings.ToLower(topic) {
-		case "coding", "programming", "development", "code", "software", "debugging", "technology":
-			return "coder"
-		case "philosophy", "thinking", "ideas", "psychology", "relationships", "math", "science":
-			return "thinker"
-		default:
-			return "generic"
-		}
+	var routingConfig orchestrator.AgentRoutingConfig
+	if err := json.Unmarshal([]byte(`{
+		"routing": [
+			{
+				"topics": ["coding", "programming", "development", "code", "software", "debugging", "technology"],
+				"agent": "coder"
+			},
+			{
+				"topics": ["philosophy", "thinking", "ideas", "psychology", "relationships", "math", "science"],
+				"agent": "thinker"
+			}
+		],
+		"default_agent": "generic"
+	}`), &routingConfig); err != nil {
+		panic(fmt.Errorf("failed to parse routing config: %w", err))
 	}
 
 	// ------------------------------------------------
@@ -135,6 +139,7 @@ func main() {
 			Name:        "hf.co/menlo/lucy-gguf:q4_k_m",
 			Temperature: models.Float64(0.0),
 		},
+		orchestrator.WithRoutingConfig(routingConfig),
 	)
 	if err != nil {
 		panic(err)
@@ -169,8 +174,7 @@ func main() {
 		ctx,
 		gatewayserver.WithAgentCrew(agentCrew, "generic"),
 		gatewayserver.WithPort(8080),
-		gatewayserver.WithOrchestratorAgent(orchestratorAgent),
-		gatewayserver.WithMatchAgentIdToTopicFn(matchAgentFunction),
+		gatewayserver.WithOrchestratorAgent(orchestratorAgent), // Auto-configures routing with GetAgentForTopic
 		gatewayserver.WithCompressorAgentAndContextSize(compressorAgent, 7000),
 
 		// ToolModePassthrough (default): the client handles tools

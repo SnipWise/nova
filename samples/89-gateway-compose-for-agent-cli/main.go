@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
@@ -19,48 +18,19 @@ import (
 	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
-// AgentRoutingConfig represents the routing configuration
-type AgentRoutingConfig struct {
-	Routing []struct {
-		Topics []string `json:"topics"`
-		Agent  string   `json:"agent"`
-	} `json:"routing"`
-	DefaultAgent string `json:"default_agent"`
-}
-
 // loadRoutingConfig loads the agent routing configuration from a JSON file
-func loadRoutingConfig(filename string) (*AgentRoutingConfig, error) {
+func loadRoutingConfig(filename string) (*orchestrator.AgentRoutingConfig, error) {
 	data, err := files.ReadTextFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read routing config: %w", err)
 	}
 
-	var config AgentRoutingConfig
+	var config orchestrator.AgentRoutingConfig
 	if err := json.Unmarshal([]byte(data), &config); err != nil {
 		return nil, fmt.Errorf("failed to parse routing config: %w", err)
 	}
 
 	return &config, nil
-}
-
-// createMatchAgentFunction creates a routing function based on the configuration
-func createMatchAgentFunction(config *AgentRoutingConfig) func(string, string) string {
-	return func(currentAgentId, topic string) string {
-		fmt.Println("🔵 Matching agent for topic:", topic)
-		topicLower := strings.ToLower(topic)
-
-		// Search through routing rules
-		for _, rule := range config.Routing {
-			for _, configTopic := range rule.Topics {
-				if strings.ToLower(configTopic) == topicLower {
-					return rule.Agent
-				}
-			}
-		}
-
-		// Return default agent if no match found
-		return config.DefaultAgent
-	}
 }
 
 func getCoderAgent(ctx context.Context, engineURL string) (*chat.Agent, error) {
@@ -151,14 +121,12 @@ func main() {
 	}
 
 	// ------------------------------------------------
-	// Load routing configuration and create routing function
+	// Load routing configuration
 	// ------------------------------------------------
 	routingConfig, err := loadRoutingConfig("agent-routing.json")
 	if err != nil {
 		panic(err)
 	}
-
-	matchAgentFunction := createMatchAgentFunction(routingConfig)
 
 	// ------------------------------------------------
 	// Create the client-side tools agent
@@ -196,6 +164,7 @@ func main() {
 			Name:        orchestratorModelID,
 			Temperature: models.Float64(0.0),
 		},
+		orchestrator.WithRoutingConfig(*routingConfig),
 		orchestrator.BeforeCompletion(func(agent *orchestrator.Agent) {
 			fmt.Println("🔶 Orchestrator processing request...")
 		}),
@@ -236,8 +205,7 @@ func main() {
 		gatewayserver.WithAgentCrew(agentCrew, "generic"),
 		gatewayserver.WithPort(8080),
 		gatewayserver.WithClientSideToolsAgent(clientSideToolsAgent),
-		gatewayserver.WithOrchestratorAgent(orchestratorAgent),
-		gatewayserver.WithMatchAgentIdToTopicFn(matchAgentFunction),
+		gatewayserver.WithOrchestratorAgent(orchestratorAgent), // Auto-configures routing with GetAgentForTopic
 		gatewayserver.WithCompressorAgentAndContextSize(compressorAgent, 16384),
 
 		// Agent execution order (default):

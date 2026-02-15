@@ -596,9 +596,16 @@ Complétion par défaut
 
 Lorsqu'un agent orchestrateur est attaché, la gateway peut automatiquement router les questions vers l'agent spécialisé le plus approprié.
 
-### Configuration
+### Configuration automatique du routage (Recommandé)
+
+Lorsque vous utilisez `WithOrchestratorAgent`, la gateway **configure automatiquement le routage** en utilisant la méthode `GetAgentForTopic` de l'orchestrateur. Vous n'avez pas besoin de fournir `WithMatchAgentIdToTopicFn` sauf si vous avez une logique de routage personnalisée.
+
+**Option 1 : Orchestrateur avec configuration de routage intégrée**
 
 ```go
+// Charger la configuration de routage depuis un fichier JSON
+routingConfig, _ := loadRoutingConfig("agent-routing.json")
+
 orchestratorAgent, _ := orchestrator.NewAgent(ctx,
     agents.Config{
         Name:               "orchestrator",
@@ -608,12 +615,57 @@ orchestratorAgent, _ := orchestrator.NewAgent(ctx,
             Répondez en JSON avec le champ 'topic_discussion'.`,
     },
     models.Config{Name: "my-model", Temperature: models.Float64(0.0)},
+    orchestrator.WithRoutingConfig(*routingConfig), // Configurer le routage dans l'orchestrateur
+)
+
+gateway, _ := gatewayserver.NewAgent(ctx,
+    gatewayserver.WithAgentCrew(agentCrew, "generic"),
+    gatewayserver.WithOrchestratorAgent(orchestratorAgent), // Configure automatiquement le routage avec GetAgentForTopic
+)
+```
+
+**Format de la configuration de routage (agent-routing.json) :**
+
+```json
+{
+    "routing": [
+        {
+            "topics": ["coding", "programming", "development"],
+            "agent": "coder"
+        },
+        {
+            "topics": ["cooking", "food", "recipe"],
+            "agent": "cook"
+        }
+    ],
+    "default_agent": "generic"
+}
+```
+
+**Option 2 : Orchestrateur avec fonction de correspondance personnalisée**
+
+Si vous avez besoin d'une logique de routage personnalisée au-delà d'une simple correspondance de sujets, vous pouvez toujours fournir `WithMatchAgentIdToTopicFn` :
+
+```go
+orchestratorAgent, _ := orchestrator.NewAgent(ctx,
+    agents.Config{
+        Name:               "orchestrator",
+        EngineURL:          engineURL,
+        SystemInstructions: `Identifiez le sujet principal en un seul mot...`,
+    },
+    models.Config{Name: "my-model", Temperature: models.Float64(0.0)},
 )
 
 gateway, _ := gatewayserver.NewAgent(ctx,
     gatewayserver.WithAgentCrew(agentCrew, "generic"),
     gatewayserver.WithOrchestratorAgent(orchestratorAgent),
+    // Remplacer la configuration automatique par une logique personnalisée
     gatewayserver.WithMatchAgentIdToTopicFn(func(currentAgentId, topic string) string {
+        // Logique de routage personnalisée avec conditions supplémentaires
+        if currentAgentId == "coder" && strings.ToLower(topic) == "philosophy" {
+            // Continuer avec coder si déjà en train de coder
+            return currentAgentId
+        }
         switch strings.ToLower(topic) {
         case "coding", "programming":
             return "coder"
@@ -628,10 +680,11 @@ gateway, _ := gatewayserver.NewAgent(ctx,
 
 ### Fonctionnement
 
-1. L'orchestrateur analyse la question de l'utilisateur et détecte le sujet.
-2. La fonction `matchAgentIdToTopicFn` fait correspondre le sujet à un ID d'agent.
-3. La gateway bascule vers l'agent correspondant s'il est différent de l'agent actuel.
-4. La complétion est générée par l'agent nouvellement sélectionné.
+1. L'orchestrateur analyse la question de l'utilisateur et détecte le sujet en utilisant `IdentifyIntent` ou `IdentifyTopicFromText`.
+2. **Si aucune `matchAgentIdToTopicFn` personnalisée n'est fournie** : La gateway appelle automatiquement `orchestratorAgent.GetAgentForTopic(topic)` pour obtenir l'ID de l'agent.
+3. **Si une `matchAgentIdToTopicFn` personnalisée est fournie** : La gateway utilise votre fonction personnalisée à la place.
+4. La gateway bascule vers l'agent correspondant s'il est différent de l'agent actuel.
+5. La complétion est générée par l'agent nouvellement sélectionné.
 
 ### Détection directe du sujet
 

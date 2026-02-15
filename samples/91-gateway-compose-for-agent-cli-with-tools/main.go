@@ -100,13 +100,9 @@ func main() {
 		panic(err)
 	}
 
-	matchAgentFunction := createMatchAgentFunction(orchestratorAgent.GetRoutingConfig())
-
-
 	// ------------------------------------------------
 	// Create the compressor agent
 	// ------------------------------------------------
-
 	compressorAgent, err := GetCompressorAgent(ctx, engineURL)
 	if err != nil {
 		panic(err)
@@ -122,8 +118,7 @@ func main() {
 		gatewayserver.WithAgentCrew(agentCrew, "generic"),
 		gatewayserver.WithPort(8080),
 		gatewayserver.WithClientSideToolsAgent(clientSideToolsAgent),
-		gatewayserver.WithOrchestratorAgent(orchestratorAgent),
-		gatewayserver.WithMatchAgentIdToTopicFn(matchAgentFunction),
+		gatewayserver.WithOrchestratorAgent(orchestratorAgent), // Auto-configures routing with GetAgentForTopic
 		gatewayserver.WithCompressorAgentAndContextSize(compressorAgent, 16384),
 		gatewayserver.WithToolsAgent(toolsAgent),
 
