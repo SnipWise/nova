@@ -10,10 +10,12 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/rag/stores"
 	"github.com/snipwise/nova/nova-sdk/models"
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
-	"github.com/snipwise/nova/nova-sdk/ui/display"
 )
 
 func main() {
+	// This example demonstrates DocumentLoadModeSkipDuplicates
+	// Run this program multiple times - it will NOT create duplicates!
+
 	// Create logger
 	log := logger.GetLoggerFromEnv()
 
@@ -24,20 +26,11 @@ func main() {
 
 	ctx := context.Background()
 
-	display.Title("RAG Agent with Redis - Skip Duplicates Demo")
-	display.Separator()
-	display.Infof("This example demonstrates DocumentLoadModeSkipDuplicates")
-	display.Infof("Run this program multiple times - it will NOT create duplicates!")
-	display.Separator()
-
 	// Configuration
 	engineURL := "http://localhost:12434/engines/llama.cpp/v1"
 	embeddingModel := "ai/mxbai-embed-large:latest"
 
-	display.NewLine()
-	display.Title("1. Sample Documents to Load")
-
-	// Sample documents
+	// documents
 	documents := []string{
 		"Squirrels run in the forest and collect acorns for winter",
 		"Birds fly in the sky and migrate south during winter",
@@ -46,17 +39,7 @@ func main() {
 		"Rabbits hop through meadows and live in underground burrows",
 	}
 
-	display.Infof("📝 Documents to load:")
-	for i, doc := range documents {
-		display.Infof("   %d. %s", i+1, doc)
-	}
-	display.Separator()
-
-	display.NewLine()
-	display.Title("2. Creating RAG Agent with Redis + SkipDuplicates")
-
 	// Create RAG agent with Redis and DocumentLoadModeSkipDuplicates
-	// NOTE: Set LOG_LEVEL=debug in your .env file to see skip messages!
 	ragAgent, err := rag.NewAgent(
 		ctx,
 		agents.Config{
@@ -75,50 +58,30 @@ func main() {
 		rag.WithDocuments(documents, rag.DocumentLoadModeSkipDuplicates),
 	)
 	if err != nil {
-		display.Errorf("❌ Failed to create RAG agent: %v", err)
+		fmt.Printf("❌ Failed to create RAG agent: %v\n", err)
 		return
 	}
 
-	display.Infof("✅ RAG Agent created successfully")
-	display.Infof("   Redis: localhost:6379")
-	display.Infof("   Index: skip_duplicates_demo")
-	display.Infof("   Mode: DocumentLoadModeSkipDuplicates")
-	display.NewLine()
-	display.Infof("💡 Set LOG_LEVEL=debug in .env to see skip messages!")
-	display.Infof("   You'll see: 'Document X already exists, skipping (duplicate)'")
-	display.Separator()
+	fmt.Println("✅ RAG Agent created with Redis store and initial documents")
+	fmt.Println()
 
-	display.NewLine()
-	display.Title("3. Testing Similarity Search")
+	fmt.Println("Testing Similarity Search...")
 
 	// Test similarity search
 	query := "What do animals do in winter?"
-	display.Infof("🔍 Query: %s", query)
-	display.NewLine()
+	fmt.Printf("🔍 Query: %s\n", query)
+	fmt.Println()
 
 	results, err := ragAgent.SearchTopN(query, 0.3, 3)
 	if err != nil {
-		display.Errorf("❌ Failed to search: %v", err)
+		fmt.Printf("❌ Failed to search: %v\n", err)
 		return
 	}
 
-	display.Infof("📊 Top %d results (similarity > 0.3):", len(results))
+	fmt.Printf("📊 Top %d results (similarity > 0.3):\n", len(results))
 	for i, result := range results {
-		display.Infof("   %d. [%.3f] %s", i+1, result.Similarity, result.Prompt)
+		fmt.Printf("%d. [%.3f] %s\n", i+1, result.Similarity, result.Prompt)
 	}
-	display.Separator()
-
-	display.NewLine()
-	display.Title("✅ Demo Complete!")
-	display.Separator()
-	display.Infof("🔄 Try running this program again!")
-	display.Infof("   ➡️  You'll see debug logs showing documents being skipped")
-	display.Infof("   ➡️  The total count in Redis will remain the same")
-	display.Infof("   ➡️  No duplicates will be created!")
-	display.NewLine()
-	display.Infof("💡 Check debug logs above for messages like:")
-	display.Infof("   'Document X already exists, skipping (duplicate)'")
-	display.Separator()
 
 	fmt.Println()
 }
