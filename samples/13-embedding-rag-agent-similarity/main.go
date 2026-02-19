@@ -54,7 +54,7 @@ func main() {
 		}
 	}
 	query := "Which animals swim?"
-
+	
 	similarities, err := agent.SearchSimilar(query, 0.6)
 
 	if err != nil {

@@ -23,7 +23,7 @@ func main() {
 
 	// Initial documents to load
 	txtChunks := chunks.ChunkXML(knowledgeBase, "item")
-
+	_ = txtChunks // Use txtChunks if you want to load them into the store on agent creation
 	// Create a RAG agent with JSON store and initial documents
 	// The WithJsonStore option will load existing data from the file if it exists
 	// The WithDocuments option will initialize the store with predefined documents
@@ -42,6 +42,7 @@ func main() {
 		// DocumentLoadModeError: will error if store already has data
 		rag.WithDocuments(txtChunks, rag.DocumentLoadModeSkip),
 	)
+	
 	if err != nil {
 		panic(err)
 	}
