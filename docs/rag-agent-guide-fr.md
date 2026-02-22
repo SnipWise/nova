@@ -968,6 +968,58 @@ for _, chunk := range chunks {
 - Support des tags avec contenu (`<item>...</item>`)
 - Gère correctement les éléments imbriqués
 
+### ChunkYAML
+
+Découper du contenu YAML en chunks basés sur une clé cible spécifiée. La clé cible peut être une clé simple (ex: `"snippet"`) ou une clé d'élément de liste (ex: `"- id"`).
+
+**Exemple avec des éléments de liste (`- id`) :**
+
+```go
+yaml := `snippets:
+  - id: 1
+    name: hello_world
+    language: swiftlang
+    code: |
+      print("Hello, World!")
+  - id: 2
+    name: variables
+    language: swiftlang
+    code: |
+      var name = "Alice"
+      let pi = 3.14`
+
+yamlChunks := chunks.ChunkYAML(yaml, "- id")
+for _, chunk := range yamlChunks {
+    agent.SaveEmbedding(chunk)
+}
+// Chaque chunk contient un élément de liste complet avec tout son contenu imbriqué
+```
+
+**Exemple avec une clé simple (`snippet`) :**
+
+```go
+yaml := `snippets:
+  snippet:
+    name: "Chunk YAML"
+    language: "python"
+    code: |
+      print("hello")
+  snippet:
+    name: "Example"
+    language: "python"
+    code: |
+      print("world")`
+
+yamlChunks := chunks.ChunkYAML(yaml, "snippet")
+// Chaque chunk contient un bloc snippet complet
+```
+
+**Fonctionnalités :**
+- Extrait tous les blocs correspondant à la clé cible au même niveau d'indentation
+- Support des clés simples (`snippet:`) et des clés d'éléments de liste (`- id:`)
+- Préserve le contenu imbriqué complet de chaque bloc
+- Détecte automatiquement le niveau d'indentation à partir de la première occurrence
+
 ---
 
 ## 11. Options : AgentOption et RagAgentOption

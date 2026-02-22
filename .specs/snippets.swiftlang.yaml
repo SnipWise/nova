@@ -1,0 +1,2041 @@
+snippets:
+  - id: 1
+    name: hello_world
+    description: "Print Hello World to the console"
+    language: swiftlang
+    code: |
+      // The simplest Swift program
+      print("Hello, World!")
+
+  - id: 2
+    name: variables_and_constants
+    description: "Declare variables and constants"
+    language: swiftlang
+    code: |
+      // Variable (mutable)
+      var name = "Alice"
+      var age: Int = 30
+      name = "Bob" // OK, variables can be reassigned
+
+      // Constant (immutable)
+      let pi = 3.14159
+      let appName: String = "MyApp"
+      // pi = 3.0 // Error! let is immutable
+
+      // Multiple declarations
+      var width = 100, height = 200
+
+      // Optional (can be nil)
+      var email: String? = nil
+      email = "alice@example.com"
+
+      print(name, age, pi, appName, width, height, email ?? "no email")
+
+  - id: 3
+    name: basic_types
+    description: "Basic data types in Swift"
+    language: swiftlang
+    code: |
+      // Integers
+      let i: Int = 42
+      let u: UInt = 100
+      let i8: Int8 = 127
+      let i64: Int64 = 9_000_000_000
+
+      // Floating-point numbers
+      let f: Float = 3.14     // 32-bit
+      let d: Double = 3.14159 // 64-bit (default)
+
+      // Boolean
+      let b: Bool = true
+
+      // Character
+      let c: Character = "A"
+      let emoji: Character = "🌍"
+
+      // String
+      let s: String = "Hello"
+
+      // Tuple
+      let person: (String, Int) = ("Alice", 30)
+      let (personName, personAge) = person // destructuring
+
+      // Type alias
+      typealias Distance = Double
+      let marathon: Distance = 42.195
+
+      print(i, u, f, d, b, c, s, person, personName, personAge, marathon)
+
+  - id: 4
+    name: type_conversion
+    description: "Convert between different types"
+    language: swiftlang
+    code: |
+      // Numeric conversions
+      let i = 42
+      let f = Double(i)        // Int -> Double
+      let u = UInt(f)          // Double -> UInt
+
+      // String to number
+      let n = Int("123")       // Optional Int
+      let fl = Double("3.14")  // Optional Double
+
+      if let number = Int("456") {
+          print("Number: \(number)")
+      }
+
+      // Number to String
+      let s = String(42)
+      let s2 = String(format: "%.2f", 3.14159)
+      let s3 = "\(42)" // string interpolation
+
+      // Bool to String
+      let bs = String(true) // "true"
+
+      print(f, u, n ?? 0, fl ?? 0, s, s2, s3, bs)
+
+  - id: 5
+    name: if_else
+    description: "Conditional statements with if, else if, else"
+    language: swiftlang
+    code: |
+      let x = 10
+
+      if x > 0 {
+          print("Positive")
+      } else if x < 0 {
+          print("Negative")
+      } else {
+          print("Zero")
+      }
+
+      // if let for optionals (optional binding)
+      let email: String? = "alice@example.com"
+      if let e = email {
+          print("Email: \(e)")
+      } else {
+          print("No email")
+      }
+
+      // guard let (early exit)
+      func greet(name: String?) {
+          guard let name = name else {
+              print("No name provided")
+              return
+          }
+          print("Hello \(name)")
+      }
+      greet(name: "Alice")
+
+      // Ternary operator
+      let label = x > 0 ? "positive" : "non-positive"
+      print(label)
+
+  - id: 6
+    name: switch_case
+    description: "Pattern matching with switch-case"
+    language: swiftlang
+    code: |
+      let day = "Monday"
+
+      switch day {
+      case "Monday":
+          print("Start of the week")
+      case "Friday":
+          print("Almost weekend")
+      case "Saturday", "Sunday":
+          print("Weekend!")
+      default:
+          print("Midweek")
+      }
+
+      // Switch with ranges
+      let score = 85
+      switch score {
+      case 90...100:
+          print("Excellent")
+      case 70..<90:
+          print("Good")
+      case 50..<70:
+          print("Average")
+      default:
+          print("Below average")
+      }
+
+      // Switch with tuple
+      let point = (0, 5)
+      switch point {
+      case (0, 0):
+          print("Origin")
+      case (let x, 0):
+          print("On X axis: \(x)")
+      case (0, let y):
+          print("On Y axis: \(y)")
+      case (let x, let y):
+          print("Point: (\(x), \(y))")
+      }
+
+      // Switch with where clause
+      let value = 15
+      switch value {
+      case let x where x % 2 == 0:
+          print("\(x) is even")
+      case let x where x % 2 != 0:
+          print("\(x) is odd")
+      default:
+          break
+      }
+
+  - id: 7
+    name: loops
+    description: "Different forms of loops (for, while, repeat-while)"
+    language: swiftlang
+    code: |
+      // For-in loop with range (exclusive upper bound)
+      for i in 0..<5 {
+          print(i) // 0, 1, 2, 3, 4
+      }
+
+      // Inclusive range
+      for i in 1...5 {
+          print(i) // 1, 2, 3, 4, 5
+      }
+
+      // Iterate over an array
+      let fruits = ["apple", "banana", "cherry"]
+      for fruit in fruits {
+          print(fruit)
+      }
+
+      // With index
+      for (index, fruit) in fruits.enumerated() {
+          print("\(index): \(fruit)")
+      }
+
+      // While loop
+      var n = 0
+      while n < 5 {
+          n += 1
+      }
+
+      // Repeat-while loop (like do-while)
+      var count = 0
+      repeat {
+          count += 1
+      } while count < 3
+
+      // Stride (custom step)
+      for i in stride(from: 0, to: 10, by: 2) {
+          print(i) // 0, 2, 4, 6, 8
+      }
+
+      // break and continue
+      for i in 1...10 {
+          if i == 3 { continue } // skip 3
+          if i == 7 { break }    // stop at 7
+          print(i)
+      }
+
+  - id: 8
+    name: functions
+    description: "Declare and call functions"
+    language: swiftlang
+    code: |
+      // Simple function
+      func greet(name: String) -> String {
+          return "Hello \(name)"
+      }
+
+      // Parameters with argument labels
+      func sendEmail(to recipient: String, subject: String) {
+          print("Sending to \(recipient): \(subject)")
+      }
+
+      // Omitting external label with underscore
+      func add(_ a: Int, _ b: Int) -> Int {
+          a + b // implicit return for single expressions
+      }
+
+      // Default parameter value
+      func greetUser(name: String = "World") -> String {
+          "Hello \(name)"
+      }
+
+      // Multiple return values with tuple
+      func minMax(array: [Int]) -> (min: Int, max: Int)? {
+          guard let first = array.first else { return nil }
+          var currentMin = first, currentMax = first
+          for value in array {
+              if value < currentMin { currentMin = value }
+              if value > currentMax { currentMax = value }
+          }
+          return (currentMin, currentMax)
+      }
+
+      // Variadic function
+      func sum(_ numbers: Int...) -> Int {
+          numbers.reduce(0, +)
+      }
+
+      // Inout parameter (modifiable)
+      func increment(_ value: inout Int) {
+          value += 1
+      }
+
+      // Calling functions
+      print(greet(name: "Alice"))
+      sendEmail(to: "bob@test.com", subject: "Hello")
+      print(add(3, 4))
+      print(sum(1, 2, 3, 4, 5))
+
+      var x = 10
+      increment(&x)
+      print(x) // 11
+
+  - id: 9
+    name: closures
+    description: "Anonymous functions and closures"
+    language: swiftlang
+    code: |
+      // Basic closure
+      let add = { (a: Int, b: Int) -> Int in
+          return a + b
+      }
+      print(add(3, 4))
+
+      // Short closure syntax
+      let multiply: (Int, Int) -> Int = { $0 * $1 }
+      print(multiply(3, 4))
+
+      // Closure as a parameter
+      func apply(_ value: Int, transform: (Int) -> Int) -> Int {
+          transform(value)
+      }
+      let result = apply(5) { $0 * 2 }
+      print(result) // 10
+
+      // Trailing closure syntax
+      let numbers = [5, 3, 8, 1, 9]
+      let sorted = numbers.sorted { $0 < $1 }
+      print(sorted)
+
+      // Closure that captures values
+      func makeCounter() -> () -> Int {
+          var count = 0
+          return {
+              count += 1
+              return count
+          }
+      }
+
+      let counter = makeCounter()
+      print(counter()) // 1
+      print(counter()) // 2
+      print(counter()) // 3
+
+      // Map, filter, reduce
+      let doubled = numbers.map { $0 * 2 }
+      let even = numbers.filter { $0 % 2 == 0 }
+      let total = numbers.reduce(0, +)
+      print(doubled, even, total)
+
+  - id: 10
+    name: arrays
+    description: "Working with arrays"
+    language: swiftlang
+    code: |
+      // Create an array
+      var fruits: [String] = ["apple", "banana", "cherry"]
+      var numbers = [1, 2, 3, 4, 5]
+      var empty: [Int] = []
+      var repeated = Array(repeating: 0, count: 5)
+
+      // Add elements
+      fruits.append("orange")
+      fruits += ["kiwi"]
+      fruits.insert("strawberry", at: 0)
+
+      // Access elements
+      let first = fruits[0]
+      let last = fruits.last
+      let safe = fruits.indices.contains(10) ? fruits[10] : nil
+
+      // Modify
+      fruits[1] = "mango"
+
+      // Remove
+      fruits.remove(at: 0)
+      let removed = fruits.removeLast()
+
+      // Properties
+      print("Count: \(fruits.count)")
+      print("Is empty: \(fruits.isEmpty)")
+      print("Contains: \(fruits.contains("apple"))")
+
+      // Iterate
+      for fruit in fruits {
+          print(fruit)
+      }
+
+      // Slicing
+      let slice = numbers[1...3] // [2, 3, 4]
+
+      // Transform
+      let doubled = numbers.map { $0 * 2 }
+      let even = numbers.filter { $0 % 2 == 0 }
+      let sum = numbers.reduce(0, +)
+
+      print(first, last ?? "", doubled, even, sum)
+
+  - id: 11
+    name: dictionaries
+    description: "Working with dictionaries (key-value pairs)"
+    language: swiftlang
+    code: |
+      // Create a dictionary
+      var ages: [String: Int] = [
+          "Alice": 30,
+          "Bob": 25,
+      ]
+      var empty: [String: Int] = [:]
+
+      // Add or update
+      ages["Charlie"] = 35
+      ages["Alice"] = 31
+
+      // Read a value (returns an Optional)
+      if let age = ages["Alice"] {
+          print("Alice is \(age) years old")
+      }
+
+      // Default value
+      let age = ages["Dave", default: 0]
+
+      // Remove
+      ages["Bob"] = nil
+      ages.removeValue(forKey: "Charlie")
+
+      // Properties
+      print("Count: \(ages.count)")
+      print("Is empty: \(ages.isEmpty)")
+
+      // Iterate
+      for (name, age) in ages {
+          print("\(name): \(age)")
+      }
+
+      // Keys and values
+      let names = Array(ages.keys)
+      let allAges = Array(ages.values)
+
+      // Transform values
+      let descriptions = ages.mapValues { "\($0) years old" }
+      print(names, allAges, descriptions)
+
+  - id: 12
+    name: sets
+    description: "Working with sets (unique unordered collections)"
+    language: swiftlang
+    code: |
+      // Create a Set
+      var fruits: Set<String> = ["apple", "banana", "cherry"]
+      var numbers: Set = [1, 2, 3, 4, 5]
+
+      // Add
+      fruits.insert("orange")
+      fruits.insert("apple") // no duplicate added
+
+      // Remove
+      fruits.remove("banana")
+
+      // Check membership
+      print("Contains apple: \(fruits.contains("apple"))")
+      print("Count: \(fruits.count)")
+
+      // Set operations
+      let a: Set = [1, 2, 3, 4]
+      let b: Set = [3, 4, 5, 6]
+
+      let union = a.union(b)                   // {1, 2, 3, 4, 5, 6}
+      let intersection = a.intersection(b)     // {3, 4}
+      let difference = a.subtracting(b)        // {1, 2}
+      let symmetric = a.symmetricDifference(b) // {1, 2, 5, 6}
+
+      print("Union: \(union)")
+      print("Intersection: \(intersection)")
+      print("Difference: \(difference)")
+
+      // Subset / superset
+      let small: Set = [1, 2]
+      print("Is subset: \(small.isSubset(of: a))")
+      print("Is superset: \(a.isSuperset(of: small))")
+
+  - id: 13
+    name: structs
+    description: "Define and use structures (value types)"
+    language: swiftlang
+    code: |
+      struct Person {
+          var name: String
+          var age: Int
+          var city: String
+
+          // Method
+          func greet() -> String {
+              "Hello, I am \(name), \(age) years old"
+          }
+
+          // Mutating method (modifies the struct)
+          mutating func birthday() {
+              age += 1
+          }
+
+          // Computed property
+          var isAdult: Bool {
+              age >= 18
+          }
+
+          // Custom initializer
+          init(name: String, age: Int, city: String = "New York") {
+              self.name = name
+              self.age = age
+              self.city = city
+          }
+      }
+
+      // Structs are value types (copied by default)
+      var alice = Person(name: "Alice", age: 30)
+      var bob = alice // independent copy
+      bob.name = "Bob"
+
+      print(alice.greet())
+      alice.birthday()
+      print("Age: \(alice.age)") // 31
+      print("Is adult: \(alice.isAdult)")
+      print("Bob: \(bob.name)") // "Bob" (independent copy)
+
+  - id: 14
+    name: classes
+    description: "Define and use classes (reference types with inheritance)"
+    language: swiftlang
+    code: |
+      class Animal {
+          var name: String
+          var sound: String
+
+          init(name: String, sound: String) {
+              self.name = name
+              self.sound = sound
+          }
+
+          func speak() -> String {
+              "\(name) says \(sound)"
+          }
+
+          // deinit is called when the object is destroyed
+          deinit {
+              print("\(name) is being deallocated")
+          }
+      }
+
+      // Inheritance
+      class Dog: Animal {
+          var breed: String
+
+          init(name: String, breed: String) {
+              self.breed = breed
+              super.init(name: name, sound: "Woof")
+          }
+
+          // Override a method
+          override func speak() -> String {
+              "\(name) the \(breed) says \(sound)!"
+          }
+
+          func fetch() -> String {
+              "\(name) fetches the ball"
+          }
+      }
+
+      // Classes are reference types
+      let rex = Dog(name: "Rex", breed: "Labrador")
+      let ref2 = rex // same reference
+      ref2.name = "Buddy"
+      print(rex.name) // "Buddy" (same object)
+
+      print(rex.speak())
+      print(rex.fetch())
+
+  - id: 15
+    name: protocols
+    description: "Define and implement protocols (interfaces)"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      // Define a protocol
+      protocol Drawable {
+          func draw() -> String
+          var description: String { get }
+      }
+
+      // Protocol with default implementation
+      protocol Printable {
+          func printInfo()
+      }
+
+      extension Printable {
+          func printInfo() {
+              print("A Printable object")
+          }
+      }
+
+      // Implement a protocol
+      struct Circle: Drawable, Printable {
+          var radius: Double
+
+          func draw() -> String {
+              "Circle(r=\(radius))"
+          }
+
+          var description: String {
+              "Circle with radius \(radius)"
+          }
+      }
+
+      struct Rectangle: Drawable {
+          var width: Double
+          var height: Double
+
+          func draw() -> String {
+              "Rectangle(\(width)x\(height))"
+          }
+
+          var description: String {
+              "Rectangle \(width)x\(height)"
+          }
+      }
+
+      // Use the protocol as a type
+      func printShape(_ shape: Drawable) {
+          print(shape.draw())
+      }
+
+      let shapes: [Drawable] = [
+          Circle(radius: 5),
+          Rectangle(width: 3, height: 4),
+      ]
+
+      for shape in shapes {
+          printShape(shape)
+      }
+
+  - id: 16
+    name: enums
+    description: "Define and use enumerations"
+    language: swiftlang
+    code: |
+      // Simple enum
+      enum Direction {
+          case north, south, east, west
+      }
+
+      // Enum with raw values
+      enum Planet: Int {
+          case mercury = 1, venus, earth, mars
+      }
+
+      // Enum with associated values
+      enum NetworkResult {
+          case success(String)
+          case failure(code: Int, message: String)
+      }
+
+      // Enum with methods
+      enum Shape {
+          case circle(radius: Double)
+          case rectangle(width: Double, height: Double)
+          case triangle(base: Double, height: Double)
+
+          func area() -> Double {
+              switch self {
+              case .circle(let r):
+                  return Double.pi * r * r
+              case .rectangle(let w, let h):
+                  return w * h
+              case .triangle(let b, let h):
+                  return 0.5 * b * h
+              }
+          }
+      }
+
+      // Usage
+      let dir = Direction.north
+      let earth = Planet.earth
+      print("Earth: \(earth.rawValue)") // 3
+
+      let result = NetworkResult.success("Data loaded")
+      switch result {
+      case .success(let message):
+          print(message)
+      case .failure(let code, let message):
+          print("Error \(code): \(message)")
+      }
+
+      let circle = Shape.circle(radius: 5)
+      print("Area: \(circle.area())")
+
+  - id: 17
+    name: optionals
+    description: "Handle optionals safely in Swift"
+    language: swiftlang
+    code: |
+      // Declaring an optional
+      var name: String? = nil
+      name = "Alice"
+
+      // Forced unwrap (dangerous: crashes if nil)
+      // let forced = name!
+
+      // Optional binding with if let
+      if let unwrapped = name {
+          print("Name: \(unwrapped)")
+      }
+
+      // guard let (early exit)
+      func process(value: Int?) {
+          guard let v = value else {
+              print("No value provided")
+              return
+          }
+          print("Value: \(v)")
+      }
+
+      // Nil coalescing operator (??)
+      let displayName = name ?? "Anonymous"
+
+      // Optional chaining
+      struct Address {
+          var city: String
+      }
+      struct User {
+          var address: Address?
+      }
+      let user = User(address: Address(city: "Paris"))
+      let city = user.address?.city // "Paris" or nil
+
+      // map and flatMap on Optional
+      let number: Int? = 42
+      let doubled = number.map { $0 * 2 } // Optional(84)
+      let parsed: Int? = Int("123")
+      let result = parsed.flatMap { $0 > 100 ? $0 : nil }
+
+      print(displayName, city ?? "unknown", doubled ?? 0, result ?? 0)
+
+  - id: 18
+    name: error_handling
+    description: "Error handling with throw, try, catch"
+    language: swiftlang
+    code: |
+      // Define custom errors
+      enum AppError: Error {
+          case notFound
+          case invalidInput(String)
+          case networkError(code: Int, message: String)
+      }
+
+      // Add error descriptions
+      extension AppError: LocalizedError {
+          var errorDescription: String? {
+              switch self {
+              case .notFound:
+                  return "Item not found"
+              case .invalidInput(let field):
+                  return "Invalid input: \(field)"
+              case .networkError(let code, let msg):
+                  return "Network error \(code): \(msg)"
+              }
+          }
+      }
+
+      // Function that can throw an error
+      func findUser(id: Int) throws -> String {
+          if id <= 0 {
+              throw AppError.invalidInput("id must be positive")
+          }
+          if id > 100 {
+              throw AppError.notFound
+          }
+          return "Alice"
+      }
+
+      // Handle errors with do-try-catch
+      do {
+          let user = try findUser(id: 1)
+          print("Found: \(user)")
+      } catch AppError.notFound {
+          print("Not found")
+      } catch AppError.invalidInput(let field) {
+          print("Invalid: \(field)")
+      } catch {
+          print("Error: \(error)")
+      }
+
+      // try? returns nil on error
+      let user = try? findUser(id: 999)
+      print(user ?? "Not found")
+
+  - id: 19
+    name: read_file
+    description: "Read an entire file into a string"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      do {
+          let content = try String(contentsOfFile: "example.txt", encoding: .utf8)
+          print(content)
+      } catch {
+          print("Error reading file: \(error)")
+      }
+
+      // Read binary data
+      do {
+          let url = URL(fileURLWithPath: "image.png")
+          let data = try Data(contentsOf: url)
+          print("Size: \(data.count) bytes")
+      } catch {
+          print("Error: \(error)")
+      }
+
+  - id: 20
+    name: write_file
+    description: "Write content to a file"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      let content = "Hello, file!\n"
+
+      do {
+          try content.write(toFile: "output.txt", atomically: true, encoding: .utf8)
+          print("File written successfully")
+      } catch {
+          print("Error writing file: \(error)")
+      }
+
+      // Write binary data
+      let data = Data("Hello".utf8)
+      do {
+          let url = URL(fileURLWithPath: "output.dat")
+          try data.write(to: url)
+      } catch {
+          print("Error: \(error)")
+      }
+
+  - id: 21
+    name: read_file_line_by_line
+    description: "Read a file line by line"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      do {
+          let content = try String(contentsOfFile: "example.txt", encoding: .utf8)
+          let lines = content.components(separatedBy: .newlines)
+
+          for (index, line) in lines.enumerated() {
+              print("Line \(index + 1): \(line)")
+          }
+      } catch {
+          print("Error reading file: \(error)")
+      }
+
+  - id: 22
+    name: file_exists
+    description: "Check if a file or directory exists"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      let fileManager = FileManager.default
+      let path = "example.txt"
+
+      if fileManager.fileExists(atPath: path) {
+          print("File exists")
+
+          var isDir: ObjCBool = false
+          fileManager.fileExists(atPath: path, isDirectory: &isDir)
+          if isDir.boolValue {
+              print("It is a directory")
+          } else {
+              print("It is a file")
+          }
+      } else {
+          print("File does not exist")
+      }
+
+  - id: 23
+    name: append_to_file
+    description: "Append content to an existing file"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      let path = "log.txt"
+      let newContent = "New log entry\n"
+
+      if let handle = FileHandle(forWritingAtPath: path) {
+          handle.seekToEndOfFile()
+          if let data = newContent.data(using: .utf8) {
+              handle.write(data)
+          }
+          handle.closeFile()
+      } else {
+          // Create the file if it does not exist
+          try? newContent.write(toFile: path, atomically: true, encoding: .utf8)
+      }
+
+      print("Content appended")
+
+  - id: 24
+    name: list_directory
+    description: "List files in a directory"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      let fileManager = FileManager.default
+
+      do {
+          let items = try fileManager.contentsOfDirectory(atPath: ".")
+
+          for item in items {
+              let attrs = try fileManager.attributesOfItem(atPath: item)
+              let size = attrs[.size] as? Int ?? 0
+              let type_ = attrs[.type] as? FileAttributeType
+              let isDir = type_ == .typeDirectory
+
+              print("\(item)\t\(size) bytes\t\(isDir ? "DIR" : "FILE")")
+          }
+      } catch {
+          print("Error listing directory: \(error)")
+      }
+
+  - id: 25
+    name: create_delete_directory
+    description: "Create and delete directories"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      let fileManager = FileManager.default
+
+      do {
+          // Create a directory
+          try fileManager.createDirectory(
+              atPath: "myFolder",
+              withIntermediateDirectories: false
+          )
+
+          // Create nested directories
+          try fileManager.createDirectory(
+              atPath: "parent/child/grandchild",
+              withIntermediateDirectories: true
+          )
+
+          // Delete directories
+          try fileManager.removeItem(atPath: "myFolder")
+          try fileManager.removeItem(atPath: "parent")
+
+          print("Directory operations completed successfully")
+      } catch {
+          print("Error: \(error)")
+      }
+
+  - id: 26
+    name: json_encode
+    description: "Encode data to JSON"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      struct User: Codable {
+          let name: String
+          let age: Int
+          let email: String?
+          let tags: [String]
+      }
+
+      let user = User(
+          name: "Alice",
+          age: 30,
+          email: nil,
+          tags: ["admin", "user"]
+      )
+
+      let encoder = JSONEncoder()
+      encoder.outputFormatting = .prettyPrinted
+
+      do {
+          let data = try encoder.encode(user)
+          if let json = String(data: data, encoding: .utf8) {
+              print(json)
+          }
+      } catch {
+          print("Error encoding JSON: \(error)")
+      }
+
+  - id: 27
+    name: json_decode
+    description: "Decode JSON into a Swift structure"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      struct User: Codable {
+          let name: String
+          let age: Int
+          let tags: [String]
+      }
+
+      let json = """
+      {"name":"Bob","age":25,"tags":["user"]}
+      """
+
+      let decoder = JSONDecoder()
+
+      do {
+          let data = json.data(using: .utf8)!
+          let user = try decoder.decode(User.self, from: data)
+          print("Name: \(user.name), Age: \(user.age)")
+      } catch {
+          print("Error decoding JSON: \(error)")
+      }
+
+      // Decode dynamic JSON
+      if let data = json.data(using: .utf8),
+         let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+          print("Name: \(dict["name"] ?? "")")
+      }
+
+  - id: 28
+    name: json_file_read_write
+    description: "Read and write JSON to a file"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      struct Config: Codable {
+          let host: String
+          let port: Int
+      }
+
+      // Write JSON to a file
+      let config = Config(host: "localhost", port: 8080)
+      let encoder = JSONEncoder()
+      encoder.outputFormatting = .prettyPrinted
+
+      do {
+          let data = try encoder.encode(config)
+          let url = URL(fileURLWithPath: "config.json")
+          try data.write(to: url)
+
+          // Read JSON from a file
+          let fileData = try Data(contentsOf: url)
+          let loaded = try JSONDecoder().decode(Config.self, from: fileData)
+          print("Host: \(loaded.host), Port: \(loaded.port)")
+      } catch {
+          print("Error: \(error)")
+      }
+
+  - id: 29
+    name: yaml_read_write
+    description: "Read and write YAML with the Yams library"
+    language: swiftlang
+    code: |
+      // Package.swift: .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0")
+      import Foundation
+      import Yams
+
+      struct Config: Codable {
+          struct Server: Codable {
+              let host: String
+              let port: Int
+          }
+          struct Database: Codable {
+              let url: String
+          }
+          let server: Server
+          let database: Database
+      }
+
+      // Write YAML
+      let config = Config(
+          server: Config.Server(host: "localhost", port: 8080),
+          database: Config.Database(url: "postgres://localhost/mydb")
+      )
+
+      do {
+          let yaml = try YAMLEncoder().encode(config)
+          try yaml.write(toFile: "config.yaml", atomically: true, encoding: .utf8)
+
+          // Read YAML
+          let content = try String(contentsOfFile: "config.yaml", encoding: .utf8)
+          let loaded = try YAMLDecoder().decode(Config.self, from: content)
+          print("Server: \(loaded.server.host):\(loaded.server.port)")
+      } catch {
+          print("Error: \(error)")
+      }
+
+  - id: 30
+    name: http_server
+    description: "Create an HTTP server with Vapor"
+    language: swiftlang
+    code: |
+      // Package.swift: .package(url: "https://github.com/vapor/vapor.git", from: "4.0.0")
+      import Vapor
+
+      func routes(_ app: Application) throws {
+          app.get { req in
+              "Welcome to the home page!"
+          }
+
+          app.get("hello") { req -> String in
+              let name = req.query[String.self, at: "name"] ?? "World"
+              return "Hello, \(name)!"
+          }
+      }
+
+      let app = try Application(.detect())
+      defer { app.shutdown() }
+
+      try routes(app)
+      try app.run()
+
+  - id: 31
+    name: http_server_json
+    description: "HTTP server with JSON responses using Vapor"
+    language: swiftlang
+    code: |
+      import Vapor
+
+      struct User: Content {
+          let id: Int
+          let name: String
+      }
+
+      func routes(_ app: Application) throws {
+          app.get("api", "users") { req -> [User] in
+              [
+                  User(id: 1, name: "Alice"),
+                  User(id: 2, name: "Bob"),
+              ]
+          }
+
+          app.post("api", "users") { req -> User in
+              let user = try req.content.decode(User.self)
+              return user
+          }
+      }
+
+      let app = try Application(.detect())
+      defer { app.shutdown() }
+      try routes(app)
+      try app.run()
+
+  - id: 32
+    name: http_client
+    description: "Make HTTP requests with URLSession"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      // Simple GET request
+      let url = URL(string: "https://api.example.com/data")!
+
+      let task = URLSession.shared.dataTask(with: url) { data, response, error in
+          if let error = error {
+              print("Error: \(error)")
+              return
+          }
+          if let data = data, let body = String(data: data, encoding: .utf8) {
+              print("Response: \(body)")
+          }
+      }
+      task.resume()
+
+      // POST with JSON (async/await)
+      func postUser() async throws {
+          let url = URL(string: "https://api.example.com/users")!
+          var request = URLRequest(url: url)
+          request.httpMethod = "POST"
+          request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+          let body = ["name": "Alice", "email": "alice@example.com"]
+          request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+          let (data, response) = try await URLSession.shared.data(for: request)
+          let httpResponse = response as! HTTPURLResponse
+          print("Status: \(httpResponse.statusCode)")
+          print("Body: \(String(data: data, encoding: .utf8) ?? "")")
+      }
+
+  - id: 33
+    name: string_operations
+    description: "Common string operations"
+    language: swiftlang
+    code: |
+      let s = "Hello, World!"
+
+      // Common methods
+      print(s.uppercased())                    // HELLO, WORLD!
+      print(s.lowercased())                    // hello, world!
+      print(s.contains("World"))              // true
+      print(s.hasPrefix("Hello"))             // true
+      print(s.hasSuffix("!"))                 // true
+      print(s.replacingOccurrences(of: "World", with: "Swift"))
+      print(s.count)                           // 13
+      print(s.isEmpty)                         // false
+
+      // Split
+      let parts = "a,b,c".split(separator: ",")
+      print(parts) // ["a", "b", "c"]
+
+      // Join
+      let joined = ["a", "b", "c"].joined(separator: "-")
+      print(joined) // a-b-c
+
+      // Trim whitespace
+      let trimmed = "  hello  ".trimmingCharacters(in: .whitespaces)
+      print(trimmed) // hello
+
+      // Find and extract substring
+      if let range = s.range(of: "World") {
+          print(s[range]) // World
+      }
+
+      // Repeat a string
+      let repeated = String(repeating: "ab", count: 3)
+      print(repeated) // ababab
+
+      // String interpolation
+      let name = "Alice"
+      let age = 30
+      print("Name: \(name), Age: \(age)")
+
+  - id: 34
+    name: string_formatting
+    description: "Format strings with interpolation and formatters"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      let name = "Alice"
+      let age = 30
+      let score = 95.5
+
+      // String interpolation
+      let s1 = "Name: \(name), Age: \(age)"
+
+      // Classic formatting (like printf)
+      let s2 = String(format: "Score: %.2f%%", score)
+      let s3 = String(format: "Hex: %x, Octal: %o", 255, 255)
+      let s4 = String(format: "Padded: [%10s]", name)
+      let s5 = String(format: "Zero-padded: %05d", 42)
+
+      // NumberFormatter
+      let formatter = NumberFormatter()
+      formatter.numberStyle = .currency
+      formatter.locale = Locale(identifier: "en_US")
+      let price = formatter.string(from: 1234.56 as NSNumber) ?? ""
+
+      // DateFormatter
+      let dateFormatter = DateFormatter()
+      dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
+      let dateStr = dateFormatter.string(from: Date())
+
+      print(s1, s2, s3, s4, s5, price, dateStr)
+
+  - id: 35
+    name: extensions
+    description: "Add functionality with extensions"
+    language: swiftlang
+    code: |
+      // Extension on Int
+      extension Int {
+          var isEven: Bool { self % 2 == 0 }
+          var isOdd: Bool { !isEven }
+
+          func times(_ action: () -> Void) {
+              for _ in 0..<self {
+                  action()
+              }
+          }
+      }
+
+      // Extension on String
+      extension String {
+          var reversed: String {
+              String(self.reversed())
+          }
+
+          func truncated(to length: Int) -> String {
+              if self.count <= length { return self }
+              return String(self.prefix(length)) + "..."
+          }
+      }
+
+      // Extension with protocol constraint
+      extension Array where Element: Numeric {
+          func sum() -> Element {
+              reduce(0, +)
+          }
+      }
+
+      // Usage
+      print(42.isEven)         // true
+      print(7.isOdd)           // true
+
+      3.times {
+          print("Repeated!")
+      }
+
+      print("Hello".reversed)                       // olleH
+      print("A long text here".truncated(to: 8))    // A long t...
+      print([1, 2, 3, 4, 5].sum())                  // 15
+
+  - id: 36
+    name: generics
+    description: "Use generics for type-safe reusable code"
+    language: swiftlang
+    code: |
+      // Generic function
+      func swapValues<T>(_ a: inout T, _ b: inout T) {
+          let temp = a
+          a = b
+          b = temp
+      }
+
+      // Generic struct
+      struct Stack<Element> {
+          private var items: [Element] = []
+
+          mutating func push(_ item: Element) {
+              items.append(item)
+          }
+
+          mutating func pop() -> Element? {
+              items.popLast()
+          }
+
+          var top: Element? {
+              items.last
+          }
+
+          var isEmpty: Bool {
+              items.isEmpty
+          }
+      }
+
+      // Type constraint
+      func largest<T: Comparable>(_ a: T, _ b: T) -> T {
+          a > b ? a : b
+      }
+
+      // Multiple constraints
+      func printSorted<T: Comparable & CustomStringConvertible>(_ items: [T]) {
+          let sorted = items.sorted()
+          print(sorted.map { $0.description }.joined(separator: ", "))
+      }
+
+      // Usage
+      var x = 3, y = 7
+      swapValues(&x, &y)
+      print(x, y) // 7, 3
+
+      var stack = Stack<Int>()
+      stack.push(1)
+      stack.push(2)
+      print(stack.pop() ?? 0) // 2
+
+      print(largest(3, 7))            // 7
+      print(largest("alpha", "beta")) // beta
+
+  - id: 37
+    name: async_await
+    description: "Asynchronous programming with async/await"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      // Async function
+      func fetchData(id: Int) async -> String {
+          try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+          return "Data #\(id)"
+      }
+
+      // Async function that can throw
+      func fetchUser(id: Int) async throws -> String {
+          if id <= 0 { throw NSError(domain: "", code: -1) }
+          return "User #\(id)"
+      }
+
+      // Execution
+      Task {
+          // Sequential
+          let data1 = await fetchData(id: 1)
+          print(data1)
+
+          // Parallel with async let
+          async let r1 = fetchData(id: 1)
+          async let r2 = fetchData(id: 2)
+          async let r3 = fetchData(id: 3)
+          let results = await (r1, r2, r3)
+          print(results)
+
+          // TaskGroup for dynamic parallelism
+          let allResults = await withTaskGroup(of: String.self) { group in
+              for i in 1...5 {
+                  group.addTask { await fetchData(id: i) }
+              }
+              var collected: [String] = []
+              for await result in group {
+                  collected.append(result)
+              }
+              return collected
+          }
+          print(allResults)
+      }
+
+  - id: 38
+    name: regex
+    description: "Regular expressions for pattern matching"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      let text = "Contact alice@example.com or bob@test.org"
+      let pattern = "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
+
+      do {
+          let regex = try NSRegularExpression(pattern: pattern)
+          let range = NSRange(text.startIndex..., in: text)
+
+          // Find all matches
+          let matches = regex.matches(in: text, range: range)
+          for match in matches {
+              if let range = Range(match.range, in: text) {
+                  print("Found: \(text[range])")
+              }
+          }
+
+          // Check if it matches
+          let hasMatch = regex.firstMatch(in: text, range: range) != nil
+          print("Contains email: \(hasMatch)")
+
+          // Replace matches
+          let result = regex.stringByReplacingMatches(
+              in: text, range: range, withTemplate: "[EMAIL]"
+          )
+          print(result)
+      } catch {
+          print("Regex error: \(error)")
+      }
+
+      // Swift 5.7+ Regex literals
+      // let emailRegex = /[\w.+-]+@[\w-]+\.[\w.]+/
+      // if let match = text.firstMatch(of: emailRegex) {
+      //     print(match.0)
+      // }
+
+  - id: 39
+    name: date_and_time
+    description: "Work with dates and times"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      // Current date and time
+      let now = Date()
+      print("Now: \(now)")
+
+      // Create a specific date
+      var components = DateComponents()
+      components.year = 2024
+      components.month = 3
+      components.day = 15
+      components.hour = 10
+      components.minute = 30
+      let calendar = Calendar.current
+      let date = calendar.date(from: components)!
+
+      // Format a date
+      let formatter = DateFormatter()
+      formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+      print(formatter.string(from: now))
+
+      formatter.dateFormat = "MM/dd/yyyy"
+      print(formatter.string(from: now))
+
+      // Parse a date string
+      let parsed = formatter.date(from: "03/15/2024")
+      print("Parsed: \(parsed!)")
+
+      // Add time
+      let future = calendar.date(byAdding: .hour, value: 2, to: now)!
+      let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
+
+      // Difference between dates
+      let diff = calendar.dateComponents([.hour, .minute], from: now, to: future)
+      print("Difference: \(diff.hour!)h \(diff.minute!)min")
+
+      // Extract components
+      let comp = calendar.dateComponents([.year, .month, .day, .weekday], from: now)
+      print("\(comp.year!)-\(comp.month!)-\(comp.day!) weekday \(comp.weekday!)")
+
+  - id: 40
+    name: sort
+    description: "Sort collections with various strategies"
+    language: swiftlang
+    code: |
+      // Sort integers
+      var nums = [5, 3, 8, 1, 9, 2]
+      let sorted = nums.sorted()              // returns a new sorted array
+      nums.sort()                              // sorts in place
+      print(nums) // [1, 2, 3, 5, 8, 9]
+
+      // Sort descending
+      let descending = nums.sorted(by: >)
+      print(descending) // [9, 8, 5, 3, 2, 1]
+
+      // Sort strings
+      var words = ["banana", "cherry", "apple"]
+      words.sort()
+
+      // Custom sort
+      struct Person {
+          let name: String
+          let age: Int
+      }
+
+      var people = [
+          Person(name: "Alice", age: 30),
+          Person(name: "Charlie", age: 20),
+          Person(name: "Bob", age: 25),
+      ]
+
+      // Sort by age
+      people.sort { $0.age < $1.age }
+
+      // Sort by name
+      people.sort { $0.name < $1.name }
+
+      // Stable sort with sorted(by:)
+      let byAge = people.sorted { $0.age < $1.age }
+      for p in byAge {
+          print("\(p.name): \(p.age)")
+      }
+
+  - id: 41
+    name: environment_variables
+    description: "Read and set environment variables"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      // Read an environment variable
+      if let home = ProcessInfo.processInfo.environment["HOME"] {
+          print("HOME: \(home)")
+      }
+
+      // With a default value
+      let port = ProcessInfo.processInfo.environment["PORT"] ?? "8080"
+      print("Port: \(port)")
+
+      // List all environment variables
+      let env = ProcessInfo.processInfo.environment
+      for (key, value) in env.prefix(5) {
+          print("\(key)=\(value)")
+      }
+
+      // Command-line arguments
+      let args = CommandLine.arguments
+      print("Program: \(args[0])")
+      for arg in args.dropFirst() {
+          print("Arg: \(arg)")
+      }
+
+      // Set an environment variable
+      setenv("APP_MODE", "production", 1)
+      print(String(cString: getenv("APP_MODE")))
+
+  - id: 42
+    name: testing
+    description: "Write unit tests with XCTest"
+    language: swiftlang
+    code: |
+      import XCTest
+
+      func add(_ a: Int, _ b: Int) -> Int {
+          a + b
+      }
+
+      func divide(_ a: Double, _ b: Double) throws -> Double {
+          guard b != 0 else { throw NSError(domain: "Math", code: -1) }
+          return a / b
+      }
+
+      class MathTests: XCTestCase {
+
+          func testAdd() {
+              XCTAssertEqual(add(2, 3), 5)
+          }
+
+          func testAddNegative() {
+              XCTAssertEqual(add(-1, -2), -3)
+          }
+
+          func testDivide() throws {
+              let result = try divide(10, 2)
+              XCTAssertEqual(result, 5.0, accuracy: 0.001)
+          }
+
+          func testDivideByZero() {
+              XCTAssertThrowsError(try divide(10, 0))
+          }
+
+          func testPerformance() {
+              measure {
+                  _ = add(2, 3)
+              }
+          }
+
+          override func setUp() {
+              super.setUp()
+              // Runs before each test
+          }
+
+          override func tearDown() {
+              // Runs after each test
+              super.tearDown()
+          }
+      }
+      // Run with: swift test
+
+  - id: 43
+    name: exec_command
+    description: "Execute system commands from Swift"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      let process = Process()
+      process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+      process.arguments = ["ls", "-la"]
+
+      let pipe = Pipe()
+      process.standardOutput = pipe
+      process.standardError = pipe
+
+      do {
+          try process.run()
+          process.waitUntilExit()
+
+          let data = pipe.fileHandleForReading.readDataToEndOfFile()
+          let output = String(data: data, encoding: .utf8) ?? ""
+          print(output)
+          print("Exit code: \(process.terminationStatus)")
+      } catch {
+          print("Error: \(error)")
+      }
+
+  - id: 44
+    name: property_wrappers
+    description: "Create and use property wrappers"
+    language: swiftlang
+    code: |
+      // Property wrapper that clamps a value to a range
+      @propertyWrapper
+      struct Clamped {
+          var value: Int
+          let range: ClosedRange<Int>
+
+          var wrappedValue: Int {
+              get { value }
+              set { value = min(max(newValue, range.lowerBound), range.upperBound) }
+          }
+
+          init(wrappedValue: Int, _ range: ClosedRange<Int>) {
+              self.range = range
+              self.value = min(max(wrappedValue, range.lowerBound), range.upperBound)
+          }
+      }
+
+      // Property wrapper that trims whitespace
+      @propertyWrapper
+      struct Trimmed {
+          private var value: String = ""
+
+          var wrappedValue: String {
+              get { value }
+              set { value = newValue.trimmingCharacters(in: .whitespaces) }
+          }
+
+          init(wrappedValue: String) {
+              self.wrappedValue = wrappedValue
+          }
+      }
+
+      struct Player {
+          @Clamped(0...100) var health: Int = 100
+          @Trimmed var name: String
+      }
+
+      var player = Player(name: "  Alice  ")
+      print(player.name)   // "Alice"
+
+      player.health = 150
+      print(player.health) // 100 (clamped)
+
+      player.health = -10
+      print(player.health) // 0 (clamped)
+
+  - id: 45
+    name: concurrency_actors
+    description: "Use actors for safe concurrent access"
+    language: swiftlang
+    code: |
+      // Actor: thread-safe concurrent access
+      actor BankAccount {
+          let owner: String
+          private var balance: Double
+
+          init(owner: String, balance: Double) {
+              self.owner = owner
+              self.balance = balance
+          }
+
+          func deposit(_ amount: Double) {
+              balance += amount
+          }
+
+          func withdraw(_ amount: Double) -> Bool {
+              guard balance >= amount else { return false }
+              balance -= amount
+              return true
+          }
+
+          func getBalance() -> Double {
+              balance
+          }
+      }
+
+      // Usage
+      Task {
+          let account = BankAccount(owner: "Alice", balance: 1000)
+
+          // Calls to actors are asynchronous
+          await account.deposit(500)
+          let success = await account.withdraw(200)
+          let balance = await account.getBalance()
+
+          print("Success: \(success), Balance: \(balance)")
+
+          // Safe concurrent access
+          await withTaskGroup(of: Void.self) { group in
+              for _ in 0..<100 {
+                  group.addTask {
+                      await account.deposit(1)
+                  }
+              }
+          }
+          print("Final balance: \(await account.getBalance())")
+      }
+
+  - id: 46
+    name: filepath_operations
+    description: "Work with file paths and URLs"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      let url = URL(fileURLWithPath: "/home/user/documents/file.txt")
+
+      // Path components
+      print("Path: \(url.path)")
+      print("Parent: \(url.deletingLastPathComponent().path)")
+      print("Filename: \(url.lastPathComponent)")
+      print("Extension: \(url.pathExtension)")
+      print("Without extension: \(url.deletingPathExtension().lastPathComponent)")
+
+      // Build a path
+      let base = URL(fileURLWithPath: "/home/user")
+      let full = base.appendingPathComponent("documents")
+                      .appendingPathComponent("file.txt")
+      print("Full path: \(full.path)")
+
+      // Current directory
+      let currentDir = FileManager.default.currentDirectoryPath
+      print("Current directory: \(currentDir)")
+
+      // Home directory
+      let home = FileManager.default.homeDirectoryForCurrentUser
+      print("Home: \(home.path)")
+
+      // Temporary directory
+      let temp = FileManager.default.temporaryDirectory
+      print("Temp: \(temp.path)")
+
+  - id: 47
+    name: csv_read_write
+    description: "Read and write CSV files"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      // Write a CSV file
+      var csv = "Name,Age,City\n"
+      csv += "Alice,30,Paris\n"
+      csv += "Bob,25,London\n"
+      try? csv.write(toFile: "data.csv", atomically: true, encoding: .utf8)
+
+      // Read a CSV file
+      do {
+          let content = try String(contentsOfFile: "data.csv", encoding: .utf8)
+          let rows = content.components(separatedBy: .newlines)
+              .filter { !$0.isEmpty }
+
+          // Header
+          let headers = rows[0].components(separatedBy: ",")
+          print("Columns: \(headers)")
+
+          // Data rows
+          for row in rows.dropFirst() {
+              let columns = row.components(separatedBy: ",")
+              let dict = Dictionary(uniqueKeysWithValues: zip(headers, columns))
+              print(dict)
+          }
+      } catch {
+          print("Error: \(error)")
+      }
+
+  - id: 48
+    name: math_operations
+    description: "Common mathematical operations"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      // Math functions
+      print(abs(-5.5))          // 5.5
+      print(ceil(3.2))          // 4.0
+      print(floor(3.8))         // 3.0
+      print(round(3.5))         // 4.0
+      print(max(10, 20))        // 20
+      print(min(10, 20))        // 10
+      print(pow(2.0, 10.0))     // 1024.0
+      print(sqrt(144.0))        // 12.0
+      print(log(exp(1.0)))      // 1.0
+      print(log10(1000.0))      // 3.0
+
+      // Constants
+      print(Double.pi)           // 3.14159...
+
+      // Random numbers
+      print(Int.random(in: 0..<100))      // 0-99
+      print(Double.random(in: 0.0...1.0)) // 0.0-1.0
+      print(Bool.random())                 // true or false
+
+      // Pick a random element
+      let fruits = ["apple", "banana", "cherry"]
+      print(fruits.randomElement() ?? "")
+
+  - id: 49
+    name: delegate_pattern
+    description: "Implement the delegate design pattern"
+    language: swiftlang
+    code: |
+      // Define the delegate protocol
+      protocol DownloadDelegate: AnyObject {
+          func downloadDidStart(_ downloader: Downloader)
+          func downloadDidFinish(_ downloader: Downloader, data: String)
+          func downloadDidFail(_ downloader: Downloader, error: Error)
+      }
+
+      class Downloader {
+          weak var delegate: DownloadDelegate?
+
+          func start(url: String) {
+              delegate?.downloadDidStart(self)
+              // Simulate a download
+              delegate?.downloadDidFinish(self, data: "Content from \(url)")
+          }
+      }
+
+      class ViewController: DownloadDelegate {
+          let downloader = Downloader()
+
+          init() {
+              downloader.delegate = self
+          }
+
+          func downloadDidStart(_ downloader: Downloader) {
+              print("Download started...")
+          }
+
+          func downloadDidFinish(_ downloader: Downloader, data: String) {
+              print("Finished: \(data)")
+          }
+
+          func downloadDidFail(_ downloader: Downloader, error: Error) {
+              print("Error: \(error)")
+          }
+      }
+
+      let vc = ViewController()
+      vc.downloader.start(url: "https://example.com/file")
+
+  - id: 50
+    name: codable_custom
+    description: "Customize Codable encoding and decoding with CodingKeys"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      struct User: Codable {
+          let firstName: String
+          let lastName: String
+          let age: Int
+          let createdAt: Date
+
+          // Map JSON keys to Swift property names
+          enum CodingKeys: String, CodingKey {
+              case firstName = "first_name"
+              case lastName = "last_name"
+              case age
+              case createdAt = "created_at"
+          }
+      }
+
+      let json = """
+      {
+          "first_name": "Alice",
+          "last_name": "Smith",
+          "age": 30,
+          "created_at": "2024-03-15T10:30:00Z"
+      }
+      """
+
+      let decoder = JSONDecoder()
+      decoder.dateDecodingStrategy = .iso8601
+
+      do {
+          let data = json.data(using: .utf8)!
+          let user = try decoder.decode(User.self, from: data)
+          print("\(user.firstName) \(user.lastName), \(user.age) years old")
+
+          // Encode with the same keys
+          let encoder = JSONEncoder()
+          encoder.dateEncodingStrategy = .iso8601
+          encoder.outputFormatting = .prettyPrinted
+          let encoded = try encoder.encode(user)
+          print(String(data: encoded, encoding: .utf8)!)
+      } catch {
+          print("Error: \(error)")
+      }
+
+  - id: 51
+    name: observation_pattern
+    description: "Observe changes with the Observer pattern using NotificationCenter"
+    language: swiftlang
+    code: |
+      import Foundation
+
+      // Define custom notification names
+      extension Notification.Name {
+          static let userLoggedIn = Notification.Name("userLoggedIn")
+      }
+
+      class AuthService {
+          func login(username: String) {
+              print("Logging in \(username)")
+              NotificationCenter.default.post(
+                  name: .userLoggedIn,
+                  object: nil,
+                  userInfo: ["username": username]
+              )
+          }
+      }
+
+      class Dashboard {
+          init() {
+              NotificationCenter.default.addObserver(
+                  self,
+                  selector: #selector(handleLogin),
+                  name: .userLoggedIn,
+                  object: nil
+              )
+          }
+
+          @objc func handleLogin(_ notification: Notification) {
+              if let username = notification.userInfo?["username"] as? String {
+                  print("Dashboard: \(username) is now logged in")
+              }
+          }
+
+          deinit {
+              NotificationCenter.default.removeObserver(self)
+          }
+      }
+
+      let dashboard = Dashboard()
+      let auth = AuthService()
+      auth.login(username: "Alice")
+
+  - id: 52
+    name: result_type
+    description: "Use the Result type for error handling"
+    language: swiftlang
+    code: |
+      enum NetworkError: Error {
+          case badURL
+          case noData
+          case decodingError
+      }
+
+      // Function returning a Result
+      func fetchUser(id: Int) -> Result<String, NetworkError> {
+          if id <= 0 {
+              return .failure(.badURL)
+          }
+          return .success("User #\(id)")
+      }
+
+      // Handle with switch
+      let result = fetchUser(id: 1)
+      switch result {
+      case .success(let user):
+          print("Found: \(user)")
+      case .failure(let error):
+          print("Error: \(error)")
+      }
+
+      // Use get() to throw on failure
+      do {
+          let user = try fetchUser(id: 1).get()
+          print(user)
+      } catch {
+          print(error)
+      }
+
+      // Map and flatMap
+      let mapped = fetchUser(id: 1).map { $0.uppercased() }
+      print(mapped)
+
+      // Convert a throwing function to Result
+      let converted = Result { try riskyOperation() }
+
+      func riskyOperation() throws -> String {
+          "OK"
+      }

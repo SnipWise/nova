@@ -223,3 +223,102 @@ func ChunkXML(xml string, targetTag string) []string {
 
 	return chunks
 }
+
+// ChunkYAML splits YAML content into chunks based on a specified target key.
+// Each chunk contains a complete YAML block starting with the target key and all its nested content.
+//
+// The target key can be either a simple key (e.g., "snippet") or a list item key (e.g., "- id").
+//
+// Parameters:
+//   - yaml: The input YAML content to be chunked.
+//   - targetKey: The key to split on (e.g., "snippet" or "- id").
+//
+// Returns:
+//   - []string: A slice of strings, where each string is a complete YAML block.
+//
+// Example with simple key:
+//
+//	yaml := `snippets:
+//	  snippet:
+//	    name: "Hello"
+//	    language: "go"
+//	  snippet:
+//	    name: "World"
+//	    language: "python"`
+//
+//	chunks := ChunkYAML(yaml, "snippet")
+//	// Returns two chunks, one for each snippet block
+//
+// Example with list item key:
+//
+//	yaml := `snippets:
+//	  - id: 1
+//	    name: hello_world
+//	    code: |
+//	      print("Hello")
+//	  - id: 2
+//	    name: goodbye
+//	    code: |
+//	      print("Bye")`
+//
+//	chunks := ChunkYAML(yaml, "- id")
+//	// Returns two chunks, one for each list item
+func ChunkYAML(yaml string, targetKey string) []string {
+	if yaml == "" || targetKey == "" {
+		return []string{}
+	}
+
+	lines := strings.Split(yaml, "\n")
+
+	// Build regex to match the target key at a consistent indentation level
+	// For "- id", match lines like "  - id: value"
+	// For "snippet", match lines like "  snippet:"
+	var pattern string
+	if strings.HasPrefix(targetKey, "- ") {
+		// List item key: "- id" matches "  - id:" or "  - id: value"
+		keyPart := regexp.QuoteMeta(strings.TrimPrefix(targetKey, "- "))
+		pattern = `^(\s*)- ` + keyPart + `\s*:`
+	} else {
+		// Simple key: "snippet" matches "  snippet:"
+		pattern = `^(\s*)` + regexp.QuoteMeta(targetKey) + `\s*:`
+	}
+	re := regexp.MustCompile(pattern)
+
+	// Find the indentation level of the first match
+	targetIndent := -1
+	for _, line := range lines {
+		if matches := re.FindStringSubmatch(line); matches != nil {
+			targetIndent = len(matches[1])
+			break
+		}
+	}
+
+	if targetIndent < 0 {
+		// No match found
+		return []string{}
+	}
+
+	// Collect chunks by splitting at each occurrence of the target key at the same indentation
+	var chunks []string
+	var currentChunk []string
+
+	for _, line := range lines {
+		if matches := re.FindStringSubmatch(line); matches != nil && len(matches[1]) == targetIndent {
+			// Found a new target key at the expected indentation
+			if len(currentChunk) > 0 {
+				chunks = append(chunks, strings.TrimRight(strings.Join(currentChunk, "\n"), "\n "))
+			}
+			currentChunk = []string{line}
+		} else if len(currentChunk) > 0 {
+			// Continue accumulating lines for the current chunk
+			currentChunk = append(currentChunk, line)
+		}
+	}
+
+	// Don't forget the last chunk
+	if len(currentChunk) > 0 {
+		chunks = append(chunks, strings.TrimRight(strings.Join(currentChunk, "\n"), "\n "))
+	}
+
+	return chunks
+}
