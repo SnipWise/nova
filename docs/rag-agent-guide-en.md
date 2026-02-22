@@ -968,6 +968,58 @@ for _, chunk := range chunks {
 - Supports tags with content (`<item>...</item>`)
 - Handles nested elements correctly
 
+### ChunkYAML
+
+Split YAML content into chunks based on a specified target key. The target key can be a simple key (e.g., `"snippet"`) or a list item key (e.g., `"- id"`).
+
+**Example with list items (`- id`):**
+
+```go
+yaml := `snippets:
+  - id: 1
+    name: hello_world
+    language: swiftlang
+    code: |
+      print("Hello, World!")
+  - id: 2
+    name: variables
+    language: swiftlang
+    code: |
+      var name = "Alice"
+      let pi = 3.14`
+
+yamlChunks := chunks.ChunkYAML(yaml, "- id")
+for _, chunk := range yamlChunks {
+    agent.SaveEmbedding(chunk)
+}
+// Each chunk contains one complete list item with all its nested content
+```
+
+**Example with simple key (`snippet`):**
+
+```go
+yaml := `snippets:
+  snippet:
+    name: "Chunk YAML"
+    language: "python"
+    code: |
+      print("hello")
+  snippet:
+    name: "Example"
+    language: "python"
+    code: |
+      print("world")`
+
+yamlChunks := chunks.ChunkYAML(yaml, "snippet")
+// Each chunk contains one complete snippet block
+```
+
+**Features:**
+- Extracts all blocks matching the target key at the same indentation level
+- Supports simple keys (`snippet:`) and list item keys (`- id:`)
+- Preserves the complete nested content of each block
+- Automatically detects indentation level from the first match
+
 ---
 
 ## 11. Options: AgentOption and RagAgentOption
