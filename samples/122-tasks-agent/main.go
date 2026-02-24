@@ -27,14 +27,32 @@ func main() {
 
 				Each task must be classified by its "responsible" field:
 				- "tool": the task requires calling an external tool (file system operation, API call, etc.)
-				- "completion": the task requires the LLM to generate text, code, or analysis
+				- "completion": the task requires a generalist LLM to generate text, analysis, documentation, or explanations
+				- "developer": the task requires a code-specialized LLM to generate, review, or refactor source code
 
 				## Available Tools
 
-				The following tools are available. Use these names to detect tool-related tasks:
-				- read_file: read the content of a file
-				- save_file: save/write content to a file
-				- create_directory: create a directory/folder
+				The following tools are available for "tool" tasks:
+				- read_file: read the content of a file (arguments: "path")
+				- save_file: save/write content to a file (arguments: "path")
+				- create_directory: create a directory/folder (arguments: "path")
+
+				When responsible is "tool", you MUST also set:
+				- "tool_name": the exact tool name from the list above
+				- "arguments": a map of argument names to values (e.g. {"path": "./demo"})
+
+				## Task Complexity
+
+				Each task must have a "complexity" field:
+				- "simple": trivial operation, no reasoning needed (e.g. create a directory, read a file)
+				- "moderate": requires some logic or moderate generation (e.g. write documentation)
+				- "complex": requires deep reasoning, code generation, or analysis (e.g. generate code from a specification)
+
+				## Task Dependencies
+
+				Each task must have a "depends_on" field: a list of task IDs that must be completed before this task can start.
+				- If a task has no dependencies, use an empty list [].
+				- Example: saving a file depends on both the content generation and the directory creation.
 
 				## Rules for Task Ordering
 
@@ -44,12 +62,26 @@ func main() {
 				- If a task generates content that will be saved, the generation task MUST come before the save task.
 				- Always identify prerequisites and ensure they are scheduled first.
 
+				### Example of correct reordering
+
+				User request: "Generate a report and save it to ./output/report.md. Create the output folder."
+				Even though "create the output folder" is mentioned LAST, the correct order is:
+				1. create_directory ./output (prerequisite for saving)
+				2. Generate the report content (completion)
+				3. save_file ./output/report.md (depends on 1 and 2)
+
+				The rule is: ALWAYS scan the entire request first, identify ALL directory creation or setup tasks, and schedule them BEFORE any task that depends on them.
+
 				## Output Format
 
 				For each task:
 				- "id": a sequential number as a string ("1", "2", "3", ...) representing the execution order
 				- "description": a clear, specific, actionable description of what needs to be done
-				- "responsible": either "tool" or "completion"
+				- "responsible": "tool", "completion", or "developer"
+				- "tool_name": (only when responsible is "tool") the tool to call
+				- "arguments": (only when responsible is "tool") the arguments for the tool
+				- "depends_on": list of task IDs this task depends on (empty list [] if none)
+				- "complexity": "simple", "moderate", or "complex"
 				`,
 		},
 		/*
