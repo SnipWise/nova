@@ -130,6 +130,7 @@ agent, err := server.NewAgent(ctx, agentConfig, modelConfig,
 | `WithTLSCert(certData, keyData []byte)` | Active HTTPS avec des données de certificat et clé PEM en mémoire. |
 | `WithTLSCertFromFile(certPath, keyPath string)` | Active HTTPS avec les chemins vers les fichiers de certificat et clé. |
 | `WithToolsAgent(toolsAgent)` | Attache un agent d'outils pour les appels de fonctions. |
+| `WithTasksAgent(tasksAgent)` | Attache un agent de tâches pour la planification et l'orchestration de tâches. |
 | `WithCompressorAgent(compressorAgent)` | Attache un agent compresseur pour la compression du contexte. |
 | `WithCompressorAgentAndContextSize(compressorAgent, limit)` | Attache un agent compresseur avec une limite de taille de contexte. |
 | `WithRagAgent(ragAgent)` | Attache un agent RAG pour la recherche de documents. |
@@ -417,6 +418,7 @@ type ServerAgentOption func(*ServerAgent) error
 | `WithExecuteFn(fn)` | Définit la fonction d'exécution des outils. |
 | `WithConfirmationPromptFn(fn)` | Définit la fonction de confirmation. |
 | `WithToolsAgent(toolsAgent)` | Attache un agent d'outils. |
+| `WithTasksAgent(tasksAgent)` | Attache un agent de tâches pour la planification et l'orchestration. |
 | `WithCompressorAgent(compressorAgent)` | Attache un agent compresseur. |
 | `WithCompressorAgentAndContextSize(compressorAgent, limit)` | Attache un agent compresseur avec limite de contexte. |
 | `WithRagAgent(ragAgent)` | Attache un agent RAG. |

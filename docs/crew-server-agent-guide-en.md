@@ -151,6 +151,7 @@ crewServerAgent, err := crewserver.NewAgent(ctx,
 | `WithTLSCert(certData, keyData []byte)` | Enables HTTPS with PEM-encoded certificate and key data in memory. |
 | `WithTLSCertFromFile(certPath, keyPath string)` | Enables HTTPS with certificate and key file paths. |
 | `WithToolsAgent(toolsAgent)` | Attaches a tools agent for function calling. |
+| `WithTasksAgent(tasksAgent)` | Attaches a tasks agent for task planning and orchestration. |
 | `WithCompressorAgent(compressorAgent)` | Attaches a compressor agent for context compression. |
 | `WithCompressorAgentAndContextSize(compressorAgent, limit)` | Attaches a compressor with a context size limit. |
 | `WithRagAgent(ragAgent)` | Attaches a RAG agent for document retrieval. |
@@ -676,6 +677,7 @@ type CrewServerAgentOption func(*CrewServerAgent) error
 | `WithExecuteFn(fn)` | Sets tool execution function. |
 | `WithConfirmationPromptFn(fn)` | Sets custom tool confirmation function. |
 | `WithToolsAgent(toolsAgent)` | Attaches tools agent. |
+| `WithTasksAgent(tasksAgent)` | Attaches tasks agent for planning and orchestration. |
 | `WithCompressorAgent(compressorAgent)` | Attaches compressor agent. |
 | `WithCompressorAgentAndContextSize(compressorAgent, limit)` | Attaches compressor with limit. |
 | `WithRagAgent(ragAgent)` | Attaches RAG agent. |

@@ -177,6 +177,7 @@ gateway, err := gatewayserver.NewAgent(ctx,
 | `WithSingleAgent(chatAgent)` | Creates a crew with a single agent (ID: `"single"`). **Mandatory** (or `WithAgentCrew`). |
 | `WithPort(port)` | Sets the HTTP server port as int (default: `8080`). |
 | `WithToolsAgent(toolsAgent)` | Attaches a tools agent for server-side tool execution. |
+| `WithTasksAgent(tasksAgent)` | Attaches a tasks agent for task planning and orchestration. |
 | `WithClientSideToolsAgent(toolsAgent)` | Attaches a tools agent for client-side tool execution (tools returned to client). |
 | `WithAgentExecutionOrder(order []AgentExecutionType)` | Sets the order in which agent handlers process requests. Default: `[ClientSideTools, ServerSideTools, Orchestrator]`. |
 | `WithExecuteFn(fn)` | Sets the function executor for server-side tool execution. |
@@ -927,6 +928,7 @@ var DefaultAgentExecutionOrder = []AgentExecutionType{
 | `WithSingleAgent(chatAgent)` | Creates a single-agent crew. |
 | `WithPort(port)` | Sets the HTTP server port (default: 8080). |
 | `WithToolsAgent(toolsAgent)` | Attaches tools agent for server-side execution. |
+| `WithTasksAgent(tasksAgent)` | Attaches tasks agent for planning and orchestration. |
 | `WithClientSideToolsAgent(toolsAgent)` | Attaches tools agent for client-side execution. |
 | `WithAgentExecutionOrder(order []AgentExecutionType)` | Sets the agent execution order. |
 | `WithExecuteFn(fn)` | Sets tool execution function (for server-side tools). |

@@ -68,6 +68,20 @@ func (agent *CrewServerAgent) handleCompletion(w http.ResponseWriter, r *http.Re
 	// Step 3: Compress context if needed (with SSE notifications)
 	agent.compressContextIfNeeded(w, flusher)
 
+	// Step 3.5: Execute tasks plan if tasksAgent is configured
+	if planExecuted, planErr := agent.executePlanHTTP(question, w, flusher); planErr != nil {
+		agent.writeSSEError(w, flusher, planErr)
+		if agent.afterCompletion != nil {
+			agent.afterCompletion(agent)
+		}
+		return
+	} else if planExecuted {
+		if agent.afterCompletion != nil {
+			agent.afterCompletion(agent)
+		}
+		return
+	}
+
 	// Step 4: Setup and start notification streaming
 	notificationChan := agent.setupNotificationChannel()
 	agent.startNotificationStreaming(w, r, flusher, notificationChan)

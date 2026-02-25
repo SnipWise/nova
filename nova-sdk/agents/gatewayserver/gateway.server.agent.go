@@ -11,6 +11,7 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
 	"github.com/snipwise/nova/nova-sdk/agents/compressor"
 	"github.com/snipwise/nova/nova-sdk/agents/rag"
+	"github.com/snipwise/nova/nova-sdk/agents/tasks"
 	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
@@ -31,6 +32,9 @@ type GatewayServerAgent struct {
 	// Orchestration
 	orchestratorAgent     agents.OrchestratorAgent
 	matchAgentIdToTopicFn func(string, string) string
+
+	// Tasks - Plan identification and orchestration
+	tasksAgent *tasks.Agent
 
 	// Tools - Server-side execution
 	toolsAgent     *tools.Agent
@@ -120,6 +124,17 @@ func WithPort(port int) GatewayServerAgentOption {
 func WithToolsAgent(toolsAgent *tools.Agent) GatewayServerAgentOption {
 	return func(agent *GatewayServerAgent) error {
 		agent.toolsAgent = toolsAgent
+		return nil
+	}
+}
+
+// WithTasksAgent sets the tasks agent for task planning and orchestration.
+// When configured, the agent will first analyze user requests to identify a plan of tasks,
+// then execute each task using either the tools agent (for "tool" tasks) or the chat agent
+// (for "completion"/"developer" tasks), passing results between steps.
+func WithTasksAgent(tasksAgent *tasks.Agent) GatewayServerAgentOption {
+	return func(agent *GatewayServerAgent) error {
+		agent.tasksAgent = tasksAgent
 		return nil
 	}
 }
@@ -287,6 +302,7 @@ func AfterCompletion(fn func(*GatewayServerAgent)) GatewayServerAgentOption {
 //   - WithSingleAgent(chatAgent) - Creates a single-agent crew
 //   - WithPort(port) - Sets the HTTP server port (default: 8080)
 //   - WithToolsAgent(toolsAgent) - Attaches a tools agent for server-side execution
+//   - WithTasksAgent(tasksAgent) - Attaches a tasks agent for task planning and orchestration
 //   - WithClientSideToolsAgent(toolsAgent) - Attaches a tools agent for client-side execution
 //   - WithAgentExecutionOrder(order) - Sets the agent execution order
 //   - WithExecuteFn(fn) - Sets the tool executor (for server-side tools)

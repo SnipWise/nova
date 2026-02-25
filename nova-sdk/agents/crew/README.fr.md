@@ -60,6 +60,7 @@ agent, err := crew.NewAgent(
 | `WithExecuteFn(fn)` | Fonction personnalisée d'exécution des tools |
 | `WithConfirmationPromptFn(fn)` | Fonction personnalisée de confirmation des tool calls |
 | `WithToolsAgent(toolsAgent)` | Ajoute un agent pour l'exécution de fonctions |
+| `WithTasksAgent(tasksAgent)` | Ajoute un agent de tâches pour la planification et l'orchestration |
 | `WithRagAgent(ragAgent)` | Ajoute un agent RAG pour la recherche de documents |
 | `WithRagAgentAndSimilarityConfig(ragAgent, limit, max)` | RAG avec configuration de similarité |
 | `WithCompressorAgent(compressorAgent)` | Ajoute un agent pour la compression du contexte |

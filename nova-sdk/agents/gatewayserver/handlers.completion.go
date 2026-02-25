@@ -52,6 +52,14 @@ func (agent *GatewayServerAgent) handleChatCompletions(w http.ResponseWriter, r 
 	// Sync incoming messages to the current chat agent
 	agent.syncMessages(req.Messages)
 
+	// Execute tasks plan if tasksAgent is configured (before the execution chain)
+	if agent.executePlanOpenAI(w, r, req) {
+		if agent.afterCompletion != nil {
+			agent.afterCompletion(agent)
+		}
+		return
+	}
+
 	// Process request through the agent execution order chain
 	// Each handler returns true if it handled the request, false otherwise
 	for _, executionType := range agent.agentExecutionOrder {

@@ -11,6 +11,7 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/compressor"
 	"github.com/snipwise/nova/nova-sdk/agents/rag"
 	"github.com/snipwise/nova/nova-sdk/agents/serverbase"
+	"github.com/snipwise/nova/nova-sdk/agents/tasks"
 	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
@@ -30,6 +31,7 @@ type ServerAgent struct {
 	executeFnConfig          func(string, string) (string, error)
 	confirmationPromptFnConfig func(string, string) tools.ConfirmationResponse
 	toolsAgentConfig         *tools.Agent
+	tasksAgentConfig         *tasks.Agent
 	ragAgentConfig           *rag.Agent
 	compressorAgentConfig    *compressor.Agent
 	similarityLimitConfig    float64
@@ -120,6 +122,17 @@ func WithToolsAgent(toolsAgent *tools.Agent) ServerAgentOption {
 	}
 }
 
+// WithTasksAgent sets the tasks agent for task planning and orchestration.
+// When configured, the agent will first analyze user requests to identify a plan of tasks,
+// then execute each task using either the tools agent (for "tool" tasks) or the chat agent
+// (for "completion"/"developer" tasks), passing results between steps.
+func WithTasksAgent(tasksAgent *tasks.Agent) ServerAgentOption {
+	return func(agent *ServerAgent) error {
+		agent.tasksAgentConfig = tasksAgent
+		return nil
+	}
+}
+
 // WithCompressorAgent sets the compressor agent
 func WithCompressorAgent(compressorAgent *compressor.Agent) ServerAgentOption {
 	return func(agent *ServerAgent) error {
@@ -180,6 +193,7 @@ func AfterCompletion(fn func(*ServerAgent)) ServerAgentOption {
 //   - WithTLSCert(certData, keyData) - Enables HTTPS with PEM-encoded certificate and key data
 //   - WithTLSCertFromFile(certPath, keyPath) - Enables HTTPS with certificate and key files
 //   - WithToolsAgent(toolsAgent) - Attaches a tools agent for function calling capabilities
+//   - WithTasksAgent(tasksAgent) - Attaches a tasks agent for task planning and orchestration
 //   - WithCompressorAgent(compressorAgent) - Attaches a compressor agent for context compression
 //   - WithCompressorAgentAndContextSize(compressorAgent, contextSizeLimit) - Attaches a compressor agent and sets the context size limit
 //   - WithRagAgent(ragAgent) - Attaches a RAG agent for document retrieval

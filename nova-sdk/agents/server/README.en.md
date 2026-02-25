@@ -54,6 +54,7 @@ agent, err := server.NewAgent(
 | `WithExecuteFn(fn)` | Custom function executor for tools |
 | `WithConfirmationPromptFn(fn)` | Custom confirmation function for human-in-the-loop |
 | `WithToolsAgent(toolsAgent)` | Adds an agent for function execution |
+| `WithTasksAgent(tasksAgent)` | Adds a tasks agent for task planning and orchestration |
 | `WithRagAgent(ragAgent)` | Adds a RAG agent for document retrieval |
 | `WithRagAgentAndSimilarityConfig(ragAgent, limit, max)` | RAG with similarity configuration |
 | `WithCompressorAgent(compressorAgent)` | Adds an agent for context compression |

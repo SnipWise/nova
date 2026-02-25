@@ -48,6 +48,7 @@ crewAgent, err := crewserver.NewAgent(
 - `WithAgentCrew(agentCrew, selectedAgentId)` - Sets a collection of agents and the default agent
 - `WithPort(port)` - Sets the HTTP port (default: 3500)
 - `WithToolsAgent(toolsAgent)` - Adds a tools agent for function calling
+- `WithTasksAgent(tasksAgent)` - Adds a tasks agent for task planning and orchestration
 - `WithRagAgent(ragAgent)` - Adds a RAG agent for context retrieval
 - `WithRagAgentAndSimilarityConfig(ragAgent, similarityLimit, maxSimilarities)` - RAG with similarity configuration
 - `WithCompressorAgent(compressorAgent)` - Adds a compressor agent

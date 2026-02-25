@@ -12,6 +12,7 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/compressor"
 	"github.com/snipwise/nova/nova-sdk/agents/rag"
 	"github.com/snipwise/nova/nova-sdk/agents/serverbase"
+	"github.com/snipwise/nova/nova-sdk/agents/tasks"
 	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
@@ -41,6 +42,7 @@ type CrewServerAgent struct {
 	portConfig             string
 	executeFnConfig        func(string, string) (string, error)
 	toolsAgentConfig       *tools.Agent
+	tasksAgentConfig       *tasks.Agent
 	ragAgentConfig         *rag.Agent
 	compressorAgentConfig  *compressor.Agent
 	similarityLimitConfig  float64
@@ -135,6 +137,17 @@ func WithExecuteFn(fn func(string, string) (string, error)) CrewServerAgentOptio
 func WithToolsAgent(toolsAgent *tools.Agent) CrewServerAgentOption {
 	return func(agent *CrewServerAgent) error {
 		agent.toolsAgentConfig = toolsAgent
+		return nil
+	}
+}
+
+// WithTasksAgent sets the tasks agent for task planning and orchestration.
+// When configured, the agent will first analyze user requests to identify a plan of tasks,
+// then execute each task using either the tools agent (for "tool" tasks) or the chat agent
+// (for "completion"/"developer" tasks), passing results between steps.
+func WithTasksAgent(tasksAgent *tasks.Agent) CrewServerAgentOption {
+	return func(agent *CrewServerAgent) error {
+		agent.tasksAgentConfig = tasksAgent
 		return nil
 	}
 }
@@ -256,6 +269,7 @@ func AfterCompletion(fn func(*CrewServerAgent)) CrewServerAgentOption {
 //   - WithMatchAgentIdToTopicFn(fn) - Sets the function to match agent ID to topic for routing
 //   - WithExecuteFn(fn) - Sets the custom function executor for tool execution
 //   - WithToolsAgent(toolsAgent) - Attaches a tools agent for function calling capabilities
+//   - WithTasksAgent(tasksAgent) - Attaches a tasks agent for task planning and orchestration
 //   - WithCompressorAgent(compressorAgent) - Attaches a compressor agent for context compression
 //   - WithCompressorAgentAndContextSize(compressorAgent, contextSizeLimit) - Attaches a compressor agent and sets the context size limit
 //   - WithRagAgent(ragAgent) - Attaches a RAG agent for document retrieval
