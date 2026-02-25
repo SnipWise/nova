@@ -1,0 +1,245 @@
+# ============================================================
+# Crew Agent with Single Agent & Tasks — Configuration
+# ============================================================
+# This sample uses a single chat agent (coder) with no orchestrator.
+# Edit this file to change models, temperatures, instructions,
+# tools, skills, and compressor settings without recompiling.
+
+engine_url: "http://localhost:12434/engines/llama.cpp/v1"
+log_level: "INFO"
+context_size_limit: 16384
+
+# ── Agent configurations ────────────────────────────────────
+agents:
+  tasks_planner:
+    model: "huggingface.co/menlo/jan-nano-128k-gguf:Q4_K_M"
+    temperature: 0.0
+    instructions: |
+      You are an expert task planner for an AI coding assistant.
+      Your job is to analyze a user request and break it down into an ordered list of tasks.
+
+      ## Task Classification
+      Each task must be classified by its "responsible" field:
+      - "tool": the task requires calling an external tool (file system operation, API call, etc.)
+      - "completion": the task requires a generalist LLM to generate text, analysis, documentation, or explanations
+      - "developer": the task requires a code-specialized LLM to generate, review, or refactor source code
+
+      ## Available Tools
+      The following tools are available for "tool" tasks:
+      - read_file: read the content of a text file (arguments: "path")
+      - write_file: write content to a file (arguments: "path", "content")
+      - list_directory: list directory contents with details (arguments: "path")
+      - find_files: find files matching a name pattern (arguments: "path", "pattern")
+      - grep_files: search for a text pattern in files (arguments: "pattern", "path")
+      - create_directory: create a directory and parents if needed (arguments: "path")
+      - bash: execute an arbitrary shell command (arguments: "command")
+
+      When responsible is "tool", you MUST also set:
+      - "tool_name": the exact tool name from the list above
+      - "arguments": a map of argument names to values (e.g. {"path": "./demo"})
+
+      ## Task Complexity
+      Each task must have a "complexity" field:
+      - "simple": trivial operation, no reasoning needed
+      - "moderate": requires some logic or moderate generation
+      - "complex": requires deep reasoning, code generation, or analysis
+
+      ## Task Dependencies
+      Each task must have a "depends_on" field: a list of task IDs that must be completed before this task can start.
+
+      ## Rules for Task Ordering
+      CRITICAL: Reorder tasks based on logical dependencies, NOT based on the order in the user request.
+
+      ## CRITICAL: Rules for Code Generation and File Operations
+      A "developer" task NEVER writes files itself. It ONLY generates code as text output.
+      To save code to a file, you MUST ALWAYS add a separate write_file "tool" task after the "developer" task.
+
+      ### Creating a NEW file:
+      1. (optional) create_directory (tool) → create parent directories if needed
+      2. developer task → generate the source code
+      3. write_file (tool) → save the generated code to the file
+
+      Example: "create a hello world in golang and save it to ./demos/hello.go"
+      1. create_directory (tool) → create ./demos
+      2. generate code (developer) → produce the hello world program
+      3. write_file (tool) → save the code to ./demos/hello.go (depends on: 1, 2)
+
+      ### Modifying an EXISTING file:
+      1. read_file (tool) → read the current content of the file
+      2. developer task → generate the COMPLETE updated source code (not just the new parts)
+      3. write_file (tool) → save the complete updated content
+
+      Example: "add a Human struct to the program"
+      1. read_file (tool) → read the current file content
+      2. generate updated code (developer) → produce the COMPLETE file with the new struct added
+      3. write_file (tool) → save the complete updated file (depends on: 1, 2)
+
+      When the user refers to "the program", "the file", "it", or any implicit reference,
+      use file paths from the conversation context. If a file was recently created or mentioned,
+      that is the file being referenced.
+
+      ## Output Format
+      For each task:
+      - "id": sequential number as string ("1", "2", "3", ...)
+      - "description": clear, actionable description
+      - "responsible": "tool", "completion", or "developer"
+      - "tool_name": (only when responsible is "tool")
+      - "arguments": (only when responsible is "tool")
+      - "depends_on": list of task IDs (empty list [] if none)
+      - "complexity": "simple", "moderate", or "complex"
+
+  coder:
+    model: "huggingface.co/unsloth/rnj-1-instruct-gguf:Q4_K_M"
+    temperature: 0.8
+    instructions: |
+      You are an expert programming assistant. You write clean, efficient, and well-documented code.
+
+      IMPORTANT rules:
+      - When context from previous tasks is provided, USE it. It contains results from earlier steps
+        (e.g. file contents that were read, directories that were created).
+      - When asked to modify or update code, you MUST output the COMPLETE source file, not just the
+        changed parts. Include ALL existing code plus your modifications.
+      - When previous task context includes file content (from a read_file operation), use that
+        content as the base and add/modify what the user requested.
+      - Output ONLY the source code, no explanations, no markdown code fences.
+
+  tools:
+    model: "huggingface.co/menlo/jan-nano-gguf:q4_k_m"
+    temperature: 0.0
+    instructions: |
+      You are a file system assistant. Execute the requested tool operations.
+
+      IMPORTANT rules:
+      - When writing a file with write_file, use the COMPLETE content provided in the context.
+        Do NOT truncate or summarize the content.
+      - When context from previous tasks includes generated code, use that exact code as the
+        "content" argument for write_file.
+      - Always call the exact tool specified in the request with the exact arguments provided.
+
+  compressor:
+    model: "ai/qwen2.5:0.5B-F16"
+    temperature: 0.0
+    instructions: |
+      You are a context compression assistant.
+      Your job is to summarize conversation history while preserving:
+      - Key facts and decisions made
+      - Important context needed to continue the conversation
+      - Any code snippets or technical details that were discussed
+
+      Be concise but complete. Do not lose critical information.
+
+# ── Available tools ─────────────────────────────────────────
+# Each tool has a "command" field: a shell template with {{param}} placeholders.
+# To add a new tool, just add an entry here — no Go code changes needed.
+tools:
+  - name: read_file
+    description: "Read the content of a text file"
+    command: "cat '{{path}}'"
+    parameters:
+      - name: path
+        type: string
+        description: "The file path to read"
+        required: true
+
+  - name: write_file
+    description: "Write content to a file (creates or overwrites)"
+    command: "printf '%s' '{{content}}' > '{{path}}'"
+    parameters:
+      - name: path
+        type: string
+        description: "The file path to write to"
+        required: true
+      - name: content
+        type: string
+        description: "The content to write"
+        required: true
+
+  - name: list_directory
+    description: "List directory contents with details"
+    command: "ls -la '{{path}}'"
+    parameters:
+      - name: path
+        type: string
+        description: "The directory path to list"
+        required: true
+
+  - name: find_files
+    description: "Find files matching a name pattern"
+    command: "find '{{path}}' -name '{{pattern}}' -type f 2>/dev/null"
+    parameters:
+      - name: path
+        type: string
+        description: "The directory to search in"
+        required: true
+      - name: pattern
+        type: string
+        description: "The file name pattern (e.g. '*.go', '*.md')"
+        required: true
+
+  - name: grep_files
+    description: "Search for a text pattern in files"
+    command: "grep -rn '{{pattern}}' '{{path}}' 2>/dev/null"
+    parameters:
+      - name: pattern
+        type: string
+        description: "The text pattern to search for"
+        required: true
+      - name: path
+        type: string
+        description: "The file or directory to search in"
+        required: true
+
+  - name: create_directory
+    description: "Create a directory (and parent directories if needed)"
+    command: "mkdir -p '{{path}}'"
+    parameters:
+      - name: path
+        type: string
+        description: "The directory path to create"
+        required: true
+
+  - name: bash
+    description: "Execute an arbitrary shell command"
+    command: "{{command}}"
+    parameters:
+      - name: command
+        type: string
+        description: "The shell command to execute"
+        required: true
+
+# ── Skills ─────────────────────────────────────────────────
+# Reusable prompt templates invocable via /skill <name> <input>.
+# {{input}} is replaced with whatever the user types after the skill name.
+skills:
+  - name: explain
+    description: "Explain a source file in plain language"
+    prompt: |
+      Read the file {{input}} and explain what it does in plain language.
+      Be concise, highlight the main purpose, key functions, and any important details.
+
+  - name: summarize
+    description: "Summarize the content of a file"
+    prompt: |
+      Read the file {{input}} and produce a short summary (5-10 bullet points).
+      Focus on the structure, key data, and purpose of the file.
+
+  - name: review
+    description: "Review code and suggest improvements"
+    prompt: |
+      Read the file {{input}} and review the code.
+      List potential issues, suggest improvements, and note any best practices that are missing.
+      Be constructive and specific.
+
+  - name: test
+    description: "Generate unit tests for a source file"
+    prompt: |
+      Read the file {{input}} and generate unit tests for the main functions.
+      Write the tests in the same language as the source file.
+      Save the test file next to the original file with a _test suffix.
+
+  - name: doc
+    description: "Generate documentation for a source file"
+    prompt: |
+      Read the file {{input}} and generate documentation in markdown format.
+      Include: purpose, usage, function signatures, and examples.
+      Save the documentation as a .md file next to the original file.

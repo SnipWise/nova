@@ -177,6 +177,7 @@ gateway, err := gatewayserver.NewAgent(ctx,
 | `WithSingleAgent(chatAgent)` | Crée une équipe avec un seul agent (ID : `"single"`). **Obligatoire** (ou `WithAgentCrew`). |
 | `WithPort(port)` | Définit le port du serveur HTTP en int (défaut : `8080`). |
 | `WithToolsAgent(toolsAgent)` | Attache un agent d'outils pour l'exécution côté serveur. |
+| `WithTasksAgent(tasksAgent)` | Attache un agent de tâches pour la planification et l'orchestration de tâches. |
 | `WithClientSideToolsAgent(toolsAgent)` | Attache un agent d'outils pour l'exécution côté client (outils retournés au client). |
 | `WithAgentExecutionOrder(order []AgentExecutionType)` | Définit l'ordre dans lequel les handlers d'agents traitent les requêtes. Par défaut : `[ClientSideTools, ServerSideTools, Orchestrator]`. |
 | `WithExecuteFn(fn)` | Définit la fonction d'exécution pour l'exécution côté serveur des outils. |
@@ -927,6 +928,7 @@ var DefaultAgentExecutionOrder = []AgentExecutionType{
 | `WithSingleAgent(chatAgent)` | Crée une équipe à agent unique. |
 | `WithPort(port)` | Définit le port du serveur HTTP (défaut : 8080). |
 | `WithToolsAgent(toolsAgent)` | Attache un agent d'outils pour l'exécution côté serveur. |
+| `WithTasksAgent(tasksAgent)` | Attache un agent de tâches pour la planification et l'orchestration. |
 | `WithClientSideToolsAgent(toolsAgent)` | Attache un agent d'outils pour l'exécution côté client. |
 | `WithAgentExecutionOrder(order []AgentExecutionType)` | Définit l'ordre d'exécution des agents. |
 | `WithExecuteFn(fn)` | Définit la fonction d'exécution des outils (pour les outils côté serveur). |

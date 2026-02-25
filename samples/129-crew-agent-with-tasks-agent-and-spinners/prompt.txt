@@ -1,0 +1,9 @@
+Read the file in ./specification.md.  
+Use these document to generate golang code.
+Check carefully the syntax of the code.
+Make the code simple and add remarks to explain the code.
+Once the code ready,
+Then save the source code into a ./demo/main.go file in the same folder,
+Then create a new markdown document that explains how the code works,
+and save it into ./demo/explanation.md file.
+create the demo folder if it does not exist.

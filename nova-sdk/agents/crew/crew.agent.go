@@ -8,6 +8,7 @@ import (
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
 	"github.com/snipwise/nova/nova-sdk/agents/compressor"
 	"github.com/snipwise/nova/nova-sdk/agents/rag"
+	"github.com/snipwise/nova/nova-sdk/agents/tasks"
 	"github.com/snipwise/nova/nova-sdk/agents/tools"
 	"github.com/snipwise/nova/nova-sdk/messages"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
@@ -23,6 +24,7 @@ type CrewAgent struct {
 
 	currentChatAgent *chat.Agent
 	toolsAgent       *tools.Agent
+	tasksAgent       *tasks.Agent
 
 	ragAgent *rag.Agent
 
@@ -155,6 +157,17 @@ func WithToolsAgent(toolsAgent *tools.Agent) CrewAgentOption {
 	}
 }
 
+// WithTasksAgent sets the tasks agent for task planning and orchestration.
+// When configured, the agent will first analyze user requests to identify a plan of tasks,
+// then execute each task using either the tools agent (for "tool" tasks) or the chat agent
+// (for "completion"/"developer" tasks), passing results between steps.
+func WithTasksAgent(tasksAgent *tasks.Agent) CrewAgentOption {
+	return func(agent *CrewAgent) error {
+		agent.tasksAgent = tasksAgent
+		return nil
+	}
+}
+
 // WithCompressorAgent sets the compressor agent
 func WithCompressorAgent(compressorAgent *compressor.Agent) CrewAgentOption {
 	return func(agent *CrewAgent) error {
@@ -234,6 +247,7 @@ func AfterCompletion(fn func(*CrewAgent)) CrewAgentOption {
 //   - WithExecuteFn(fn) - Sets the custom function executor for tool execution
 //   - WithConfirmationPromptFn(fn) - Sets the confirmation prompt function for human-in-the-loop
 //   - WithToolsAgent(toolsAgent) - Attaches a tools agent for function calling capabilities
+//   - WithTasksAgent(tasksAgent) - Attaches a tasks agent for task planning and orchestration
 //   - WithCompressorAgent(compressorAgent) - Attaches a compressor agent for context compression
 //   - WithCompressorAgentAndContextSize(compressorAgent, contextSizeLimit) - Attaches a compressor agent and sets the context size limit
 //   - WithRagAgent(ragAgent) - Attaches a RAG agent for document retrieval

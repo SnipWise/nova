@@ -26,6 +26,17 @@ func (agent *ServerAgent) StreamCompletion(
 	// Step 1: Compress context if over limit
 	agent.compressContextIfNeededCLI()
 
+	// Step 1.5: Execute tasks plan if tasksAgent is configured
+	if planExecuted, err := agent.executePlanCLI(question, callback); err != nil {
+		return nil, err
+	} else if planExecuted {
+		// Call after completion hook if set
+		if agent.afterCompletion != nil {
+			agent.afterCompletion(agent)
+		}
+		return &chat.CompletionResult{}, nil
+	}
+
 	// Step 2: Handle tool calls if toolsAgent is configured
 	if err := agent.handleToolCallsCLI(question, callback); err != nil {
 		return nil, err

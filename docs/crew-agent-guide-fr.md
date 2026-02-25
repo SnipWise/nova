@@ -142,6 +142,7 @@ crewAgent, err := crew.NewAgent(ctx,
 | `WithExecuteFn(fn)` | Définit la fonction d'exécution des outils. |
 | `WithConfirmationPromptFn(fn)` | Définit la fonction de confirmation pour le human-in-the-loop. |
 | `WithToolsAgent(toolsAgent)` | Attache un agent d'outils pour les appels de fonctions. |
+| `WithTasksAgent(tasksAgent)` | Attache un agent de tâches pour la planification et l'orchestration de tâches. |
 | `WithCompressorAgent(compressorAgent)` | Attache un agent compresseur pour la compression du contexte. |
 | `WithCompressorAgentAndContextSize(compressorAgent, limit)` | Attache un compresseur avec une limite de taille de contexte. |
 | `WithRagAgent(ragAgent)` | Attache un agent RAG pour la recherche de documents. |
@@ -543,6 +544,7 @@ type CrewAgentOption func(*CrewAgent) error
 | `WithExecuteFn(fn)` | Définit la fonction d'exécution des outils. |
 | `WithConfirmationPromptFn(fn)` | Définit la fonction de confirmation des outils. |
 | `WithToolsAgent(toolsAgent)` | Attache un agent d'outils. |
+| `WithTasksAgent(tasksAgent)` | Attache un agent de tâches pour la planification et l'orchestration. |
 | `WithCompressorAgent(compressorAgent)` | Attache un agent compresseur. |
 | `WithCompressorAgentAndContextSize(compressorAgent, limit)` | Attache un compresseur avec limite. |
 | `WithRagAgent(ragAgent)` | Attache un agent RAG. |
