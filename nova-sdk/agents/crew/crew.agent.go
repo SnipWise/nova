@@ -371,8 +371,6 @@ func NewSimpleAgent(
 	return agent, nil
 }
 
-
-
 // GetChatAgents returns the map of chat agents
 func (agent *CrewAgent) GetChatAgents() map[string]*chat.Agent {
 	return agent.chatAgents

@@ -108,9 +108,9 @@ func (agent *BaseServerAgent) HandleContextSize(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(ContextSizeResponse{
-		MessagesCount:  count,
+		MessagesCount:   count,
 		CharactersCount: charactersCount,
-		Limit:  limit,
+		Limit:           limit,
 	}); err != nil {
 		agent.Log.Error("Failed to encode tokens count response: %v", err)
 	}

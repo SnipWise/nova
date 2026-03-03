@@ -36,8 +36,8 @@ func createAssistantMessageWithToolCalls(toolCallParams []openai.ChatCompletionM
 
 // ToolExecutionResult holds the result of a tool execution
 type ToolExecutionResult struct {
-	Content          string
-	ShouldStop       bool
+	Content    string
+	ShouldStop bool
 	// Possible values: "function_executed", "user_denied", "user_quit", "error", "exit_loop"
 	ExecFinishReason string
 }

@@ -166,8 +166,8 @@ func (agent *CrewAgent) shouldGenerateCompletion() bool {
 	// - User quit, denied, or no tool execution occurred
 	return confirmation == 0 &&
 		(finishReason == "user_quit" ||
-		 finishReason == "user_denied" ||
-		 finishReason == "")
+			finishReason == "user_denied" ||
+			finishReason == "")
 }
 
 // generateCompletion generates the final streaming completion with RAG and orchestrator support

@@ -100,5 +100,3 @@ func FloatToString(num float64) string {
 func BoolToString(val bool) string {
 	return strconv.FormatBool(val)
 }
-
-

@@ -18,13 +18,13 @@ import (
 //  4. If no tool_calls: return false (let next handler in chain process)
 //
 // The client is responsible for:
-//  - Sending tool definitions in each request
-//  - Executing tools locally when tool_calls are returned
-//  - Sending tool results back as messages with role "tool"
+//   - Sending tool definitions in each request
+//   - Executing tools locally when tool_calls are returned
+//   - Sending tool results back as messages with role "tool"
 //
 // This handler returns:
-//  - true: handled the request (sent response to client)
-//  - false: did not handle (next handler should process)
+//   - true: handled the request (sent response to client)
+//   - false: did not handle (next handler should process)
 func (agent *GatewayServerAgent) handleClientSideToolDetection(
 	w http.ResponseWriter,
 	r *http.Request,

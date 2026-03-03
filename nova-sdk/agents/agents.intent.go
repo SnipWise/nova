@@ -18,4 +18,3 @@ type OrchestratorAgent interface {
 	// Returns empty string if no routing config is set or no match is found
 	GetAgentForTopic(topic string) string
 }
-

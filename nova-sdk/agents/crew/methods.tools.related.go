@@ -36,4 +36,3 @@ func (agent *CrewAgent) confirmationPrompt(functionName string, arguments string
 func (agent *CrewAgent) SetConfirmationPromptFunction(fn func(string, string) tools.ConfirmationResponse) {
 	agent.confirmationPromptFn = fn
 }
-

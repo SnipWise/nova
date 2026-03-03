@@ -8,13 +8,13 @@ import (
 
 // MarkdownChunkParser holds state for streaming markdown parsing
 type MarkdownChunkParser struct {
-	buffer          strings.Builder
-	inCodeBlock     bool
-	codeBlockLang   string
-	lineBuffer      string
-	lastWasNewline  bool
-	inList          bool
-	alreadyPrinted  bool // Track if current incomplete line was already printed
+	buffer         strings.Builder
+	inCodeBlock    bool
+	codeBlockLang  string
+	lineBuffer     string
+	lastWasNewline bool
+	inList         bool
+	alreadyPrinted bool // Track if current incomplete line was already printed
 	// Note: pendingChars, lastFormatted, lastRawLine, lastDisplayedLen removed in Option 1 fix
 }
 

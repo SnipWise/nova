@@ -7,13 +7,13 @@ type Plan struct {
 }
 
 type Task struct {
-	ID          string   `json:"id"`
-	Description string   `json:"description"`
-	Responsible string   `json:"responsible"`
-	ToolName    string   `json:"tool_name,omitempty"`
+	ID          string            `json:"id"`
+	Description string            `json:"description"`
+	Responsible string            `json:"responsible"`
+	ToolName    string            `json:"tool_name,omitempty"`
 	Arguments   map[string]string `json:"arguments,omitempty"`
-	DependsOn   []string `json:"depends_on,omitempty"`
-	Complexity  string   `json:"complexity,omitempty"`
+	DependsOn   []string          `json:"depends_on,omitempty"`
+	Complexity  string            `json:"complexity,omitempty"`
 }
 
 type TasksAgent interface {

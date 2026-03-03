@@ -22,8 +22,8 @@ type BaseAgent struct {
 	store stores.VectorStore
 
 	// Internal fields for automatic persistence
-	jsonStorePathFile    string // Path to JSON store file (set by WithJsonStore)
-	documentsAddedCount  int    // Number of documents added by WithDocuments
+	jsonStorePathFile   string // Path to JSON store file (set by WithJsonStore)
+	documentsAddedCount int    // Number of documents added by WithDocuments
 
 	lastRequestJSON  string
 	lastResponseJSON string

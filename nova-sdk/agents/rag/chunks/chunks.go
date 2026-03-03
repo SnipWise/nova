@@ -39,8 +39,6 @@ func SplitTextWithDelimiter(text string, delimiter string) []string {
 	return strings.Split(text, delimiter)
 }
 
-
-
 // SplitMarkdownBySections splits markdown content into sections at header boundaries
 func SplitMarkdownBySections(markdown string) []string {
 	if markdown == "" {
@@ -101,11 +99,12 @@ func SplitMarkdownBySections(markdown string) []string {
 //   - []string: A slice of strings representing sections split at the specified header level.
 //
 // Example:
-//   markdown := "# Title\nContent\n## Subtitle\nMore\n# Another Title\nEnd"
-//   sections := SplitMarkdownBySection(1, markdown)  // Splits only on # headers
-//   // Returns: ["# Title\nContent\n## Subtitle\nMore", "# Another Title\nEnd"]
-//   sections := SplitMarkdownBySection(2, markdown)  // Splits only on ## headers
-//   // Returns: ["# Title\nContent", "## Subtitle\nMore\n# Another Title\nEnd"]
+//
+//	markdown := "# Title\nContent\n## Subtitle\nMore\n# Another Title\nEnd"
+//	sections := SplitMarkdownBySection(1, markdown)  // Splits only on # headers
+//	// Returns: ["# Title\nContent\n## Subtitle\nMore", "# Another Title\nEnd"]
+//	sections := SplitMarkdownBySection(2, markdown)  // Splits only on ## headers
+//	// Returns: ["# Title\nContent", "## Subtitle\nMore\n# Another Title\nEnd"]
 func SplitMarkdownBySection(sectionLevel int, markdown string) []string {
 	if markdown == "" || sectionLevel < 1 {
 		return []string{}
@@ -181,22 +180,23 @@ func SplitMarkdownBySection(sectionLevel int, markdown string) []string {
 //   - []string: A slice of strings, where each string is a complete XML element.
 //
 // Example:
-//   xml := `<menu>
-//     <item id="1">
-//       <name>Margherita Pizza</name>
-//       <price currency="USD">12.99</price>
-//     </item>
-//     <item id="2">
-//       <name>Caesar Salad</name>
-//       <price currency="USD">8.50</price>
-//     </item>
-//   </menu>`
 //
-//   chunks := ChunkXML(xml, "item")
-//   // Returns: [
-//   //   `<item id="1"><name>Margherita Pizza</name><price currency="USD">12.99</price></item>`,
-//   //   `<item id="2"><name>Caesar Salad</name><price currency="USD">8.50</price></item>`
-//   // ]
+//	xml := `<menu>
+//	  <item id="1">
+//	    <name>Margherita Pizza</name>
+//	    <price currency="USD">12.99</price>
+//	  </item>
+//	  <item id="2">
+//	    <name>Caesar Salad</name>
+//	    <price currency="USD">8.50</price>
+//	  </item>
+//	</menu>`
+//
+//	chunks := ChunkXML(xml, "item")
+//	// Returns: [
+//	//   `<item id="1"><name>Margherita Pizza</name><price currency="USD">12.99</price></item>`,
+//	//   `<item id="2"><name>Caesar Salad</name><price currency="USD">8.50</price></item>`
+//	// ]
 func ChunkXML(xml string, targetTag string) []string {
 	if xml == "" || targetTag == "" {
 		return []string{}

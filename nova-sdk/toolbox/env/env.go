@@ -38,5 +38,3 @@ func GetEnvBoolOrDefault(key string, defaultValue bool) bool {
 	}
 	return defaultValue
 }
-
-

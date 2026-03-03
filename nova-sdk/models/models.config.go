@@ -54,7 +54,6 @@ func String(v string) *string {
 	return &v
 }
 
-
 // NewConfig creates a Config with just the model name
 func NewConfig(name string) Config {
 	return Config{Name: name}

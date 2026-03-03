@@ -40,8 +40,8 @@ type Agent struct {
 	toolsFunctions map[string]func(args ...any) (any, error)
 
 	// Tool execution callbacks (can be set via options)
-	executeFunction             ToolCallback
-	confirmationPromptFunction  ConfirmationCallback
+	executeFunction            ToolCallback
+	confirmationPromptFunction ConfirmationCallback
 
 	// Lifecycle hooks
 	beforeCompletion func(*Agent)

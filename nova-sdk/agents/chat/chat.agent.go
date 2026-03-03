@@ -206,7 +206,7 @@ func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*Comple
 		if agent.userMessagePostDirectives != "" {
 			lastMsgContent = lastMsgContent + "\n\n" + agent.userMessagePostDirectives
 		}
-		userMessages[len(userMessages)-1].Content = lastMsgContent 
+		userMessages[len(userMessages)-1].Content = lastMsgContent
 	}
 
 	// Call before completion hook if set

@@ -583,8 +583,8 @@ func (agent *CrewServerAgent) handleCurrentAgent(w http.ResponseWriter, r *http.
 	//agent.Log.Info("ℹ️ Current agent requested: ID=%s, Name=%s, Model=%s", agentId, agentName, modelId)
 
 	response := map[string]string{
-		"agent_id": agentId,
-		"model_id": modelId,
+		"agent_id":   agentId,
+		"model_id":   modelId,
 		"agent_name": agentName,
 	}
 

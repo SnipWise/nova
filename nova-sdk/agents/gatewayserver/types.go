@@ -105,23 +105,23 @@ type ChatCompletionMessage struct {
 
 // ToolDefinition represents a tool available for the model to call.
 type ToolDefinition struct {
-	Type     string           `json:"type"`
+	Type     string             `json:"type"`
 	Function FunctionDefinition `json:"function"`
 }
 
 // FunctionDefinition describes a function the model can call.
 type FunctionDefinition struct {
-	Name        string      `json:"name"`
-	Description string      `json:"description,omitempty"`
-	Parameters  any         `json:"parameters,omitempty"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Parameters  any    `json:"parameters,omitempty"`
 }
 
 // ToolCall represents a tool call made by the assistant.
 type ToolCall struct {
-	Index    *int             `json:"index,omitempty"`
-	ID       string           `json:"id"`
-	Type     string           `json:"type"`
-	Function FunctionCall     `json:"function"`
+	Index    *int         `json:"index,omitempty"`
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Function FunctionCall `json:"function"`
 }
 
 // FunctionCall contains the function name and arguments.
@@ -134,19 +134,19 @@ type FunctionCall struct {
 
 // ChatCompletionResponse represents a complete (non-streaming) response.
 type ChatCompletionResponse struct {
-	ID      string                   `json:"id"`
-	Object  string                   `json:"object"`
-	Created int64                    `json:"created"`
-	Model   string                   `json:"model"`
-	Choices []ChatCompletionChoice   `json:"choices"`
-	Usage   *Usage                   `json:"usage,omitempty"`
+	ID      string                 `json:"id"`
+	Object  string                 `json:"object"`
+	Created int64                  `json:"created"`
+	Model   string                 `json:"model"`
+	Choices []ChatCompletionChoice `json:"choices"`
+	Usage   *Usage                 `json:"usage,omitempty"`
 }
 
 // ChatCompletionChoice represents one choice in a non-streaming response.
 type ChatCompletionChoice struct {
-	Index        int                    `json:"index"`
-	Message      ChatCompletionMessage  `json:"message"`
-	FinishReason *string                `json:"finish_reason"`
+	Index        int                   `json:"index"`
+	Message      ChatCompletionMessage `json:"message"`
+	FinishReason *string               `json:"finish_reason"`
 }
 
 // Usage reports token usage for the request.
@@ -160,19 +160,19 @@ type Usage struct {
 
 // ChatCompletionChunk represents a single SSE chunk in streaming mode.
 type ChatCompletionChunk struct {
-	ID      string                       `json:"id"`
-	Object  string                       `json:"object"`
-	Created int64                        `json:"created"`
-	Model   string                       `json:"model"`
-	Choices []ChatCompletionChunkChoice  `json:"choices"`
-	Usage   *Usage                       `json:"usage,omitempty"`
+	ID      string                      `json:"id"`
+	Object  string                      `json:"object"`
+	Created int64                       `json:"created"`
+	Model   string                      `json:"model"`
+	Choices []ChatCompletionChunkChoice `json:"choices"`
+	Usage   *Usage                      `json:"usage,omitempty"`
 }
 
 // ChatCompletionChunkChoice represents one choice in a streaming chunk.
 type ChatCompletionChunkChoice struct {
-	Index        int                   `json:"index"`
-	Delta        ChatCompletionDelta   `json:"delta"`
-	FinishReason *string               `json:"finish_reason"`
+	Index        int                 `json:"index"`
+	Delta        ChatCompletionDelta `json:"delta"`
+	FinishReason *string             `json:"finish_reason"`
 }
 
 // ChatCompletionDelta represents the incremental content in a streaming chunk.

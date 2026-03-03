@@ -25,8 +25,8 @@ type GatewayServerAgent struct {
 	log logger.Logger
 
 	// Crew of chat agents
-	chatAgents      map[string]*chat.Agent
-	selectedAgentId string
+	chatAgents       map[string]*chat.Agent
+	selectedAgentId  string
 	currentChatAgent *chat.Agent
 
 	// Orchestration
@@ -153,14 +153,15 @@ func WithClientSideToolsAgent(toolsAgent *tools.Agent) GatewayServerAgentOption 
 // WithAgentExecutionOrder sets the order in which different agent types process requests.
 // The default order is: ClientSideTools -> ServerSideTools -> Orchestrator.
 // Each handler in the order can either:
-//  - Handle the request and return (stopping the chain)
-//  - Skip and let the next handler process the request
+//   - Handle the request and return (stopping the chain)
+//   - Skip and let the next handler process the request
 //
 // Example custom order:
-//   WithAgentExecutionOrder([]AgentExecutionType{
-//       AgentExecutionOrchestrator,      // Route first
-//       AgentExecutionClientSideTools,   // Then check for client tools
-//   })
+//
+//	WithAgentExecutionOrder([]AgentExecutionType{
+//	    AgentExecutionOrchestrator,      // Route first
+//	    AgentExecutionClientSideTools,   // Then check for client tools
+//	})
 func WithAgentExecutionOrder(order []AgentExecutionType) GatewayServerAgentOption {
 	return func(agent *GatewayServerAgent) error {
 		if len(order) == 0 {

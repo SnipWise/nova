@@ -27,16 +27,16 @@ type ServerAgent struct {
 	Mux *http.ServeMux
 
 	// Temporary fields to store config before BaseServerAgent is created
-	portConfig               string
-	executeFnConfig          func(string, string) (string, error)
+	portConfig                 string
+	executeFnConfig            func(string, string) (string, error)
 	confirmationPromptFnConfig func(string, string) tools.ConfirmationResponse
-	toolsAgentConfig         *tools.Agent
-	tasksAgentConfig         *tasks.Agent
-	ragAgentConfig           *rag.Agent
-	compressorAgentConfig    *compressor.Agent
-	similarityLimitConfig    float64
-	maxSimilaritiesConfig    int
-	contextSizeLimitConfig   int
+	toolsAgentConfig           *tools.Agent
+	tasksAgentConfig           *tasks.Agent
+	ragAgentConfig             *rag.Agent
+	compressorAgentConfig      *compressor.Agent
+	similarityLimitConfig      float64
+	maxSimilaritiesConfig      int
+	contextSizeLimitConfig     int
 
 	// TLS/HTTPS configuration
 	tlsCertData []byte
@@ -202,11 +202,12 @@ func AfterCompletion(fn func(*ServerAgent)) ServerAgentOption {
 //   - AfterCompletion(fn) - Sets a hook called after each completion (HTTP and CLI)
 //
 // Example:
-//   agent, err := NewAgent(ctx, agentConfig, modelConfig,
-//       WithPort(8080),
-//       WithToolsAgent(toolsAgent),
-//       WithRagAgent(ragAgent),
-//   )
+//
+//	agent, err := NewAgent(ctx, agentConfig, modelConfig,
+//	    WithPort(8080),
+//	    WithToolsAgent(toolsAgent),
+//	    WithRagAgent(ragAgent),
+//	)
 func NewAgent(
 	ctx context.Context,
 	agentConfig agents.Config,

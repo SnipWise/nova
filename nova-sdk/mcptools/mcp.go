@@ -108,7 +108,7 @@ func (c *MCPClient) GetTools() []mcp.Tool {
 
 // IMPORTANT: TODO: TO BE TESTED
 // GetToolsWithFilter returns only the tools that match the provided filter names
-func (c *MCPClient) GetToolsWithFilter(toolsFilter []string) []mcp.Tool  {
+func (c *MCPClient) GetToolsWithFilter(toolsFilter []string) []mcp.Tool {
 	// Create a set for quick lookup of allowed tool names
 	allowedTools := make(map[string]bool)
 	for _, name := range toolsFilter {
@@ -221,7 +221,6 @@ func Exec[I, O any](mcpClient *MCPClient, functionName string, input I) (O, erro
 	return output, nil
 }
 
-
 func ConvertMCPToolsToOpenAITools(tools []mcp.Tool) []openai.ChatCompletionToolUnionParam {
 	openAITools := make([]openai.ChatCompletionToolUnionParam, len(tools))
 	for i, tool := range tools {
@@ -265,8 +264,6 @@ func ConvertMCPToolsToOpenAIToolsWithFilter(tools []mcp.Tool, toolsFilter []stri
 	}
 	return openAITools
 }
-
-
 
 // ConvertMCPListToolsResultToOpenAITools transforms MCP tool definitions into OpenAI tool format
 func ConvertMCPListToolsResultToOpenAITools(tools *mcp.ListToolsResult) []openai.ChatCompletionToolUnionParam {

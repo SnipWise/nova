@@ -36,6 +36,7 @@ func dotProduct(v1 []float64, v2 []float64) float64 {
 //   - 1.0: vectors are identical or perfectly aligned (maximum similarity, close distance)
 //   - 0.0: vectors are orthogonal/perpendicular (no similarity)
 //   - Values close to 1: vectors are very similar (close distance)
+//
 // Note: Cosine similarity measures the angle between vectors, not their magnitude.
 // Two vectors can have different lengths but still be considered similar if they point in the same direction.
 func cosineSimilarity(v1, v2 []float64) float64 {
