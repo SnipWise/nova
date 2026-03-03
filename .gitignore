@@ -27,3 +27,6 @@ backup/
 huggingface.env
 cerebras.env
 gocomplexity
+
+nova-sdk/.qlty-reports
+.qlty/

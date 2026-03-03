@@ -1,6 +1,5 @@
 # Docker Compose configuration for Dockerized Chat Agent
 # Uses Docker Agentic Compose for AI model management
-# Requires Docker Desktop 4.36+ with Docker Compose 2.38+
 
 # === SERVICES ===
 services:
