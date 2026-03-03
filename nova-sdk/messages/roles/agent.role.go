@@ -7,5 +7,5 @@ const (
 	User      Role = "user"
 	Assistant Role = "assistant"
 	Developer Role = "developer"
-	Tool	  Role = "tool"
+	Tool      Role = "tool"
 )

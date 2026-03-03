@@ -21,7 +21,7 @@ func (agent *CrewAgent) GetOrchestratorAgent() agents.OrchestratorAgent {
 // DetectTopicThenSetCurrentAgent sets the current active chat agent based on the detected topic from the query.
 // query -> user message
 func (ca *CrewAgent) DetectTopicThenGetAgentId(query string) (string, error) {
-    
+
 	ca.log.Info("🔍 Detecting topic for routing...")
 	ca.log.Info("📝 Query: " + query)
 	// Topic detection via orchestrator agent

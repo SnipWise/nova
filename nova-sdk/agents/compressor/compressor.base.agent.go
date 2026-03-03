@@ -187,7 +187,7 @@ func (agent *BaseAgent) CompressContextStream(
 type SystemInstructions struct {
 	Minimalist string
 	Expert     string
-	Effective string
+	Effective  string
 }
 
 var Instructions = SystemInstructions{

@@ -113,10 +113,10 @@ func (agent *Agent) GetName() string {
 
 // ModelsInfo contains information about the models used by the server
 type ModelsInfo struct {
-	Status           string `json:"status"`
-	ChatModel        string `json:"chat_model"`
-	EmbeddingsModel  string `json:"embeddings_model"`
-	ToolsModel       string `json:"tools_model"`
+	Status          string `json:"status"`
+	ChatModel       string `json:"chat_model"`
+	EmbeddingsModel string `json:"embeddings_model"`
+	ToolsModel      string `json:"tools_model"`
 }
 
 // HealthStatus contains the health status of the server

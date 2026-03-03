@@ -14,7 +14,7 @@ type MarkdownChunk struct {
 	ParentLevel    int
 	ParentHeader   string
 	ParentPrefix   string
-	Hierarchy        string
+	Hierarchy      string
 	SimpleMetaData string                 // Additional metadata if needed
 	Metadata       map[string]interface{} // additional metadata
 	KeyWords       []string               // Keywords that could be extracted from the content
@@ -34,14 +34,13 @@ type MarkdownChunk struct {
 //   - A slice of Chunk structs, each representing a header and its associated content, along with
 //     its hierarchical lineage.
 
-//  ParseMarkdownHierarchy parses the given markdown content and returns a slice of MarkdownChunk structs preserving the hierarchical context
+// ParseMarkdownHierarchy parses the given markdown content and returns a slice of MarkdownChunk structs preserving the hierarchical context
 func ParseMarkdownHierarchy(content string) []MarkdownChunk {
 	lines := strings.Split(content, "\n")
 	var chunks []MarkdownChunk
 	var stack []MarkdownChunk
 
 	headerRegex := regexp.MustCompile(`^(#+)\s+(.*)$`)
-
 
 	for i := range lines {
 		line := lines[i]
@@ -80,7 +79,7 @@ func ParseMarkdownHierarchy(content string) []MarkdownChunk {
 				ParentPrefix: parent.Prefix,
 				ParentLevel:  parent.Level,
 				ParentHeader: parent.Header,
-				Hierarchy:      hierarchy,
+				Hierarchy:    hierarchy,
 			}
 			//if chunk.Content != "" {
 			chunks = append(chunks, chunk)
@@ -101,7 +100,6 @@ func buildHierarchy(stack []MarkdownChunk, currentHeader string) string {
 	hierarchy = append(hierarchy, currentHeader)
 	return strings.Join(hierarchy, " > ")
 }
-
 
 // ChunkWithMarkdownHierarchy processes markdown content into formatted chunks with hierarchical context
 func ChunkWithMarkdownHierarchy(content string) []string {

@@ -217,12 +217,11 @@ func LoadFromJsonFile[T any](path string) (T, error) {
 	var result T
 	jsonData, err := os.ReadFile(path)
 	if err != nil {
-		return result, err	
+		return result, err
 	}
 	err = json.Unmarshal(jsonData, &result)
 	return result, err
 }
-
 
 // GetAllFilesInDirectory returns all file paths in the given directory (non-recursive).
 //

@@ -22,8 +22,8 @@ func (agent *GatewayServerAgent) HandleChatCompletionsForTest(w http.ResponseWri
 // handleChatCompletions is the main handler for POST /v1/chat/completions.
 // It dispatches requests through a configurable chain of agent handlers based on agentExecutionOrder.
 // Each handler can either:
-//  - Handle the request and return (stopping the chain)
-//  - Skip and let the next handler process the request
+//   - Handle the request and return (stopping the chain)
+//   - Skip and let the next handler process the request
 func (agent *GatewayServerAgent) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Parse request
 	var req ChatCompletionRequest

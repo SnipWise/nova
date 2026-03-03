@@ -6,7 +6,6 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
-
 )
 
 func GetModelsList(ctx context.Context, modelRunnerEndpoint string) ([]string, error) {
@@ -41,7 +40,3 @@ func IsModelAvailable(ctx context.Context, modelRunnerEndpoint, modelID string) 
 	}
 	return true
 }
-
-
-
-

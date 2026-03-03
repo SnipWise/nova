@@ -28,7 +28,7 @@ const (
 	showCursor     = "\033[?25h"
 	carriageReturn = "\r"
 
-	ANSIReset = "\033[0m" // Reset all attributes 
+	ANSIReset = "\033[0m" // Reset all attributes
 )
 
 // CursorStyle defines how the cursor should be displayed

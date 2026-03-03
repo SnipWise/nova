@@ -13,8 +13,6 @@ const (
 	Quit
 )
 
-
-
 // Tool represents a function tool with a fluent builder API
 type Tool struct {
 	Name        string
