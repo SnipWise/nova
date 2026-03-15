@@ -1,11 +1,8 @@
 package crewserver
 
 import (
-	"fmt"
-
 	"github.com/snipwise/nova/nova-sdk/agents"
-	"github.com/snipwise/nova/nova-sdk/messages"
-	"github.com/snipwise/nova/nova-sdk/messages/roles"
+	"github.com/snipwise/nova/nova-sdk/agents/serverbase"
 )
 
 // SetOrchestratorAgent sets the orchestrator agent
@@ -18,37 +15,16 @@ func (agent *CrewServerAgent) GetOrchestratorAgent() agents.OrchestratorAgent {
 	return agent.orchestratorAgent
 }
 
-// DetectTopicThenSetCurrentAgent sets the current active chat agent based on the detected topic from the query.
-// query -> user message
+// DetectTopicThenGetAgentId detects the topic of the query and returns the agent ID to route to.
 func (ca *CrewServerAgent) DetectTopicThenGetAgentId(query string) (string, error) {
-
-	ca.Log.Info("🔍 Detecting topic for routing...")
-	ca.Log.Info("📝 Query: " + query)
-	// Topic detection via orchestrator agent
-	response, _, err := ca.orchestratorAgent.IdentifyIntent([]messages.Message{
-		{
-			Role:    roles.User,
-			Content: query,
-		},
-	})
-	if err != nil {
-		return "", err
-	}
-
-	ca.Log.Info("✅ Topic detected: " + response.TopicDiscussion)
-
-	// --------------------------------------------------------
-	// Get agent ID based on detected topic
-	// --------------------------------------------------------
-	agentId := ca.matchAgentIdToTopicFn(ca.selectedAgentId, response.TopicDiscussion)
-
-	if _, exists := ca.chatAgents[agentId]; !exists {
-		return "", fmt.Errorf("no chat agent found with ID: %s", agentId)
-	}
-
-	ca.Log.Info("🔀 You should route to agent ID: " + agentId)
-
-	return agentId, nil
+	return serverbase.DetectTopicAndGetAgentId(
+		ca.Log,
+		ca.orchestratorAgent,
+		ca.selectedAgentId,
+		ca.matchAgentIdToTopicFn,
+		func(id string) bool { _, ok := ca.chatAgents[id]; return ok },
+		query,
+	)
 }
 
 /*

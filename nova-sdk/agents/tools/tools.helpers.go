@@ -235,13 +235,59 @@ func (agent *BaseAgent) handleStopReason(
 	messages []openai.ChatCompletionMessageParamUnion,
 	content string,
 ) ([]openai.ChatCompletionMessageParamUnion, string) {
-	// NOTE: If you reach here, it means the agent decided to stop without calling any tools
 	agent.Log.Info("✋ Stopping due to 'stop' finish reason.")
 
 	agent.Log.Info(fmt.Sprintf("🤖 [from the tool agent] %s\n", content))
 
 	// Add final assistant message to conversation history
-	// NOTE: do not keep the tool calls in the final message / 2025.12.31
 	messages = append(messages, openai.AssistantMessage(content))
 	return messages, content
+}
+
+// collectStreamResponse runs a streaming completion, accumulates the response
+// text via streamCallback, and returns the full response string.
+// It returns an error if the callback fails or if stream.Err/Close fail.
+func (agent *BaseAgent) collectStreamResponse(
+	paramsForCall openai.ChatCompletionNewParams,
+	streamCallback func(content string) error,
+) (string, error) {
+	stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, paramsForCall)
+	var response string
+	var cbkRes error
+
+	for stream.Next() {
+		chunk := stream.Current()
+		if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != "" {
+			agent.SaveLastChunkResponse(&chunk)
+		}
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+			cbkRes = streamCallback(chunk.Choices[0].Delta.Content)
+			response += chunk.Choices[0].Delta.Content
+		}
+		if cbkRes != nil {
+			agent.Log.Error("Error in stream callback: %v", cbkRes)
+			break
+		}
+	}
+
+	if cbkRes != nil {
+		return "", cbkRes
+	}
+	if err := stream.Err(); err != nil {
+		agent.Log.Error("Stream error: %v", err)
+		return "", err
+	}
+	if err := stream.Close(); err != nil {
+		agent.Log.Error("Stream close error: %v", err)
+		return "", err
+	}
+	return response, nil
+}
+
+// saveHistoryIfNeeded persists workingMessages to the agent's conversation
+// history when KeepConversationHistory is enabled.
+func (agent *BaseAgent) saveHistoryIfNeeded(workingMessages []openai.ChatCompletionMessageParamUnion) {
+	if agent.Config.KeepConversationHistory {
+		agent.ChatCompletionParams.Messages = workingMessages
+	}
 }

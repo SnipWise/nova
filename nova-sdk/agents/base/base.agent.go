@@ -14,6 +14,8 @@ import (
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
+const errNoChoices = "no choices found"
+
 // Agent is the shared base agent structure that contains common fields
 // used by all agent types (chat, tools, compressor, structured, etc.)
 type Agent struct {
@@ -210,7 +212,6 @@ func (agent *Agent) GenerateCompletion(messages []openai.ChatCompletionMessagePa
 
 	agent.SaveLastRequest()
 
-	// NOTE: start completion
 	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, paramsForCall)
 
 	agent.SaveLastResponse(completion)
@@ -234,7 +235,7 @@ func (agent *Agent) GenerateCompletion(messages []openai.ChatCompletionMessagePa
 		return response, finishReason, nil
 	}
 
-	return "", "", errors.New("no choices found")
+	return "", "", errors.New(errNoChoices)
 }
 
 // GenerateCompletionWithReasoning executes a chat completion with the provided messages
@@ -269,7 +270,7 @@ func (agent *Agent) GenerateCompletionWithReasoning(messages []openai.ChatComple
 	}
 
 	if len(completion.Choices) == 0 {
-		return "", "", "", errors.New("no choices found")
+		return "", "", "", errors.New(errNoChoices)
 	}
 
 	finishReason = completion.Choices[0].FinishReason
@@ -306,93 +307,42 @@ func (agent *Agent) GenerateStreamCompletion(
 	callBack func(partialResponse string, finishReason string) error,
 ) (response string, finishReason string, err error) {
 
-	// Reset cancellation flag at the start of streaming
 	agent.StreamCanceled = false
 
-	// Prepare messages for the API call
-	// If KeepConversationHistory is true, add to history permanently
-	// Otherwise, create a temporary message list for this call only
-	var messagesToSend []openai.ChatCompletionMessageParamUnion
-
-	if agent.Config.KeepConversationHistory {
-		// Add new messages to history permanently
-		agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
-		messagesToSend = agent.ChatCompletionParams.Messages
-	} else {
-		// Create temporary message list with system + current user messages only
-		messagesToSend = append(agent.ChatCompletionParams.Messages, messages...)
-	}
-
-	// Update params with messages for this call
 	paramsForCall := agent.ChatCompletionParams
-	paramsForCall.Messages = messagesToSend
-
+	paramsForCall.Messages = agent.prepareMessagesToSend(messages)
 	agent.SaveLastRequest()
 
 	stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, paramsForCall)
 
 	var callBackError error
-	finalFinishReason := ""
-	chunkIndex := 0
 
 	for stream.Next() {
-		// Check if stream was canceled
 		if agent.StreamCanceled {
-			callBackError = errors.New("stream canceled by user")
+			callBackError = canceledError
 			break
 		}
-
-		chunk := stream.Current()
-
-		// Capture finishReason if present (even if there's no content)
-		if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != "" {
-			agent.SaveLastChunkResponse(&chunk)
-			finalFinishReason = chunk.Choices[0].FinishReason
-		}
-
-		// Stream each chunk as it arrives
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			chunkContent := chunk.Choices[0].Delta.Content
-			callBackError = callBack(chunkContent, finalFinishReason)
-			response += chunkContent
-
-			chunkIndex++
-		}
-
-		if callBackError != nil {
+		if callBackError = agent.processStreamChunk(stream.Current(), &finishReason, &response, callBack); callBackError != nil {
 			break
 		}
 	}
 
-	// Call callback one last time with the final finishReason and empty content
-	if finalFinishReason != "" {
-		callBackError = callBack("", finalFinishReason)
+	if finishReason != "" {
+		callBackError = callBack("", finishReason)
 		if callBackError != nil {
-			return response, finalFinishReason, callBackError
+			return response, finishReason, callBackError
 		}
 	}
 
 	if callBackError != nil {
-		return response, finalFinishReason, callBackError
+		return response, finishReason, callBackError
 	}
-	if err := stream.Err(); err != nil {
-		agent.Log.Error("Stream error: %v", err)
-		return response, finalFinishReason, err
-	}
-	if err := stream.Close(); err != nil {
-		agent.Log.Error("Stream close error: %v", err)
-		return response, finalFinishReason, err
+	if err := agent.finalizeStream(stream); err != nil {
+		return response, finishReason, err
 	}
 
-	// Only add assistant response to history if KeepConversationHistory is true and response is not empty
-	if agent.Config.KeepConversationHistory && response != "" {
-		agent.ChatCompletionParams.Messages = append(
-			agent.ChatCompletionParams.Messages,
-			openai.AssistantMessage(response),
-		)
-	}
-
-	return response, finalFinishReason, nil
+	agent.appendAssistantToHistory(response)
+	return response, finishReason, nil
 }
 
 // GenerateStreamCompletionWithReasoning executes a streaming chat completion with reasoning support
@@ -403,27 +353,10 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 	responseCallback func(partialResponse string, finishReason string) error,
 ) (response string, reasoning string, finishReason string, err error) {
 
-	// Reset cancellation flag at the start of streaming
 	agent.StreamCanceled = false
 
-	// Prepare messages for the API call
-	// If KeepConversationHistory is true, add to history permanently
-	// Otherwise, create a temporary message list for this call only
-	var messagesToSend []openai.ChatCompletionMessageParamUnion
-
-	if agent.Config.KeepConversationHistory {
-		// Add new messages to history permanently
-		agent.ChatCompletionParams.Messages = append(agent.ChatCompletionParams.Messages, messages...)
-		messagesToSend = agent.ChatCompletionParams.Messages
-	} else {
-		// Create temporary message list with system + current user messages only
-		messagesToSend = append(agent.ChatCompletionParams.Messages, messages...)
-	}
-
-	// Update params with messages for this call
 	paramsForCall := agent.ChatCompletionParams
-	paramsForCall.Messages = messagesToSend
-
+	paramsForCall.Messages = agent.prepareMessagesToSend(messages)
 	agent.SaveLastRequest()
 
 	stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, paramsForCall)
@@ -433,63 +366,27 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 	var reasoningEnded bool
 
 	for stream.Next() {
-		// Check if stream was canceled
 		if agent.StreamCanceled {
-			callBackError = errors.New("stream canceled by user")
+			callBackError = canceledError
 			break
 		}
 
 		chunk := stream.Current()
 
-		// Capture finishReason if present (even if there's no content)
 		if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != "" {
 			agent.SaveLastChunkResponse(&chunk)
 			finishReason = chunk.Choices[0].FinishReason
 		}
 
-		// Extract and stream reasoning content if available
-		if len(chunk.Choices) > 0 {
-			jsonResponse := chunk.Choices[0].Delta.RawJSON()
-			var reasoningContent struct {
-				ReasoningContent string `json:"reasoning_content"`
-			}
-			err := json.Unmarshal([]byte(jsonResponse), &reasoningContent)
-
-			if err == nil && reasoningContent.ReasoningContent != "" {
-				hasReceivedReasoning = true
-				reasoningChunk := reasoningContent.ReasoningContent
-				if reasoningChunk != "" {
-					callBackError = reasoningCallback(reasoningChunk, finishReason)
-					reasoning += reasoningChunk
-					if callBackError != nil {
-						break
-					}
-				}
-			}
+		if callBackError = processReasoningChunk(chunk, finishReason, &reasoning, &hasReceivedReasoning, reasoningCallback); callBackError != nil {
+			break
 		}
-
-		// Stream content chunk as it arrives
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			// If we had reasoning and this is the first content chunk, signal end of reasoning
-			if hasReceivedReasoning && !reasoningEnded {
-				reasoningEnded = true
-				callBackError = reasoningCallback("", "end_of_reasoning")
-				if callBackError != nil {
-					break
-				}
-			}
-
-			callBackError = responseCallback(chunk.Choices[0].Delta.Content, finishReason)
-			response += chunk.Choices[0].Delta.Content
-			if callBackError != nil {
-				break
-			}
+		if callBackError = processResponseChunk(chunk, finishReason, &response, hasReceivedReasoning, &reasoningEnded, reasoningCallback, responseCallback); callBackError != nil {
+			break
 		}
 	}
 
-	// Call callbacks one last time with the final finishReason and empty content
 	if finishReason != "" {
-		// Call response callback with empty content to signal response completion
 		callBackError = responseCallback("", finishReason)
 		if callBackError != nil {
 			return response, reasoning, finishReason, callBackError
@@ -499,23 +396,11 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 	if callBackError != nil {
 		return response, reasoning, finishReason, callBackError
 	}
-	if err := stream.Err(); err != nil {
-		agent.Log.Error("Stream error: %v", err)
-		return response, reasoning, finishReason, err
-	}
-	if err := stream.Close(); err != nil {
-		agent.Log.Error("Stream close error: %v", err)
+	if err := agent.finalizeStream(stream); err != nil {
 		return response, reasoning, finishReason, err
 	}
 
-	// Only add assistant response to history if KeepConversationHistory is true and response is not empty
-	if agent.Config.KeepConversationHistory && response != "" {
-		agent.ChatCompletionParams.Messages = append(
-			agent.ChatCompletionParams.Messages,
-			openai.AssistantMessage(response),
-		)
-	}
-
+	agent.appendAssistantToHistory(response)
 	return response, reasoning, finishReason, nil
 }
 

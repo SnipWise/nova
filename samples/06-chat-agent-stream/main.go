@@ -25,7 +25,7 @@ func main() {
 		},
 		models.Config{
 			//Name:        "ai/qwen2.5:1.5B-F16",
-			Name: "hf.co/menlo/lucy-gguf:q4_k_m",
+			Name: "huggingface.co/menlo/lucy-gguf:Q4_K_M",
 			Temperature: models.Float64(0.8),
 		},
 	)

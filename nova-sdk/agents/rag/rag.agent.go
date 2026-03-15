@@ -10,6 +10,8 @@ import (
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
+const errEmptyContent = "content cannot be empty"
+
 // VectorRecord represents a vector record with prompt and embedding
 type VectorRecord struct {
 	ID        string
@@ -114,7 +116,7 @@ func (agent *Agent) GetModelID() string {
 // GenerateEmbedding creates a vector embedding for the given text content
 func (agent *Agent) GenerateEmbedding(content string) ([]float64, error) {
 	if content == "" {
-		return nil, errors.New("content cannot be empty")
+		return nil, errors.New(errEmptyContent)
 	}
 
 	// Call before completion hook if set
@@ -140,19 +142,15 @@ func (agent *Agent) GetEmbeddingDimension() int {
 // SaveEmbedding generates and saves an embedding for the given content into the in memory agent's vector store
 func (agent *Agent) SaveEmbedding(content string) error {
 	if content == "" {
-		return errors.New("content cannot be empty")
+		return errors.New(errEmptyContent)
 	}
 
 	return agent.internalAgent.GenerateThenSaveEmbeddingVector(content)
 }
 
-// SaveEmbeddingIntoMemoryVectorStore generates and saves an embedding for the given content into the in memory agent's vector store
+// SaveEmbeddingIntoMemoryVectorStore is an alias for SaveEmbedding.
 func (agent *Agent) SaveEmbeddingIntoMemoryVectorStore(content string) error {
-	if content == "" {
-		return errors.New("content cannot be empty")
-	}
-
-	return agent.internalAgent.GenerateThenSaveEmbeddingVector(content)
+	return agent.SaveEmbedding(content)
 }
 
 func (agent *Agent) LoadStore(storeFilePath string) error {
@@ -189,7 +187,7 @@ func (agent *Agent) StoreFileExists(storeFilePath string) bool {
 // limit is the minimum cosine similarity threshold (1.0 = exact match, 0.0 = no similarity)
 func (agent *Agent) SearchSimilar(content string, limit float64) ([]VectorRecord, error) {
 	if content == "" {
-		return nil, errors.New("content cannot be empty")
+		return nil, errors.New(errEmptyContent)
 	}
 
 	results, err := agent.internalAgent.SearchSimilarities(content, limit)
@@ -217,7 +215,7 @@ func (agent *Agent) SearchSimilar(content string, limit float64) ([]VectorRecord
 // n is the maximum number of results to return
 func (agent *Agent) SearchTopN(content string, limit float64, n int) ([]VectorRecord, error) {
 	if content == "" {
-		return nil, errors.New("content cannot be empty")
+		return nil, errors.New(errEmptyContent)
 	}
 
 	if n <= 0 {

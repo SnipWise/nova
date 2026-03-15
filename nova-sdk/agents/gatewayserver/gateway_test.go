@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -194,6 +195,35 @@ func TestNonStreamingCompletion_RequestParsing(t *testing.T) {
 	}
 }
 
+// assertChatRequestMessages validates the messages of a deserialized ChatCompletionRequest.
+func assertChatRequestMessages(t *testing.T, msgs []gatewayserver.ChatCompletionMessage) {
+	t.Helper()
+	if len(msgs) != 4 {
+		t.Errorf("expected 4 messages, got %d", len(msgs))
+	}
+	if msgs[0].Role != "system" {
+		t.Errorf("expected role system, got %s", msgs[0].Role)
+	}
+	if msgs[1].Role != "user" && msgs[1].Content.String() != "Hello!" {
+		t.Error("unexpected user message")
+	}
+	if len(msgs[2].ToolCalls) != 1 {
+		t.Errorf("expected 1 tool call, got %d", len(msgs[2].ToolCalls))
+	}
+	if msgs[2].ToolCalls[0].ID != "call_1" {
+		t.Errorf("expected tool call ID call_1, got %s", msgs[2].ToolCalls[0].ID)
+	}
+	if msgs[2].ToolCalls[0].Function.Name != "get_time" {
+		t.Errorf("expected function name get_time, got %s", msgs[2].ToolCalls[0].Function.Name)
+	}
+	if msgs[3].Role != "tool" {
+		t.Errorf("expected role tool, got %s", msgs[3].Role)
+	}
+	if msgs[3].ToolCallID != "call_1" {
+		t.Errorf("expected tool_call_id call_1, got %s", msgs[3].ToolCallID)
+	}
+}
+
 func TestTypes_ChatCompletionRequest(t *testing.T) {
 	// Test that our request type correctly deserializes an OpenAI-compatible request
 	input := `{
@@ -225,30 +255,7 @@ func TestTypes_ChatCompletionRequest(t *testing.T) {
 	if !req.Stream {
 		t.Error("expected stream=true")
 	}
-	if len(req.Messages) != 4 {
-		t.Errorf("expected 4 messages, got %d", len(req.Messages))
-	}
-	if req.Messages[0].Role != "system" {
-		t.Errorf("expected role system, got %s", req.Messages[0].Role)
-	}
-	if req.Messages[1].Role != "user" && req.Messages[1].Content.String() != "Hello!" {
-		t.Error("unexpected user message")
-	}
-	if len(req.Messages[2].ToolCalls) != 1 {
-		t.Errorf("expected 1 tool call, got %d", len(req.Messages[2].ToolCalls))
-	}
-	if req.Messages[2].ToolCalls[0].ID != "call_1" {
-		t.Errorf("expected tool call ID call_1, got %s", req.Messages[2].ToolCalls[0].ID)
-	}
-	if req.Messages[2].ToolCalls[0].Function.Name != "get_time" {
-		t.Errorf("expected function name get_time, got %s", req.Messages[2].ToolCalls[0].Function.Name)
-	}
-	if req.Messages[3].Role != "tool" {
-		t.Errorf("expected role tool, got %s", req.Messages[3].Role)
-	}
-	if req.Messages[3].ToolCallID != "call_1" {
-		t.Errorf("expected tool_call_id call_1, got %s", req.Messages[3].ToolCallID)
-	}
+	assertChatRequestMessages(t, req.Messages)
 	if len(req.Tools) != 1 {
 		t.Errorf("expected 1 tool, got %d", len(req.Tools))
 	}
@@ -509,32 +516,7 @@ func TestIntegration_StreamingCompletion(t *testing.T) {
 		t.Errorf("expected Content-Type text/event-stream, got %s", ct)
 	}
 
-	// Parse SSE stream
-	scanner := bufio.NewScanner(resp.Body)
-	var chunks []gatewayserver.ChatCompletionChunk
-	gotDone := false
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" {
-			continue
-		}
-		if line == "data: [DONE]" {
-			gotDone = true
-			break
-		}
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		jsonStr := strings.TrimPrefix(line, "data: ")
-		var chunk gatewayserver.ChatCompletionChunk
-		if err := json.Unmarshal([]byte(jsonStr), &chunk); err != nil {
-			t.Logf("Skipping unparseable chunk: %s", jsonStr)
-			continue
-		}
-		chunks = append(chunks, chunk)
-	}
+	chunks, gotDone := collectSSEChunks(t, resp.Body)
 
 	if !gotDone {
 		t.Error("expected [DONE] marker in stream")
@@ -554,6 +536,36 @@ func TestIntegration_StreamingCompletion(t *testing.T) {
 			t.Errorf("expected object chat.completion.chunk, got %s", chunk.Object)
 		}
 	}
+}
+
+// collectSSEChunks reads an SSE response body, collects parsed chunks, and returns
+// whether the [DONE] marker was received.
+func collectSSEChunks(t *testing.T, body io.Reader) ([]gatewayserver.ChatCompletionChunk, bool) {
+	t.Helper()
+	scanner := bufio.NewScanner(body)
+	var chunks []gatewayserver.ChatCompletionChunk
+	gotDone := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+		if line == "data: [DONE]" {
+			gotDone = true
+			break
+		}
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		jsonStr := strings.TrimPrefix(line, "data: ")
+		var chunk gatewayserver.ChatCompletionChunk
+		if err := json.Unmarshal([]byte(jsonStr), &chunk); err != nil {
+			t.Logf("Skipping unparseable chunk: %s", jsonStr)
+			continue
+		}
+		chunks = append(chunks, chunk)
+	}
+	return chunks, gotDone
 }
 
 func TestIntegration_ModelsEndpoint(t *testing.T) {

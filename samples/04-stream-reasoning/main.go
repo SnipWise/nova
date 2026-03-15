@@ -33,7 +33,7 @@ func main() {
 			KeepConversationHistory: true,
 		},
 		openai.ChatCompletionNewParams{
-			Model:       "hf.co/menlo/lucy-gguf:q4_k_m",
+			Model:       "huggingface.co/menlo/lucy-gguf:Q4_K_M",
 			Temperature: openai.Opt(0.0),
 		},
 	)

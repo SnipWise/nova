@@ -3,62 +3,64 @@ package display
 import (
 	"fmt"
 	"strings"
+
+	"github.com/snipwise/nova/nova-sdk/ui/colors"
 )
 
-// Color codes for terminal output (same as spinner and prompt packages)
+// Color codes for terminal output (re-exported from colors package for backward compatibility).
 const (
 	// Reset and modifiers
-	ColorReset     = "\033[0m"
-	ColorBold      = "\033[1m"
-	ColorDim       = "\033[2m"
-	ColorItalic    = "\033[3m"
-	ColorUnderline = "\033[4m"
-	ColorBlink     = "\033[5m"
-	ColorReverse   = "\033[7m"
-	ColorHidden    = "\033[8m"
+	ColorReset     = colors.ColorReset
+	ColorBold      = colors.ColorBold
+	ColorDim       = colors.ColorDim
+	ColorItalic    = colors.ColorItalic
+	ColorUnderline = colors.ColorUnderline
+	ColorBlink     = colors.ColorBlink
+	ColorReverse   = colors.ColorReverse
+	ColorHidden    = colors.ColorHidden
 
 	// Standard colors
-	ColorBlack   = "\033[30m"
-	ColorRed     = "\033[31m"
-	ColorGreen   = "\033[32m"
-	ColorYellow  = "\033[33m"
-	ColorBlue    = "\033[34m"
-	ColorMagenta = "\033[35m"
-	ColorPurple  = "\033[35m" // Alias for Magenta
-	ColorCyan    = "\033[36m"
-	ColorWhite   = "\033[37m"
-	ColorGray    = "\033[90m"
+	ColorBlack   = colors.ColorBlack
+	ColorRed     = colors.ColorRed
+	ColorGreen   = colors.ColorGreen
+	ColorYellow  = colors.ColorYellow
+	ColorBlue    = colors.ColorBlue
+	ColorMagenta = colors.ColorMagenta
+	ColorPurple  = colors.ColorPurple
+	ColorCyan    = colors.ColorCyan
+	ColorWhite   = colors.ColorWhite
+	ColorGray    = colors.ColorGray
 
 	// Bright colors
-	ColorBrightBlack   = "\033[90m"
-	ColorBrightRed     = "\033[91m"
-	ColorBrightGreen   = "\033[92m"
-	ColorBrightYellow  = "\033[93m"
-	ColorBrightBlue    = "\033[94m"
-	ColorBrightMagenta = "\033[95m"
-	ColorBrightPurple  = "\033[95m" // Alias for Bright Magenta
-	ColorBrightCyan    = "\033[96m"
-	ColorBrightWhite   = "\033[97m"
+	ColorBrightBlack   = colors.ColorBrightBlack
+	ColorBrightRed     = colors.ColorBrightRed
+	ColorBrightGreen   = colors.ColorBrightGreen
+	ColorBrightYellow  = colors.ColorBrightYellow
+	ColorBrightBlue    = colors.ColorBrightBlue
+	ColorBrightMagenta = colors.ColorBrightMagenta
+	ColorBrightPurple  = colors.ColorBrightPurple
+	ColorBrightCyan    = colors.ColorBrightCyan
+	ColorBrightWhite   = colors.ColorBrightWhite
 
 	// Background colors
-	BgBlack   = "\033[40m"
-	BgRed     = "\033[41m"
-	BgGreen   = "\033[42m"
-	BgYellow  = "\033[43m"
-	BgBlue    = "\033[44m"
-	BgMagenta = "\033[45m"
-	BgCyan    = "\033[46m"
-	BgWhite   = "\033[47m"
+	BgBlack   = colors.BgBlack
+	BgRed     = colors.BgRed
+	BgGreen   = colors.BgGreen
+	BgYellow  = colors.BgYellow
+	BgBlue    = colors.BgBlue
+	BgMagenta = colors.BgMagenta
+	BgCyan    = colors.BgCyan
+	BgWhite   = colors.BgWhite
 
 	// Bright background colors
-	BgBrightBlack   = "\033[100m"
-	BgBrightRed     = "\033[101m"
-	BgBrightGreen   = "\033[102m"
-	BgBrightYellow  = "\033[103m"
-	BgBrightBlue    = "\033[104m"
-	BgBrightMagenta = "\033[105m"
-	BgBrightCyan    = "\033[106m"
-	BgBrightWhite   = "\033[107m"
+	BgBrightBlack   = colors.BgBrightBlack
+	BgBrightRed     = colors.BgBrightRed
+	BgBrightGreen   = colors.BgBrightGreen
+	BgBrightYellow  = colors.BgBrightYellow
+	BgBrightBlue    = colors.BgBrightBlue
+	BgBrightMagenta = colors.BgBrightMagenta
+	BgBrightCyan    = colors.BgBrightCyan
+	BgBrightWhite   = colors.BgBrightWhite
 )
 
 // Common symbols
@@ -75,6 +77,13 @@ const (
 	SymbolStar    = "★"
 	SymbolHeart   = "♥"
 	SymbolDiamond = "◆"
+)
+
+// Format strings for colored output
+const (
+	fmtColorLine     = "%s%s %s%s\n"  // color + symbol + text + reset (with space before text)
+	fmtColorBlock    = "%s%s%s%s\n"   // color1 + color2 + text + reset
+	fmtBlockHeaderNL = "\n%s%s%s%s\n" // leading newline + two colors + text + reset
 )
 
 // Message types
@@ -151,7 +160,7 @@ func Underlineln(message string) {
 
 // Success prints a success message with a checkmark
 func Success(message string) {
-	fmt.Printf("%s%s %s%s\n", ColorGreen, SymbolSuccess, message, ColorReset)
+	fmt.Printf(fmtColorLine, ColorGreen, SymbolSuccess, message, ColorReset)
 }
 
 // Successf prints a formatted success message
@@ -161,7 +170,7 @@ func Successf(format string, args ...any) {
 
 // Error prints an error message with a cross
 func Error(message string) {
-	fmt.Printf("%s%s %s%s\n", ColorRed, SymbolError, message, ColorReset)
+	fmt.Printf(fmtColorLine, ColorRed, SymbolError, message, ColorReset)
 }
 
 // Errorf prints a formatted error message
@@ -171,7 +180,7 @@ func Errorf(format string, args ...any) {
 
 // Warning prints a warning message with a warning symbol
 func Warning(message string) {
-	fmt.Printf("%s%s %s%s\n", ColorYellow, SymbolWarning, message, ColorReset)
+	fmt.Printf(fmtColorLine, ColorYellow, SymbolWarning, message, ColorReset)
 }
 
 // Warningf prints a formatted warning message
@@ -181,7 +190,7 @@ func Warningf(format string, args ...any) {
 
 // Info prints an info message with an info symbol
 func Info(message string) {
-	fmt.Printf("%s%s %s%s\n", ColorCyan, SymbolInfo, message, ColorReset)
+	fmt.Printf(fmtColorLine, ColorCyan, SymbolInfo, message, ColorReset)
 }
 
 // Infof prints a formatted info message
@@ -191,7 +200,7 @@ func Infof(format string, args ...any) {
 
 // Debug prints a debug message
 func Debug(message string) {
-	fmt.Printf("%s%s %s%s\n", ColorGray, SymbolDebug, message, ColorReset)
+	fmt.Printf(fmtColorLine, ColorGray, SymbolDebug, message, ColorReset)
 }
 
 // Debugf prints a formatted debug message
@@ -201,7 +210,7 @@ func Debugf(format string, args ...any) {
 
 // Header prints a header message (bold and colored)
 func Header(message string) {
-	fmt.Printf("%s%s%s%s\n", ColorBold, ColorBrightCyan, message, ColorReset)
+	fmt.Printf(fmtColorBlock, ColorBold, ColorBrightCyan, message, ColorReset)
 }
 
 // Headerf prints a formatted header message
@@ -221,7 +230,7 @@ func Subheaderf(format string, args ...any) {
 
 // Title prints a title with a separator line
 func Title(message string) {
-	fmt.Printf("\n%s%s%s%s\n", ColorBold, ColorBrightCyan, message, ColorReset)
+	fmt.Printf(fmtBlockHeaderNL, ColorBold, ColorBrightCyan, message, ColorReset)
 	fmt.Println(strings.Repeat("─", len(message)))
 }
 
@@ -252,12 +261,12 @@ func Bulletf(format string, args ...any) {
 
 // ColoredBullet prints a colored bulleted item
 func ColoredBullet(message string, color string) {
-	fmt.Printf("%s%s %s%s\n", color, SymbolBullet, message, ColorReset)
+	fmt.Printf(fmtColorLine, color, SymbolBullet, message, ColorReset)
 }
 
 // Arrow prints an arrow-prefixed message
 func Arrow(message string) {
-	fmt.Printf("%s%s %s%s\n", ColorCyan, SymbolArrow, message, ColorReset)
+	fmt.Printf(fmtColorLine, ColorCyan, SymbolArrow, message, ColorReset)
 }
 
 // Arrowf prints a formatted arrow-prefixed message
@@ -267,7 +276,7 @@ func Arrowf(format string, args ...any) {
 
 // Highlight prints a highlighted message (with background color)
 func Highlight(message string, fgColor, bgColor string) {
-	fmt.Printf("%s%s%s%s\n", bgColor, fgColor, message, ColorReset)
+	fmt.Printf(fmtColorBlock, bgColor, fgColor, message, ColorReset)
 }
 
 // Box prints a message in a box
@@ -387,7 +396,7 @@ func Indentf(level int, format string, args ...any) {
 
 // ColoredIndent prints a colored indented message
 func ColoredIndent(level int, message string, color string) {
-	fmt.Printf("%s%s%s%s\n", strings.Repeat("  ", level), color, message, ColorReset)
+	fmt.Printf(fmtColorBlock, strings.Repeat("  ", level), color, message, ColorReset)
 }
 
 // Table prints a simple 2-column table row

@@ -35,7 +35,7 @@ func main() {
 		},
 
 		models.Config{
-			Name:              "hf.co/menlo/jan-nano-gguf:q4_k_m",
+			Name:              "huggingface.co/menlo/lucy-gguf:Q4_K_M",
 			Temperature:       models.Float64(0.0),
 			ParallelToolCalls: models.Bool(false),
 		},

@@ -97,19 +97,19 @@ type Logger interface {
 type NoOpLogger struct{}
 
 // Debug does nothing
-func (n *NoOpLogger) Debug(msg string, args ...interface{}) {}
+func (n *NoOpLogger) Debug(msg string, args ...interface{}) { /* intentionally empty */ }
 
 // Info does nothing
-func (n *NoOpLogger) Info(msg string, args ...interface{}) {}
+func (n *NoOpLogger) Info(msg string, args ...interface{}) { /* intentionally empty */ }
 
 // Warn does nothing
-func (n *NoOpLogger) Warn(msg string, args ...interface{}) {}
+func (n *NoOpLogger) Warn(msg string, args ...interface{}) { /* intentionally empty */ }
 
 // Error does nothing
-func (n *NoOpLogger) Error(msg string, args ...interface{}) {}
+func (n *NoOpLogger) Error(msg string, args ...interface{}) { /* intentionally empty */ }
 
 // SetLevel does nothing
-func (n *NoOpLogger) SetLevel(level LogLevel) {}
+func (n *NoOpLogger) SetLevel(level LogLevel) { /* intentionally empty */ }
 
 // GetLevel returns LevelNone
 func (n *NoOpLogger) GetLevel() LogLevel {

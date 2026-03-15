@@ -20,6 +20,8 @@ import (
 
 // GatewayServerAgent exposes an OpenAI-compatible API (POST /v1/chat/completions)
 // backed by a N.O.V.A. crew of agents. External clients see a single "model".
+const msgOpenAIEndpoint = "📡 OpenAI-compatible endpoint: POST /v1/chat/completions"
+
 type GatewayServerAgent struct {
 	ctx context.Context
 	log logger.Logger
@@ -385,18 +387,18 @@ func (agent *GatewayServerAgent) StartServer() error {
 			TLSConfig: tlsConfig,
 		}
 		agent.log.Info("🔒 Gateway server started on https://localhost%s", agent.port)
-		agent.log.Info("📡 OpenAI-compatible endpoint: POST /v1/chat/completions")
+		agent.log.Info(msgOpenAIEndpoint)
 		return server.ListenAndServeTLS("", "")
 	} else if agent.tlsCertPath != "" && agent.tlsKeyPath != "" {
 		// HTTPS mode with certificate files
 		agent.log.Info("🔒 Gateway server started on https://localhost%s", agent.port)
-		agent.log.Info("📡 OpenAI-compatible endpoint: POST /v1/chat/completions")
+		agent.log.Info(msgOpenAIEndpoint)
 		return http.ListenAndServeTLS(agent.port, agent.tlsCertPath, agent.tlsKeyPath, handler)
 	}
 
 	// Default HTTP mode (backward compatible)
 	agent.log.Info("🚀 Gateway server started on http://localhost%s", agent.port)
-	agent.log.Info("📡 OpenAI-compatible endpoint: POST /v1/chat/completions")
+	agent.log.Info(msgOpenAIEndpoint)
 	return http.ListenAndServe(agent.port, handler)
 }
 

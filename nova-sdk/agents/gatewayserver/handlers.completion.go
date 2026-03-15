@@ -14,6 +14,12 @@ import (
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 )
 
+const (
+	handlerContentType = "Content-Type"
+	handlerMIMEJSON    = "application/json"
+	handlerSSEData     = "data: %s\n\n"
+)
+
 // HandleChatCompletionsForTest exposes handleChatCompletions for testing.
 func (agent *GatewayServerAgent) HandleChatCompletionsForTest(w http.ResponseWriter, r *http.Request) {
 	agent.handleChatCompletions(w, r)
@@ -61,31 +67,11 @@ func (agent *GatewayServerAgent) handleChatCompletions(w http.ResponseWriter, r 
 	}
 
 	// Process request through the agent execution order chain
-	// Each handler returns true if it handled the request, false otherwise
-	for _, executionType := range agent.agentExecutionOrder {
-		var handled bool
-
-		switch executionType {
-		case AgentExecutionClientSideTools:
-			// Client-side tool execution: detect tool calls and return them to client
-			handled = agent.handleClientSideToolDetection(w, r, req)
-
-		case AgentExecutionServerSideTools:
-			// Server-side tool execution: execute tools and continue completion
-			handled = agent.handleServerSideToolExecution(w, r, req)
-
-		case AgentExecutionOrchestrator:
-			// Orchestrator: detect topic and route to appropriate agent
-			handled = agent.handleOrchestration(lastUserMessage)
+	if agent.dispatchToHandler(w, r, req, lastUserMessage) {
+		if agent.afterCompletion != nil {
+			agent.afterCompletion(agent)
 		}
-
-		// If this handler processed the request, we're done
-		if handled {
-			if agent.afterCompletion != nil {
-				agent.afterCompletion(agent)
-			}
-			return
-		}
+		return
 	}
 
 	// No specialized handler processed the request, use default completion
@@ -99,6 +85,26 @@ func (agent *GatewayServerAgent) handleChatCompletions(w http.ResponseWriter, r 
 	if agent.afterCompletion != nil {
 		agent.afterCompletion(agent)
 	}
+}
+
+// dispatchToHandler iterates over agentExecutionOrder and returns true as soon
+// as one handler claims the request, false if none did.
+func (agent *GatewayServerAgent) dispatchToHandler(w http.ResponseWriter, r *http.Request, req ChatCompletionRequest, lastUserMessage string) bool {
+	for _, executionType := range agent.agentExecutionOrder {
+		var handled bool
+		switch executionType {
+		case AgentExecutionClientSideTools:
+			handled = agent.handleClientSideToolDetection(w, r, req)
+		case AgentExecutionServerSideTools:
+			handled = agent.handleServerSideToolExecution(w, r, req)
+		case AgentExecutionOrchestrator:
+			handled = agent.handleOrchestration(lastUserMessage)
+		}
+		if handled {
+			return true
+		}
+	}
+	return false
 }
 
 // handleNonStreamingCompletion generates a complete JSON response.
@@ -147,7 +153,7 @@ func (agent *GatewayServerAgent) handleNonStreamingCompletion(w http.ResponseWri
 		Usage: agent.estimateUsage(req.Messages, fullResponse),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(handlerContentType, handlerMIMEJSON)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		agent.log.Error("Failed to encode completion response: %v", err)
 	}
@@ -277,56 +283,7 @@ func (agent *GatewayServerAgent) executeToolsAndEnrichContext(req ChatCompletion
 
 	agent.toolsAgent.ResetMessages()
 
-	var toolCallsResult *toolCallResultWrapper
-	var err error
-
-	modelConfig := agent.toolsAgent.GetModelConfig()
-	isParallel := modelConfig.ParallelToolCalls != nil && *modelConfig.ParallelToolCalls
-
-	// Execute tools based on parallel/sequential mode
-	// Note: We don't pass nil callbacks - let toolsAgent use its own configured callbacks
-	if isParallel {
-		if agent.confirmationFn != nil && agent.executeFn != nil {
-			result, e := agent.toolsAgent.DetectParallelToolCallsWithConfirmation(historyMessages, agent.executeFn, agent.confirmationFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else if agent.executeFn != nil {
-			result, e := agent.toolsAgent.DetectParallelToolCalls(historyMessages, agent.executeFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else if agent.confirmationFn != nil {
-			// Only confirmation callback, pass it
-			result, e := agent.toolsAgent.DetectParallelToolCallsWithConfirmation(historyMessages, agent.confirmationFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else {
-			// No callbacks from gateway, use toolsAgent's configured callbacks
-			result, e := agent.toolsAgent.DetectParallelToolCalls(historyMessages)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		}
-	} else {
-		if agent.confirmationFn != nil && agent.executeFn != nil {
-			result, e := agent.toolsAgent.DetectToolCallsLoopWithConfirmation(historyMessages, agent.executeFn, agent.confirmationFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else if agent.executeFn != nil {
-			result, e := agent.toolsAgent.DetectToolCallsLoop(historyMessages, agent.executeFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else if agent.confirmationFn != nil {
-			// Only confirmation callback, pass it
-			result, e := agent.toolsAgent.DetectToolCallsLoopWithConfirmation(historyMessages, agent.confirmationFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else {
-			// No callbacks from gateway, use toolsAgent's configured callbacks
-			result, e := agent.toolsAgent.DetectToolCallsLoop(historyMessages)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		}
-	}
-
+	toolCallsResult, err := agent.dispatchToolCalls(historyMessages)
 	if err != nil {
 		return false, fmt.Errorf("tool execution failed: %w", err)
 	}
@@ -381,56 +338,7 @@ func (agent *GatewayServerAgent) handleAutoExecuteCompletion(w http.ResponseWrit
 
 	agent.toolsAgent.ResetMessages()
 
-	var toolCallsResult *toolCallResultWrapper
-	var err error
-
-	modelConfig := agent.toolsAgent.GetModelConfig()
-	isParallel := modelConfig.ParallelToolCalls != nil && *modelConfig.ParallelToolCalls
-
-	// Execute tools based on parallel/sequential mode
-	// Only pass non-nil callbacks from gateway - otherwise let toolsAgent use its own configured callbacks
-	if isParallel {
-		if agent.confirmationFn != nil && agent.executeFn != nil {
-			result, e := agent.toolsAgent.DetectParallelToolCallsWithConfirmation(historyMessages, agent.executeFn, agent.confirmationFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else if agent.executeFn != nil {
-			result, e := agent.toolsAgent.DetectParallelToolCalls(historyMessages, agent.executeFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else if agent.confirmationFn != nil {
-			// Only confirmation callback, pass it
-			result, e := agent.toolsAgent.DetectParallelToolCallsWithConfirmation(historyMessages, agent.confirmationFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else {
-			// No callbacks from gateway, use toolsAgent's configured callbacks
-			result, e := agent.toolsAgent.DetectParallelToolCalls(historyMessages)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		}
-	} else {
-		if agent.confirmationFn != nil && agent.executeFn != nil {
-			result, e := agent.toolsAgent.DetectToolCallsLoopWithConfirmation(historyMessages, agent.executeFn, agent.confirmationFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else if agent.executeFn != nil {
-			result, e := agent.toolsAgent.DetectToolCallsLoop(historyMessages, agent.executeFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else if agent.confirmationFn != nil {
-			// Only confirmation callback, pass it
-			result, e := agent.toolsAgent.DetectToolCallsLoopWithConfirmation(historyMessages, agent.confirmationFn)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		} else {
-			// No callbacks from gateway, use toolsAgent's configured callbacks
-			result, e := agent.toolsAgent.DetectToolCallsLoop(historyMessages)
-			toolCallsResult = &toolCallResultWrapper{result: result}
-			err = e
-		}
-	}
-
+	toolCallsResult, err := agent.dispatchToolCalls(historyMessages)
 	if err != nil {
 		agent.writeAPIError(w, http.StatusInternalServerError, "server_error", fmt.Sprintf("Tool execution failed: %v", err))
 		agent.cleanupToolState()
@@ -446,42 +354,7 @@ func (agent *GatewayServerAgent) handleAutoExecuteCompletion(w http.ResponseWrit
 		}
 	}
 
-	// Check if we should generate a completion
-	if agent.shouldGenerateCompletion() {
-		if req.Stream {
-			agent.handleStreamingCompletion(w, r, req)
-		} else {
-			agent.handleNonStreamingCompletion(w, r, req)
-		}
-	} else {
-		// Tools handled everything; return empty response
-		completionID := generateCompletionID()
-		content := ""
-		if toolCallsResult != nil && toolCallsResult.result != nil && toolCallsResult.result.LastAssistantMessage != "" {
-			content = toolCallsResult.result.LastAssistantMessage
-		}
-		finishReason := "stop"
-		response := ChatCompletionResponse{
-			ID:      completionID,
-			Object:  "chat.completion",
-			Created: time.Now().Unix(),
-			Model:   agent.resolveModelName(req.Model),
-			Choices: []ChatCompletionChoice{
-				{
-					Index: 0,
-					Message: ChatCompletionMessage{
-						Role:    "assistant",
-						Content: NewMessageContent(content),
-					},
-					FinishReason: &finishReason,
-				},
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			agent.log.Error("Failed to encode tool result response: %v", err)
-		}
-	}
+	agent.sendCompletionOrToolResponse(w, r, req, toolCallsResult)
 
 	agent.cleanupToolState()
 }
@@ -496,7 +369,7 @@ type toolCallResultWrapper struct {
 
 // setupSSEHeaders configures SSE streaming headers and returns the flusher.
 func (agent *GatewayServerAgent) setupSSEHeaders(w http.ResponseWriter) (http.Flusher, error) {
-	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set(handlerContentType, "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -537,7 +410,7 @@ func (agent *GatewayServerAgent) writeStreamChunk(
 		return
 	}
 
-	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
+	if _, err := fmt.Fprintf(w, handlerSSEData, string(jsonData)); err != nil {
 		agent.log.Error("Failed to write stream chunk: %v", err)
 		return
 	}
@@ -575,7 +448,7 @@ func (agent *GatewayServerAgent) writeStreamToolCalls(
 		return
 	}
 
-	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
+	if _, err := fmt.Fprintf(w, handlerSSEData, string(jsonData)); err != nil {
 		agent.log.Error("Failed to write tool calls chunk: %v", err)
 		return
 	}
@@ -693,7 +566,7 @@ func (agent *GatewayServerAgent) cleanupToolState() {
 
 // writeAPIError writes an OpenAI-compatible error response.
 func (agent *GatewayServerAgent) writeAPIError(w http.ResponseWriter, statusCode int, errorType string, message string) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(handlerContentType, handlerMIMEJSON)
 	w.WriteHeader(statusCode)
 	apiErr := APIError{
 		Error: APIErrorDetail{

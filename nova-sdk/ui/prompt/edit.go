@@ -7,8 +7,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"time"
-	"unicode"
 )
 
 // Terminal control sequences
@@ -86,63 +84,35 @@ func disableRawMode(restoreCmd *exec.Cmd) {
 
 // editLine provides an interactive line editor with arrow key support
 func editLine(prompt string, defaultValue string, cursorStyle CursorStyle) (string, error) {
-	// Enable raw mode
 	restoreCmd, err := enableRawMode()
 	if err != nil {
 		return "", err
 	}
 	defer disableRawMode(restoreCmd)
 
-	// Print prompt and save the position
 	fmt.Print(prompt)
-	fmt.Print(saveCursor) // Save cursor position after prompt
-
-	// Hide the system cursor since we're drawing our own
+	fmt.Print(saveCursor)
 	fmt.Print(hideCursor)
 	defer fmt.Print(showCursor)
 
-	// Initialize with default value if provided
 	buffer := []rune(defaultValue)
 	cursor := len(buffer)
 
-	// Cursor blinking state
 	var cursorVisible bool = true
 	var cursorMutex sync.Mutex
-	var stopBlink chan bool
 
-	// Start cursor blinking if needed
-	if cursorStyle == CursorBlockBlink || cursorStyle == CursorUnderlineBlink {
-		stopBlink = make(chan bool)
-		go func() {
-			ticker := time.NewTicker(500 * time.Millisecond)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					cursorMutex.Lock()
-					cursorVisible = !cursorVisible
-					renderLine(buffer, cursor, cursorVisible, cursorStyle)
-					cursorMutex.Unlock()
-				case <-stopBlink:
-					return
-				}
-			}
-		}()
-	}
-
-	// Render the initial line
-	renderLine(buffer, cursor, cursorVisible, cursorStyle)
-
-	// Read input byte by byte
-	inputBuf := make([]byte, 1)
-	escapeSeq := make([]byte, 0, 10)
-	inEscape := false
-
+	stopBlink := startBlinker(cursorStyle, &buffer, &cursor, &cursorVisible, &cursorMutex)
 	defer func() {
 		if stopBlink != nil {
 			close(stopBlink)
 		}
 	}()
+
+	renderLine(buffer, cursor, cursorVisible, cursorStyle)
+
+	inputBuf := make([]byte, 1)
+	escapeSeq := make([]byte, 0, 10)
+	inEscape := false
 
 	for {
 		n, err := os.Stdin.Read(inputBuf)
@@ -151,127 +121,31 @@ func editLine(prompt string, defaultValue string, cursorStyle CursorStyle) (stri
 		}
 
 		b := inputBuf[0]
-
-		// Reset cursor visibility on any keypress
 		cursorMutex.Lock()
 		cursorVisible = true
 
-		// Handle escape sequences
-		if inEscape {
-			escapeSeq = append(escapeSeq, b)
-
-			// Check if we have a complete escape sequence
-			if len(escapeSeq) >= 2 {
-				seq := string(escapeSeq)
-
-				// Arrow keys and other special keys
-				if strings.HasPrefix(seq, "[") {
-					switch {
-					case strings.HasSuffix(seq, "D"): // Left arrow
-						if cursor > 0 {
-							cursor--
-						}
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-
-					case strings.HasSuffix(seq, "C"): // Right arrow
-						if cursor < len(buffer) {
-							cursor++
-						}
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-
-					case strings.HasSuffix(seq, "H"): // Home
-						cursor = 0
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-
-					case strings.HasSuffix(seq, "F"): // End
-						cursor = len(buffer)
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-
-					case strings.HasSuffix(seq, "~"): // Delete, Page Up/Down, etc.
-						if strings.HasPrefix(seq, "[3~") { // Delete
-							if cursor < len(buffer) {
-								buffer = append(buffer[:cursor], buffer[cursor+1:]...)
-							}
-						}
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-					}
-				}
-			}
-
+		escResult := processEscapeInput(b, &inEscape, &escapeSeq, buffer, cursor)
+		if escResult.handled {
+			buffer, cursor = escResult.buffer, escResult.cursor
 			renderLine(buffer, cursor, cursorVisible, cursorStyle)
 			cursorMutex.Unlock()
 			continue
 		}
 
-		// Check for escape sequence start
-		if b == 0x1b { // ESC
-			inEscape = true
-			escapeSeq = escapeSeq[:0]
-			cursorMutex.Unlock()
-			continue
-		}
+		result := processControlKey(b, buffer, cursor)
+		buffer, cursor = result.buffer, result.cursor
 
-		// Handle special characters
-		switch b {
-		case 0x03: // Ctrl+C
+		if result.ctrlC {
 			cursorMutex.Unlock()
 			fmt.Println()
 			disableRawMode(restoreCmd)
 			os.Exit(0)
+		}
 
-		case 0x04: // Ctrl+D (EOF)
-			if len(buffer) == 0 {
-				cursorMutex.Unlock()
-				fmt.Println()
-				return "", fmt.Errorf("EOF")
-			}
-
-		case 0x0d, 0x0a: // Enter (CR or LF)
+		if result.done {
 			cursorMutex.Unlock()
 			fmt.Println()
-			return string(buffer), nil
-
-		case 0x7f, 0x08: // Backspace or Delete
-			if cursor > 0 {
-				buffer = append(buffer[:cursor-1], buffer[cursor:]...)
-				cursor--
-			}
-
-		case 0x01: // Ctrl+A (Home)
-			cursor = 0
-
-		case 0x05: // Ctrl+E (End)
-			cursor = len(buffer)
-
-		case 0x02: // Ctrl+B (Left)
-			if cursor > 0 {
-				cursor--
-			}
-
-		case 0x06: // Ctrl+F (Right)
-			if cursor < len(buffer) {
-				cursor++
-			}
-
-		case 0x0b: // Ctrl+K (Kill line from cursor)
-			buffer = buffer[:cursor]
-
-		case 0x15: // Ctrl+U (Kill line before cursor)
-			buffer = buffer[cursor:]
-			cursor = 0
-
-		default:
-			// Insert printable characters
-			if unicode.IsPrint(rune(b)) {
-				// Insert at cursor position
-				buffer = append(buffer[:cursor], append([]rune{rune(b)}, buffer[cursor:]...)...)
-				cursor++
-			}
+			return result.output, result.err
 		}
 
 		renderLine(buffer, cursor, cursorVisible, cursorStyle)
@@ -281,45 +155,18 @@ func editLine(prompt string, defaultValue string, cursorStyle CursorStyle) (stri
 
 // renderLine renders the current line with the cursor at the correct position
 func renderLine(buffer []rune, cursor int, cursorVisible bool, cursorStyle CursorStyle) {
-	// Restore cursor position (after the prompt) and clear from there to end of line
 	fmt.Print(restoreCursor + clearToEnd)
 
-	// Display text before cursor
 	if cursor > 0 {
 		fmt.Print(string(buffer[:cursor]))
 	}
 
-	// Display cursor based on style and visibility
 	if cursorVisible || (cursorStyle != CursorBlockBlink && cursorStyle != CursorUnderlineBlink) {
-		switch cursorStyle {
-		case CursorBlock, CursorBlockBlink:
-			if cursor < len(buffer) {
-				// Show cursor as inverse video (background highlight) of the character
-				fmt.Printf("\033[7m%c\033[0m", buffer[cursor])
-			} else {
-				// Cursor at the end - show a block cursor
-				fmt.Print("\033[7m \033[0m")
-			}
-
-		case CursorUnderline, CursorUnderlineBlink:
-			if cursor < len(buffer) {
-				// Show cursor as underlined character
-				fmt.Printf("\033[4m%c\033[0m", buffer[cursor])
-			} else {
-				// Cursor at the end - show an underscore
-				fmt.Print("\033[4m \033[0m")
-			}
-		}
+		renderCursorChar(buffer, cursor, cursorStyle)
 	} else {
-		// Cursor is hidden (for blinking effect) - just print the character without styling
-		if cursor < len(buffer) {
-			fmt.Printf("%c", buffer[cursor])
-		} else {
-			fmt.Print(" ")
-		}
+		renderHiddenCursorChar(buffer, cursor)
 	}
 
-	// Print remaining text after cursor
 	if cursor+1 < len(buffer) {
 		fmt.Print(string(buffer[cursor+1:]))
 	}
@@ -385,7 +232,7 @@ func (i *ColorInput) RunWithEdit() (string, error) {
 		fmt.Print(ColorReset) // Reset color after input
 
 		if err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+			return "", fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input

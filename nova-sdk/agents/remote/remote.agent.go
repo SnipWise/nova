@@ -144,7 +144,7 @@ func (agent *Agent) GetModelsInfo() (*ModelsInfo, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf(errServerStatus, resp.StatusCode, string(body))
 	}
 
 	var info ModelsInfo
@@ -165,7 +165,7 @@ func (agent *Agent) GetHealth() (*HealthStatus, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf(errServerStatus, resp.StatusCode, string(body))
 	}
 
 	var health HealthStatus
@@ -352,24 +352,15 @@ func (agent *Agent) GenerateStreamCompletion(
 		agent.beforeCompletion(agent)
 	}
 
-	// Combine all user messages into one (server expects a single message)
-	var messageContent strings.Builder
-	for i, msg := range userMessages {
-		if i > 0 {
-			messageContent.WriteString("\n")
-		}
-		messageContent.WriteString(msg.Content)
-	}
-
 	requestBody := map[string]interface{}{
 		"data": map[string]string{
-			"message": messageContent.String(),
+			"message": buildMessageContent(userMessages),
 		},
 	}
 
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf(errMarshalRequest, err)
 	}
 
 	req, err := http.NewRequestWithContext(
@@ -379,98 +370,30 @@ func (agent *Agent) GenerateStreamCompletion(
 		bytes.NewBuffer(jsonBody),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf(errCreateRequest, err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(remoteContentType, remoteMIMEJSON)
 	req.Header.Set("Accept", "text/event-stream")
 
 	resp, err := agent.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf(errSendRequest, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf(errServerStatus, resp.StatusCode, string(body))
 	}
 
-	// Parse SSE stream
 	scanner := bufio.NewScanner(resp.Body)
 	var fullResponse strings.Builder
 	var lastFinishReason string
 
 	for scanner.Scan() {
-		line := scanner.Text()
-
-		// SSE format: "data: {json}"
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "" {
-			continue
-		}
-
-		var event map[string]interface{}
-		if err := json.Unmarshal([]byte(data), &event); err != nil {
-			agent.log.Error("Failed to parse SSE event: %v", err)
-			continue
-		}
-
-		// Handle different event types
-		if kind, ok := event["kind"].(string); ok && kind == "tool_call" {
-			// Tool call notification - display operation details
-			operationID := ""
-			if id, ok := event["operation_id"].(string); ok {
-				operationID = id
-			}
-			message := ""
-			if msg, ok := event["message"].(string); ok {
-				message = msg
-			}
-
-			// Log the tool call notification
-			agent.log.Info("\n🔔 Tool Call Detected: %s", message)
-			agent.log.Info("📝 Operation ID: %s", operationID)
-			agent.log.Info("✅ To validate: curl -X POST http://localhost:8080/operation/validate -d '{\"operation_id\":\"%s\"}'", operationID)
-			agent.log.Info("⛔️ To cancel:   curl -X POST http://localhost:8080/operation/cancel -d '{\"operation_id\":\"%s\"}'\n", operationID)
-
-			// Call the tool call callback if set
-			if agent.toolCallCallback != nil {
-				if err := agent.toolCallCallback(operationID, message); err != nil {
-					return nil, err
-				}
-			}
-
-			continue
-		}
-
-		// Handle message chunks
-		if message, ok := event["message"].(string); ok {
-			fullResponse.WriteString(message)
-			if callback != nil {
-				finishReason := ""
-				if fr, ok := event["finish_reason"].(string); ok {
-					finishReason = fr
-					lastFinishReason = fr
-				}
-				if err := callback(message, finishReason); err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		// Handle finish reason
-		if fr, ok := event["finish_reason"].(string); ok {
-			lastFinishReason = fr
-		}
-
-		// Handle errors
-		if errMsg, ok := event["error"].(string); ok {
-			return nil, fmt.Errorf("server error: %s", errMsg)
+		if err := agent.processSingleSSELine(scanner.Text(), callback, &fullResponse, &lastFinishReason); err != nil {
+			return nil, err
 		}
 	}
 
@@ -533,7 +456,7 @@ func (agent *Agent) ValidateOperation(operationID string) error {
 
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+		return fmt.Errorf(errMarshalRequest, err)
 	}
 
 	req, err := http.NewRequestWithContext(
@@ -543,20 +466,20 @@ func (agent *Agent) ValidateOperation(operationID string) error {
 		bytes.NewBuffer(jsonBody),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf(errCreateRequest, err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(remoteContentType, remoteMIMEJSON)
 
 	resp, err := agent.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return fmt.Errorf(errSendRequest, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf(errServerStatus, resp.StatusCode, string(body))
 	}
 
 	agent.log.Info("✅ Operation %s validated successfully", operationID)
@@ -575,7 +498,7 @@ func (agent *Agent) CancelOperation(operationID string) error {
 
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+		return fmt.Errorf(errMarshalRequest, err)
 	}
 
 	req, err := http.NewRequestWithContext(
@@ -585,20 +508,20 @@ func (agent *Agent) CancelOperation(operationID string) error {
 		bytes.NewBuffer(jsonBody),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf(errCreateRequest, err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(remoteContentType, remoteMIMEJSON)
 
 	resp, err := agent.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return fmt.Errorf(errSendRequest, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf(errServerStatus, resp.StatusCode, string(body))
 	}
 
 	agent.log.Info("⛔️ Operation %s cancelled successfully", operationID)
@@ -614,18 +537,18 @@ func (agent *Agent) ResetOperations() error {
 		nil,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf(errCreateRequest, err)
 	}
 
 	resp, err := agent.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return fmt.Errorf(errSendRequest, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf(errServerStatus, resp.StatusCode, string(body))
 	}
 
 	agent.log.Info("🔄 All pending operations reset successfully")

@@ -12,6 +12,8 @@ import (
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
+const errNoMessages = "no messages provided"
+
 // CompletionResult represents the result of a chat completion
 type CompletionResult struct {
 	Response     string
@@ -189,7 +191,7 @@ func (agent *Agent) AddMessages(msgs []messages.Message) {
 // GenerateCompletion sends messages and returns the completion result
 func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*CompletionResult, error) {
 	if len(userMessages) == 0 {
-		return nil, errors.New("no messages provided")
+		return nil, errors.New(errNoMessages)
 	}
 
 	/* Pre and Post Directives
@@ -239,7 +241,7 @@ func (agent *Agent) GenerateCompletion(userMessages []messages.Message) (*Comple
 // GenerateCompletionWithReasoning sends messages and returns the completion result with reasoning
 func (agent *Agent) GenerateCompletionWithReasoning(userMessages []messages.Message) (*ReasoningResult, error) {
 	if len(userMessages) == 0 {
-		return nil, errors.New("no messages provided")
+		return nil, errors.New(errNoMessages)
 	}
 
 	/* Pre and Post Directives
@@ -293,7 +295,7 @@ func (agent *Agent) GenerateStreamCompletion(
 	callback StreamCallback,
 ) (*CompletionResult, error) {
 	if len(userMessages) == 0 {
-		return nil, errors.New("no messages provided")
+		return nil, errors.New(errNoMessages)
 	}
 
 	/* Pre and Post Directives
@@ -327,9 +329,6 @@ func (agent *Agent) GenerateStreamCompletion(
 		return nil, err
 	}
 
-	// NOTE: The assistant response is already added to history in BaseAgent.GenerateStreamCompletion
-	// when KeepConversationHistory is true, so we don't need to add it again here
-
 	result := &CompletionResult{
 		Response:     response,
 		FinishReason: finishReason,
@@ -350,7 +349,7 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 	responseCallback StreamCallback,
 ) (*ReasoningResult, error) {
 	if len(userMessages) == 0 {
-		return nil, errors.New("no messages provided")
+		return nil, errors.New(errNoMessages)
 	}
 
 	/* Pre and Post Directives
@@ -387,9 +386,6 @@ func (agent *Agent) GenerateStreamCompletionWithReasoning(
 	if err != nil {
 		return nil, err
 	}
-
-	// NOTE: The assistant response is already added to history in BaseAgent.GenerateStreamCompletionWithReasoning
-	// when KeepConversationHistory is true, so we don't need to add it again here
 
 	result := &ReasoningResult{
 		Response:     response,
