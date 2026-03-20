@@ -119,7 +119,7 @@ func (agent *ServerAgent) executePlanHTTP(
 
 	// Stream plan summary
 	planSummary := agent.formatPlanSummary(plan)
-	agent.writeSSEChunk(w, flusher, planSummary)
+	agent.WriteSSEChunk(w, flusher, planSummary)
 
 	// Execute each task in order
 	var accumulatedResults []string
@@ -127,7 +127,7 @@ func (agent *ServerAgent) executePlanHTTP(
 	for _, task := range plan.Tasks {
 		agent.Log.Info("▶️  Executing task %s: %s (responsible: %s)", task.ID, task.Description, task.Responsible)
 
-		agent.writeSSEChunk(w, flusher, fmt.Sprintf("\n---\n**Task %s**: %s\n", task.ID, task.Description))
+		agent.WriteSSEChunk(w, flusher, fmt.Sprintf("\n---\n**Task %s**: %s\n", task.ID, task.Description))
 
 		var result string
 		var taskErr error
@@ -135,7 +135,7 @@ func (agent *ServerAgent) executePlanHTTP(
 		// Use a callback that streams to SSE
 		sseCallback := func(chunk string, finishReason string) error {
 			if chunk != "" {
-				agent.writeSSEChunk(w, flusher, chunk)
+				agent.WriteSSEChunk(w, flusher, chunk)
 			}
 			return nil
 		}
@@ -151,7 +151,7 @@ func (agent *ServerAgent) executePlanHTTP(
 
 		if taskErr != nil {
 			agent.Log.Error("Error executing task %s: %v", task.ID, taskErr)
-			agent.writeSSEChunk(w, flusher, fmt.Sprintf("\n**Error on task %s**: %s\n", task.ID, taskErr.Error()))
+			agent.WriteSSEChunk(w, flusher, fmt.Sprintf("\n**Error on task %s**: %s\n", task.ID, taskErr.Error()))
 			accumulatedResults = append(accumulatedResults, fmt.Sprintf("Task %s (%s): ERROR - %s", task.ID, task.Description, taskErr.Error()))
 			continue
 		}
@@ -160,8 +160,8 @@ func (agent *ServerAgent) executePlanHTTP(
 		agent.Log.Info("✅ Task %s completed", task.ID)
 	}
 
-	agent.writeSSEChunk(w, flusher, "\n---\n**All tasks completed.**\n")
-	agent.writeSSEFinish(w, flusher)
+	agent.WriteSSEChunk(w, flusher, "\n---\n**All tasks completed.**\n")
+	agent.WriteSSEFinish(w, flusher)
 
 	// Preserve conversation history: add the original question and a summary
 	// of all task results so the chat agent remembers this exchange.

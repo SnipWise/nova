@@ -27,7 +27,7 @@ func main() {
 			You are B.O.B, an AI assistant created by SnipWise.
 			`,
 		},
-		models.NewConfig("hf.co/menlo/jan-nano-gguf:q4_k_m").
+		models.NewConfig("huggingface.co/menlo/lucy-gguf:Q4_K_M").
 			//models.NewConfig("ai/qwen2.5:1.5B-F16").
 			WithTemperature(0.8),
 	)

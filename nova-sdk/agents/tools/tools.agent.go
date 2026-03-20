@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"reflect"
-
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
@@ -15,6 +13,11 @@ import (
 	"github.com/snipwise/nova/nova-sdk/models"
 	"github.com/snipwise/nova/nova-sdk/toolbox/conversion"
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
+)
+
+const (
+	errNoMessages     = "no messages provided"
+	errNoToolCallback = "no tool callback provided: either pass toolCallback parameter or set it via WithExecuteFn option"
 )
 
 // ToolCallResult represents the result of tool call detection
@@ -102,8 +105,6 @@ func WithMCPTools(tools []mcp.Tool) ToolAgentOption {
 		params.Tools = mcptools.ConvertMCPToolsToOpenAITools(tools)
 	}
 }
-
-// TODO: WithMCPToolsWithFilter
 
 // NewAgent creates a new simplified tools agent
 func NewAgent(
@@ -210,7 +211,6 @@ func (agent *Agent) AddMessages(msgs []messages.Message) {
 	agent.internalAgent.AddMessages(openaiMessages)
 }
 
-// NOTE: IMPORTANT: Not all LLMs with tool support support parallel tool calls.
 // DetectParallelToolCalls detects and executes multiple tool calls in parallel
 // The toolCallback parameter is optional. If not provided, uses the callback set via WithExecuteFn option.
 func (agent *Agent) DetectParallelToolCalls(
@@ -218,7 +218,7 @@ func (agent *Agent) DetectParallelToolCalls(
 	toolCallback ...ToolCallback,
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
-		return nil, errors.New("no messages provided")
+		return nil, errors.New(errNoMessages)
 	}
 
 	// Determine which callback to use: parameter takes priority over option
@@ -228,7 +228,7 @@ func (agent *Agent) DetectParallelToolCalls(
 	} else if agent.executeFunction != nil {
 		callback = agent.executeFunction
 	} else {
-		return nil, errors.New("no tool callback provided: either pass toolCallback parameter or set it via WithExecuteFn option")
+		return nil, errors.New(errNoToolCallback)
 	}
 
 	// Call before completion hook if set
@@ -269,7 +269,6 @@ func (agent *Agent) DetectParallelToolCalls(
 	return result, nil
 }
 
-// NOTE: IMPORTANT: Not all LLMs with tool support support parallel tool calls.
 // DetectParallelToolCallsWithConfirmation detects and executes multiple tool calls with user confirmation
 // Optional callbacks can be provided in order: toolCallback, confirmationCallback
 // Usage:
@@ -281,72 +280,18 @@ func (agent *Agent) DetectParallelToolCallsWithConfirmation(
 	callbacks ...any,
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
-		return nil, errors.New("no messages provided")
+		return nil, errors.New(errNoMessages)
 	}
 
 	// Extract callbacks by position (order matters!)
-	var callback ToolCallback
-	var confirmation ConfirmationCallback
-
-	// First parameter (if provided) is toolCallback
-	if len(callbacks) >= 1 && callbacks[0] != nil {
-		// Try type alias first
-		if tc, ok := callbacks[0].(ToolCallback); ok {
-			callback = tc
-		} else {
-			// Try underlying function type (type aliases may not work in type assertions)
-			v := reflect.ValueOf(callbacks[0])
-			if v.Kind() == reflect.Func {
-				// Check signature matches: func(string, string) (string, error)
-				t := v.Type()
-				if t.NumIn() == 2 && t.NumOut() == 2 &&
-					t.In(0).Kind() == reflect.String && t.In(1).Kind() == reflect.String &&
-					t.Out(0).Kind() == reflect.String {
-					// Convert to ToolCallback via direct assignment
-					if fn, ok := callbacks[0].(func(string, string) (string, error)); ok {
-						callback = fn
-					}
-				}
-			}
-		}
-	}
-	// Use option if not provided as parameter
-	if callback == nil {
-		if agent.executeFunction != nil {
-			callback = agent.executeFunction
-		} else {
-			return nil, errors.New("no tool callback provided: either pass ToolCallback parameter or set it via WithExecuteFn option")
-		}
+	callback, err := extractToolCallback(callbacks, 0, agent.executeFunction)
+	if err != nil {
+		return nil, err
 	}
 
-	// Second parameter (if provided) is confirmationCallback
-	if len(callbacks) >= 2 && callbacks[1] != nil {
-		// Try type alias first
-		if cc, ok := callbacks[1].(ConfirmationCallback); ok {
-			confirmation = cc
-		} else {
-			// Try underlying function type
-			v := reflect.ValueOf(callbacks[1])
-			if v.Kind() == reflect.Func {
-				// Check signature matches: func(string, string) ConfirmationResponse
-				t := v.Type()
-				if t.NumIn() == 2 && t.NumOut() == 1 &&
-					t.In(0).Kind() == reflect.String && t.In(1).Kind() == reflect.String {
-					// Convert to ConfirmationCallback via direct assignment
-					if fn, ok := callbacks[1].(func(string, string) ConfirmationResponse); ok {
-						confirmation = fn
-					}
-				}
-			}
-		}
-	}
-	// Use option if not provided as parameter
-	if confirmation == nil {
-		if agent.confirmationPromptFunction != nil {
-			confirmation = agent.confirmationPromptFunction
-		} else {
-			return nil, errors.New("no confirmation callback provided: either pass ConfirmationCallback parameter or set it via WithConfirmationPromptFn option")
-		}
+	confirmation, err := extractConfirmationCallback(callbacks, 1, agent.confirmationPromptFunction)
+	if err != nil {
+		return nil, err
 	}
 
 	// Call before completion hook if set
@@ -399,7 +344,7 @@ func (agent *Agent) DetectToolCallsLoop(
 	toolCallback ...ToolCallback,
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
-		return nil, errors.New("no messages provided")
+		return nil, errors.New(errNoMessages)
 	}
 
 	// Determine which callback to use: parameter takes priority over option
@@ -409,7 +354,7 @@ func (agent *Agent) DetectToolCallsLoop(
 	} else if agent.executeFunction != nil {
 		callback = agent.executeFunction
 	} else {
-		return nil, errors.New("no tool callback provided: either pass toolCallback parameter or set it via WithExecuteFn option")
+		return nil, errors.New(errNoToolCallback)
 	}
 
 	// Call before completion hook if set
@@ -463,72 +408,18 @@ func (agent *Agent) DetectToolCallsLoopWithConfirmation(
 	callbacks ...any,
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
-		return nil, errors.New("no messages provided")
+		return nil, errors.New(errNoMessages)
 	}
 
 	// Extract callbacks by position (order matters!)
-	var callback ToolCallback
-	var confirmation ConfirmationCallback
-
-	// First parameter (if provided) is toolCallback
-	if len(callbacks) >= 1 && callbacks[0] != nil {
-		// Try type alias first
-		if tc, ok := callbacks[0].(ToolCallback); ok {
-			callback = tc
-		} else {
-			// Try underlying function type (type aliases may not work in type assertions)
-			v := reflect.ValueOf(callbacks[0])
-			if v.Kind() == reflect.Func {
-				// Check signature matches: func(string, string) (string, error)
-				t := v.Type()
-				if t.NumIn() == 2 && t.NumOut() == 2 &&
-					t.In(0).Kind() == reflect.String && t.In(1).Kind() == reflect.String &&
-					t.Out(0).Kind() == reflect.String {
-					// Convert to ToolCallback via direct assignment
-					if fn, ok := callbacks[0].(func(string, string) (string, error)); ok {
-						callback = fn
-					}
-				}
-			}
-		}
-	}
-	// Use option if not provided as parameter
-	if callback == nil {
-		if agent.executeFunction != nil {
-			callback = agent.executeFunction
-		} else {
-			return nil, errors.New("no tool callback provided: either pass ToolCallback parameter or set it via WithExecuteFn option")
-		}
+	callback, err := extractToolCallback(callbacks, 0, agent.executeFunction)
+	if err != nil {
+		return nil, err
 	}
 
-	// Second parameter (if provided) is confirmationCallback
-	if len(callbacks) >= 2 && callbacks[1] != nil {
-		// Try type alias first
-		if cc, ok := callbacks[1].(ConfirmationCallback); ok {
-			confirmation = cc
-		} else {
-			// Try underlying function type
-			v := reflect.ValueOf(callbacks[1])
-			if v.Kind() == reflect.Func {
-				// Check signature matches: func(string, string) ConfirmationResponse
-				t := v.Type()
-				if t.NumIn() == 2 && t.NumOut() == 1 &&
-					t.In(0).Kind() == reflect.String && t.In(1).Kind() == reflect.String {
-					// Convert to ConfirmationCallback via direct assignment
-					if fn, ok := callbacks[1].(func(string, string) ConfirmationResponse); ok {
-						confirmation = fn
-					}
-				}
-			}
-		}
-	}
-	// Use option if not provided as parameter
-	if confirmation == nil {
-		if agent.confirmationPromptFunction != nil {
-			confirmation = agent.confirmationPromptFunction
-		} else {
-			return nil, errors.New("no confirmation callback provided: either pass ConfirmationCallback parameter or set it via WithConfirmationPromptFn option")
-		}
+	confirmation, err := extractConfirmationCallback(callbacks, 1, agent.confirmationPromptFunction)
+	if err != nil {
+		return nil, err
 	}
 
 	// Call before completion hook if set
@@ -583,7 +474,7 @@ func (agent *Agent) DetectToolCallsLoopStream(
 	toolCallback ...ToolCallback,
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
-		return nil, errors.New("no messages provided")
+		return nil, errors.New(errNoMessages)
 	}
 
 	if streamCallback == nil {
@@ -597,7 +488,7 @@ func (agent *Agent) DetectToolCallsLoopStream(
 	} else if agent.executeFunction != nil {
 		callback = agent.executeFunction
 	} else {
-		return nil, errors.New("no tool callback provided: either pass toolCallback parameter or set it via WithExecuteFn option")
+		return nil, errors.New(errNoToolCallback)
 	}
 
 	// Call before completion hook if set
@@ -654,7 +545,7 @@ func (agent *Agent) DetectToolCallsLoopWithConfirmationStream(
 	callbacks ...any,
 ) (*ToolCallResult, error) {
 	if len(userMessages) == 0 {
-		return nil, errors.New("no messages provided")
+		return nil, errors.New(errNoMessages)
 	}
 
 	if streamCallback == nil {
@@ -662,68 +553,14 @@ func (agent *Agent) DetectToolCallsLoopWithConfirmationStream(
 	}
 
 	// Extract callbacks by position (order matters!)
-	var callback ToolCallback
-	var confirmation ConfirmationCallback
-
-	// First parameter (if provided) is toolCallback
-	if len(callbacks) >= 1 && callbacks[0] != nil {
-		// Try type alias first
-		if tc, ok := callbacks[0].(ToolCallback); ok {
-			callback = tc
-		} else {
-			// Try underlying function type (type aliases may not work in type assertions)
-			v := reflect.ValueOf(callbacks[0])
-			if v.Kind() == reflect.Func {
-				// Check signature matches: func(string, string) (string, error)
-				t := v.Type()
-				if t.NumIn() == 2 && t.NumOut() == 2 &&
-					t.In(0).Kind() == reflect.String && t.In(1).Kind() == reflect.String &&
-					t.Out(0).Kind() == reflect.String {
-					// Convert to ToolCallback via direct assignment
-					if fn, ok := callbacks[0].(func(string, string) (string, error)); ok {
-						callback = fn
-					}
-				}
-			}
-		}
-	}
-	// Use option if not provided as parameter
-	if callback == nil {
-		if agent.executeFunction != nil {
-			callback = agent.executeFunction
-		} else {
-			return nil, errors.New("no tool callback provided: either pass ToolCallback parameter or set it via WithExecuteFn option")
-		}
+	callback, err := extractToolCallback(callbacks, 0, agent.executeFunction)
+	if err != nil {
+		return nil, err
 	}
 
-	// Second parameter (if provided) is confirmationCallback
-	if len(callbacks) >= 2 && callbacks[1] != nil {
-		// Try type alias first
-		if cc, ok := callbacks[1].(ConfirmationCallback); ok {
-			confirmation = cc
-		} else {
-			// Try underlying function type
-			v := reflect.ValueOf(callbacks[1])
-			if v.Kind() == reflect.Func {
-				// Check signature matches: func(string, string) ConfirmationResponse
-				t := v.Type()
-				if t.NumIn() == 2 && t.NumOut() == 1 &&
-					t.In(0).Kind() == reflect.String && t.In(1).Kind() == reflect.String {
-					// Convert to ConfirmationCallback via direct assignment
-					if fn, ok := callbacks[1].(func(string, string) ConfirmationResponse); ok {
-						confirmation = fn
-					}
-				}
-			}
-		}
-	}
-	// Use option if not provided as parameter
-	if confirmation == nil {
-		if agent.confirmationPromptFunction != nil {
-			confirmation = agent.confirmationPromptFunction
-		} else {
-			return nil, errors.New("no confirmation callback provided: either pass ConfirmationCallback parameter or set it via WithConfirmationPromptFn option")
-		}
+	confirmation, err := extractConfirmationCallback(callbacks, 1, agent.confirmationPromptFunction)
+	if err != nil {
+		return nil, err
 	}
 
 	// Call before completion hook if set

@@ -222,6 +222,46 @@ func (rvs *RedisVectorStore) SearchTopNSimilarities(embeddingFromQuestion Vector
 	return getTopNVectorRecords(records, max), nil
 }
 
+// parseScoreField converts a raw Redis "score" field value to cosine similarity.
+// Redis COSINE distance = 1 - cosine_similarity, so similarity = 1.0 - distance.
+func parseScoreField(raw interface{}) (float64, bool) {
+	scoreStr, ok := raw.(string)
+	if !ok {
+		return 0, false
+	}
+	distance, err := strconv.ParseFloat(scoreStr, 64)
+	if err != nil {
+		return 0, false
+	}
+	return 1.0 - distance, true
+}
+
+// parseDocumentFields parses the flat field-value pairs returned by FT.SEARCH
+// for a single document and returns the populated VectorRecord.
+func parseDocumentFields(id string, fields []interface{}) VectorRecord {
+	record := VectorRecord{Id: id}
+	for j := 0; j < len(fields); j += 2 {
+		if j+1 >= len(fields) {
+			break
+		}
+		fieldName, ok := fields[j].(string)
+		if !ok {
+			continue
+		}
+		switch fieldName {
+		case "prompt":
+			if prompt, ok := fields[j+1].(string); ok {
+				record.Prompt = prompt
+			}
+		case "score":
+			if similarity, ok := parseScoreField(fields[j+1]); ok {
+				record.CosineSimilarity = similarity
+			}
+		}
+	}
+	return record
+}
+
 // parseSearchResults parses the FT.SEARCH result and converts it to VectorRecord slice
 func (rvs *RedisVectorStore) parseSearchResults(result interface{}, similarityLimit float64) ([]VectorRecord, error) {
 	resultArray, ok := result.([]interface{})
@@ -229,72 +269,27 @@ func (rvs *RedisVectorStore) parseSearchResults(result interface{}, similarityLi
 		return []VectorRecord{}, nil
 	}
 
-	// First element is the count
 	count, ok := resultArray[0].(int64)
-	if !ok {
-		return []VectorRecord{}, nil
-	}
-
-	if count == 0 {
+	if !ok || count == 0 {
 		return []VectorRecord{}, nil
 	}
 
 	records := make([]VectorRecord, 0)
 
-	// Parse results (skip first element which is count)
+	// Results come as pairs: [key, fields, key, fields, ...]  (first element is count)
 	for i := 1; i < len(resultArray); i += 2 {
 		if i+1 >= len(resultArray) {
 			break
 		}
-
-		// resultArray[i] is the document key (e.g., "doc:uuid")
 		docKey, ok := resultArray[i].(string)
 		if !ok {
 			continue
 		}
-
-		// Extract ID from key
-		id := strings.TrimPrefix(docKey, "doc:")
-
-		// resultArray[i+1] is an array of field-value pairs
 		fields, ok := resultArray[i+1].([]interface{})
 		if !ok {
 			continue
 		}
-
-		record := VectorRecord{
-			Id: id,
-		}
-
-		// Parse fields (they come as: field1, value1, field2, value2, ...)
-		for j := 0; j < len(fields); j += 2 {
-			if j+1 >= len(fields) {
-				break
-			}
-
-			fieldName, ok := fields[j].(string)
-			if !ok {
-				continue
-			}
-
-			switch fieldName {
-			case "prompt":
-				if prompt, ok := fields[j+1].(string); ok {
-					record.Prompt = prompt
-				}
-			case "score":
-				if scoreStr, ok := fields[j+1].(string); ok {
-					if distance, err := strconv.ParseFloat(scoreStr, 64); err == nil {
-						// Convert Redis distance to cosine similarity
-						// For COSINE metric: distance = 1 - cosine_similarity
-						similarity := 1.0 - distance
-						record.CosineSimilarity = similarity
-					}
-				}
-			}
-		}
-
-		// Filter by similarity limit
+		record := parseDocumentFields(strings.TrimPrefix(docKey, "doc:"), fields)
 		if record.CosineSimilarity >= similarityLimit {
 			records = append(records, record)
 		}

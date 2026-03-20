@@ -7,60 +7,9 @@ import (
 	"strings"
 )
 
-// Color codes for terminal output (same as spinner package)
 const (
-	// Reset and modifiers
-	ColorReset     = "\033[0m"
-	ColorBold      = "\033[1m"
-	ColorDim       = "\033[2m"
-	ColorItalic    = "\033[3m"
-	ColorUnderline = "\033[4m"
-	ColorBlink     = "\033[5m"
-	ColorReverse   = "\033[7m"
-	ColorHidden    = "\033[8m"
-
-	// Standard colors
-	ColorBlack   = "\033[30m"
-	ColorRed     = "\033[31m"
-	ColorGreen   = "\033[32m"
-	ColorYellow  = "\033[33m"
-	ColorBlue    = "\033[34m"
-	ColorMagenta = "\033[35m"
-	ColorPurple  = "\033[35m" // Alias for Magenta
-	ColorCyan    = "\033[36m"
-	ColorWhite   = "\033[37m"
-	ColorGray    = "\033[90m"
-
-	// Bright colors
-	ColorBrightBlack   = "\033[90m"
-	ColorBrightRed     = "\033[91m"
-	ColorBrightGreen   = "\033[92m"
-	ColorBrightYellow  = "\033[93m"
-	ColorBrightBlue    = "\033[94m"
-	ColorBrightMagenta = "\033[95m"
-	ColorBrightPurple  = "\033[95m" // Alias for Bright Magenta
-	ColorBrightCyan    = "\033[96m"
-	ColorBrightWhite   = "\033[97m"
-
-	// Background colors
-	BgBlack   = "\033[40m"
-	BgRed     = "\033[41m"
-	BgGreen   = "\033[42m"
-	BgYellow  = "\033[43m"
-	BgBlue    = "\033[44m"
-	BgMagenta = "\033[45m"
-	BgCyan    = "\033[46m"
-	BgWhite   = "\033[47m"
-
-	// Bright background colors
-	BgBrightBlack   = "\033[100m"
-	BgBrightRed     = "\033[101m"
-	BgBrightGreen   = "\033[102m"
-	BgBrightYellow  = "\033[103m"
-	BgBrightBlue    = "\033[104m"
-	BgBrightMagenta = "\033[105m"
-	BgBrightCyan    = "\033[106m"
-	BgBrightWhite   = "\033[107m"
+	fmtPromptLine = "%s%s %s%s\n"
+	errNoChoices  = "no choices available"
 )
 
 // ColorInput represents a user input prompt with color support
@@ -178,7 +127,7 @@ func (i *ColorInput) Run() (string, error) {
 		fmt.Print(ColorReset) // Reset color after input
 
 		if err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+			return "", fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input
@@ -192,7 +141,7 @@ func (i *ColorInput) Run() (string, error) {
 		// Validate if a validator is set
 		if i.validator != nil {
 			if err := i.validator(input); err != nil {
-				fmt.Printf("%s%s %s%s\n", i.errorColor, i.errorSymbol, err.Error(), ColorReset)
+				fmt.Printf(fmtPromptLine, i.errorColor, i.errorSymbol, err.Error(), ColorReset)
 				continue
 			}
 		}
@@ -296,7 +245,7 @@ func (c *ColorConfirm) Run() (bool, error) {
 		// Read user input
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return false, fmt.Errorf("error reading input: %w", err)
+			return false, fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input
@@ -407,16 +356,9 @@ func (s *ColorSelect) SetSymbols(prompt, defaultMark, error string) *ColorSelect
 	return s
 }
 
-// Run displays the selection prompt and returns the selected value
-func (s *ColorSelect) Run() (string, error) {
-	if len(s.choices) == 0 {
-		return "", fmt.Errorf("no choices available")
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-
-	// Display choices
-	fmt.Printf("%s%s %s%s\n", s.messageColor, s.promptSymbol, s.message, ColorReset)
+// displayChoices prints the numbered list of colored choices for the ColorSelect prompt.
+func (s *ColorSelect) displayChoices() {
+	fmt.Printf(fmtPromptLine, s.messageColor, s.promptSymbol, s.message, ColorReset)
 	for i, choice := range s.choices {
 		prefix := fmt.Sprintf("%s%d)%s", s.numberColor, i+1, ColorReset)
 		if choice.Value == s.defaultValue {
@@ -430,6 +372,17 @@ func (s *ColorSelect) Run() (string, error) {
 				s.choiceColor, choice.Label, ColorReset)
 		}
 	}
+}
+
+// Run displays the selection prompt and returns the selected value
+func (s *ColorSelect) Run() (string, error) {
+	if len(s.choices) == 0 {
+		return "", fmt.Errorf(errNoChoices)
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	s.displayChoices()
 
 	for {
 		// Display the prompt
@@ -444,7 +397,7 @@ func (s *ColorSelect) Run() (string, error) {
 		// Read user input
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+			return "", fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input
@@ -565,24 +518,20 @@ func (s *ColorSelectKey) SetSymbols(prompt, defaultMark, error string) *ColorSel
 	return s
 }
 
-// Run displays the selection prompt and returns the selected value
-func (s *ColorSelectKey) Run() (string, error) {
-	if len(s.choices) == 0 {
-		return "", fmt.Errorf("no choices available")
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-
-	// Build valid keys map
+// buildValidKeys returns a lowercase-keyed lookup map and an ordered key list.
+func (s *ColorSelectKey) buildValidKeys() (map[string]string, []string) {
 	validKeys := make(map[string]string)
 	var keyList []string
 	for _, choice := range s.choices {
 		validKeys[strings.ToLower(choice.Value)] = choice.Value
 		keyList = append(keyList, choice.Value)
 	}
+	return validKeys, keyList
+}
 
-	// Display message and choices
-	fmt.Printf("%s%s %s%s\n", s.messageColor, s.promptSymbol, s.message, ColorReset)
+// displayKeyChoices prints the colored list of key-based choices.
+func (s *ColorSelectKey) displayKeyChoices() {
+	fmt.Printf(fmtPromptLine, s.messageColor, s.promptSymbol, s.message, ColorReset)
 	for _, choice := range s.choices {
 		if choice.Value == s.defaultValue {
 			fmt.Printf("  %s%s)%s %s%s%s %s%s%s\n",
@@ -595,6 +544,18 @@ func (s *ColorSelectKey) Run() (string, error) {
 				s.choiceColor, choice.Label, ColorReset)
 		}
 	}
+}
+
+// Run displays the selection prompt and returns the selected value
+func (s *ColorSelectKey) Run() (string, error) {
+	if len(s.choices) == 0 {
+		return "", fmt.Errorf(errNoChoices)
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	validKeys, keyList := s.buildValidKeys()
+	s.displayKeyChoices()
 
 	for {
 		// Display the prompt
@@ -609,7 +570,7 @@ func (s *ColorSelectKey) Run() (string, error) {
 		// Read user input
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+			return "", fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input
@@ -716,16 +677,9 @@ func (m *ColorMultiChoice) SetSymbols(prompt, defaultMark, error string) *ColorM
 	return m
 }
 
-// Run displays the multi-choice prompt and returns the selected values
-func (m *ColorMultiChoice) Run() ([]string, error) {
-	if len(m.choices) == 0 {
-		return nil, fmt.Errorf("no choices available")
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-
-	// Display choices
-	fmt.Printf("%s%s %s%s\n", m.messageColor, m.promptSymbol, m.message, ColorReset)
+// displayChoices prints the numbered list of colored choices for the ColorMultiChoice prompt.
+func (m *ColorMultiChoice) displayChoices() {
+	fmt.Printf(fmtPromptLine, m.messageColor, m.promptSymbol, m.message, ColorReset)
 	for i, choice := range m.choices {
 		prefix := fmt.Sprintf("%s%d)%s", m.numberColor, i+1, ColorReset)
 		isDefault := false
@@ -746,6 +700,17 @@ func (m *ColorMultiChoice) Run() ([]string, error) {
 				m.choiceColor, choice.Label, ColorReset)
 		}
 	}
+}
+
+// Run displays the multi-choice prompt and returns the selected values
+func (m *ColorMultiChoice) Run() ([]string, error) {
+	if len(m.choices) == 0 {
+		return nil, fmt.Errorf(errNoChoices)
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	m.displayChoices()
 
 	for {
 		// Display the prompt
@@ -755,7 +720,7 @@ func (m *ColorMultiChoice) Run() ([]string, error) {
 		// Read user input
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return nil, fmt.Errorf("error reading input: %w", err)
+			return nil, fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input

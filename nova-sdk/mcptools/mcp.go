@@ -106,7 +106,6 @@ func (c *MCPClient) GetTools() []mcp.Tool {
 	return c.ToolsResult.Tools
 }
 
-// IMPORTANT: TODO: TO BE TESTED
 // GetToolsWithFilter returns only the tools that match the provided filter names
 func (c *MCPClient) GetToolsWithFilter(toolsFilter []string) []mcp.Tool {
 	// Create a set for quick lookup of allowed tool names
@@ -135,31 +134,6 @@ func (c *MCPClient) Close() error {
 	}
 	return nil
 }
-
-// CallTool executes a tool call with the given function name and JSON arguments
-// func (c *MCPClient) CallTool(ctx context.Context, functionName string, arguments string) (*mcp.CallToolResult, error) {
-
-// 	// Parse the tool arguments from JSON string
-// 	var args map[string]any
-// 	args, _ = conversion.JsonStringToMap(arguments)
-// 	// TODO: check if this is useful for the request
-
-// 	// NOTE: Call the MCP tool with the arguments
-// 	request := mcp.CallToolRequest{}
-// 	request.Params.Name = functionName
-// 	request.Params.Arguments = args
-
-// 	// NOTE: Call the tool using the MCP client
-// 	toolResponse, err := c.mcpclient.CallTool(ctx, request)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("error calling tool %s: %w", functionName, err)
-// 	}
-// 	if toolResponse == nil || len(toolResponse.Content) == 0 {
-// 		return nil, fmt.Errorf("no content returned from tool %s", functionName)
-// 	}
-
-// 	return toolResponse, nil
-// }
 
 func (c *MCPClient) ExecToolWithMap(functionName string, input map[string]any) (string, error) {
 	// NOTE: Call the MCP tool with the arguments

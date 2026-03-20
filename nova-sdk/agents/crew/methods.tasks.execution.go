@@ -1,13 +1,11 @@
 package crew
 
 import (
-	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/chat"
-	"github.com/snipwise/nova/nova-sdk/messages"
+	"github.com/snipwise/nova/nova-sdk/agents/serverbase"
 	"github.com/snipwise/nova/nova-sdk/messages/roles"
 )
 
@@ -41,7 +39,7 @@ func (agent *CrewAgent) executePlanCLI(
 
 	agent.log.Info("📋 Plan identified with %d tasks", len(plan.Tasks))
 
-	planSummary := formatPlanSummary(plan)
+	planSummary := serverbase.FormatPlanSummary(plan)
 	callback(planSummary, "tasks_plan_identified")
 
 	var accumulatedResults []string
@@ -80,7 +78,7 @@ func (agent *CrewAgent) executePlanCLI(
 	// Preserve conversation history: add the original question and a summary
 	// of all task results so the chat agent remembers this exchange.
 	agent.currentChatAgent.AddMessage(roles.User, question)
-	agent.currentChatAgent.AddMessage(roles.Assistant, buildTaskContext(accumulatedResults))
+	agent.currentChatAgent.AddMessage(roles.Assistant, serverbase.BuildTaskContext(accumulatedResults))
 
 	return true, nil
 }
@@ -91,61 +89,7 @@ func (agent *CrewAgent) executeToolTask(
 	previousResults []string,
 	callback chat.StreamCallback,
 ) (string, error) {
-	if agent.toolsAgent == nil {
-		return "", fmt.Errorf("tools agent not configured, cannot execute tool task: %s", task.ToolName)
-	}
-
-	agent.toolsAgent.ResetMessages()
-
-	contextMessage := buildTaskContext(previousResults)
-
-	toolMessage := fmt.Sprintf("Execute the following task: %s", task.Description)
-	if task.ToolName != "" {
-		argsJSON, _ := json.Marshal(task.Arguments)
-		toolMessage = fmt.Sprintf("Call the tool '%s' with arguments: %s\nTask description: %s",
-			task.ToolName, string(argsJSON), task.Description)
-	}
-
-	var toolMessages []messages.Message
-	if contextMessage != "" {
-		toolMessages = append(toolMessages, messages.Message{
-			Role:    roles.System,
-			Content: "Context from previous tasks:\n" + contextMessage,
-		})
-	}
-	toolMessages = append(toolMessages, messages.Message{
-		Role:    roles.User,
-		Content: toolMessage,
-	})
-
-	toolCallsResult, err := agent.toolsAgent.DetectToolCallsLoopWithConfirmation(
-		toolMessages,
-		agent.executeFn,
-		agent.confirmationPromptFn,
-	)
-	if err != nil {
-		return "", err
-	}
-
-	if len(toolCallsResult.Results) > 0 {
-		result := toolCallsResult.LastAssistantMessage
-		if result == "" {
-			result = strings.Join(toolCallsResult.Results, "\n")
-		}
-
-		agent.currentChatAgent.AddMessage(roles.System, fmt.Sprintf("Tool execution result for task '%s': %s", task.Description, result))
-		callback(fmt.Sprintf("\nTool result: %s\n", result), "tool_task_completed")
-
-		agent.toolsAgent.ResetLastStateToolCalls()
-		agent.toolsAgent.ResetMessages()
-
-		return result, nil
-	}
-
-	agent.toolsAgent.ResetLastStateToolCalls()
-	agent.toolsAgent.ResetMessages()
-
-	return "No tool execution result", nil
+	return serverbase.ExecuteToolTask(agent.currentChatAgent, agent.toolsAgent, task, previousResults, agent.executeFn, agent.confirmationPromptFn, callback)
 }
 
 // executeCompletionTask executes a "completion" or "developer" task via the current chat agent.
@@ -155,53 +99,5 @@ func (agent *CrewAgent) executeCompletionTask(
 	originalQuestion string,
 	callback chat.StreamCallback,
 ) (string, error) {
-	contextMessage := buildTaskContext(previousResults)
-
-	prompt := fmt.Sprintf("Task: %s", task.Description)
-	if contextMessage != "" {
-		prompt = fmt.Sprintf("Context from previous tasks:\n%s\n\nOriginal request: %s\n\nCurrent task: %s",
-			contextMessage, originalQuestion, task.Description)
-	}
-
-	if contextMessage != "" {
-		agent.currentChatAgent.AddMessage(roles.System, "Context from previous tasks:\n"+contextMessage)
-	}
-
-	var fullResponse string
-	_, err := agent.currentChatAgent.GenerateStreamCompletion(
-		[]messages.Message{
-			{Role: roles.User, Content: prompt},
-		},
-		func(chunk string, finishReason string) error {
-			fullResponse += chunk
-			return callback(chunk, finishReason)
-		},
-	)
-	if err != nil {
-		return "", err
-	}
-
-	return fullResponse, nil
-}
-
-// buildTaskContext creates a context string from accumulated task results
-func buildTaskContext(results []string) string {
-	if len(results) == 0 {
-		return ""
-	}
-	return strings.Join(results, "\n---\n")
-}
-
-// formatPlanSummary creates a human-readable summary of the plan
-func formatPlanSummary(plan *agents.Plan) string {
-	var sb strings.Builder
-	sb.WriteString("**Plan identified:**\n")
-	for _, task := range plan.Tasks {
-		dependsOn := ""
-		if len(task.DependsOn) > 0 {
-			dependsOn = fmt.Sprintf(" (depends on: %s)", strings.Join(task.DependsOn, ", "))
-		}
-		fmt.Fprintf(&sb, "- **%s.** [%s] %s%s\n", task.ID, task.Responsible, task.Description, dependsOn)
-	}
-	return sb.String()
+	return serverbase.ExecuteCompletionTask(agent.currentChatAgent, task, previousResults, originalQuestion, callback)
 }

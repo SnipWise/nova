@@ -419,98 +419,28 @@ func documentExistsInStore(store stores.VectorStore, prompt string) (bool, error
 // agent creation to save the initialized data to disk. Redis stores persist automatically.
 func WithDocuments(documents []string, mode ...DocumentLoadMode) AgentOption {
 	return func(agent *BaseAgent) {
-		// Determine the load mode (default to Merge)
 		loadMode := DocumentLoadModeMerge
 		if len(mode) > 0 {
 			loadMode = mode[0]
 		}
 
-		// Check if store already contains data
 		existingRecords, err := agent.store.GetAll()
 		if err != nil {
 			agent.log.Error("Failed to check existing store data: %v", err)
 			return
 		}
 
-		hasExistingData := len(existingRecords) > 0
-
-		// Handle different load modes
-		switch loadMode {
-		case DocumentLoadModeError:
-			if hasExistingData {
-				agent.log.Error("Store already contains data and DocumentLoadModeError is set")
-				return
-			}
-
-		case DocumentLoadModeSkip:
-			if hasExistingData {
-				agent.log.Debug("Store already contains data, skipping document loading (DocumentLoadModeSkip)")
-				return
-			}
-
-		case DocumentLoadModeSkipDuplicates:
-			// Check each document individually and skip only duplicates
-			if hasExistingData {
-				agent.log.Debug("Checking documents individually for duplicates (DocumentLoadModeSkipDuplicates)")
-			}
-
-		case DocumentLoadModeOverwrite:
-			if hasExistingData {
-				// Clear existing data if the store supports it
-				if resettable, ok := agent.store.(interface{ ResetMemory() error }); ok {
-					if err := resettable.ResetMemory(); err != nil {
-						agent.log.Error("Failed to reset store: %v", err)
-						return
-					}
-					agent.log.Debug("Store cleared (DocumentLoadModeOverwrite)")
-				} else {
-					agent.log.Warn("Store does not support reset, cannot overwrite existing data")
-					return
-				}
-			}
-
-		case DocumentLoadModeMerge:
-			// Default behavior - just add to existing data
-			if hasExistingData {
-				agent.log.Debug("Merging documents with existing data (DocumentLoadModeMerge)")
-			}
+		if !applyLoadModePolicy(agent, loadMode, len(existingRecords) > 0) {
+			return
 		}
 
-		// Load documents
 		agent.log.Debug("Loading %d documents into store", len(documents))
-		skippedCount := 0
-		addedCount := 0
+		addedCount, skippedCount := loadDocumentsIntoStore(agent, documents, loadMode)
 
-		for idx, doc := range documents {
-			// Check for duplicates if in SkipDuplicates mode
-			if loadMode == DocumentLoadModeSkipDuplicates {
-				exists, err := documentExistsInStore(agent.store, doc)
-				if err != nil {
-					agent.log.Error("Failed to check document existence for document %d: %v", idx, err)
-					continue
-				}
-				if exists {
-					agent.log.Debug("Document %d already exists, skipping (duplicate)", idx)
-					skippedCount++
-					continue
-				}
-			}
-
-			// Save the document
-			if err := agent.GenerateThenSaveEmbeddingVector(doc); err != nil {
-				agent.log.Error("Failed to save embedding for document %d: %v", idx, err)
-			} else {
-				agent.log.Debug("Successfully saved embedding for document %d", idx)
-				addedCount++
-			}
-		}
-
-		// Log summary if in SkipDuplicates mode
 		if loadMode == DocumentLoadModeSkipDuplicates {
 			agent.log.Debug("Document loading complete: %d added, %d skipped (duplicates)", addedCount, skippedCount)
 		}
 
-		// Track the number of documents added for automatic persistence
 		agent.documentsAddedCount = addedCount
 	}
 }

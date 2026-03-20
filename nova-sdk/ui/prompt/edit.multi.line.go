@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 )
 
 // MultiLineEditor represents a multi-line text editor state
@@ -282,231 +281,84 @@ func renderMultiLine(editor *MultiLineEditor, previousRenderedLines int, previou
 	return len(editor.lines), editor.cursorLine
 }
 
-// renderLineWithCursor renders a single line with the cursor
+// renderLineWithCursor renders a single line with the cursor.
+// Cursor rendering delegates to renderCursorChar / renderHiddenCursorChar (edit.render.go).
 func renderLineWithCursor(line []rune, cursorCol int, cursorVisible bool, cursorStyle CursorStyle) {
-	// Display text before cursor
 	if cursorCol > 0 {
 		fmt.Print(string(line[:cursorCol]))
 	}
-
-	// Display cursor based on style and visibility
 	if cursorVisible || (cursorStyle != CursorBlockBlink && cursorStyle != CursorUnderlineBlink) {
-		switch cursorStyle {
-		case CursorBlock, CursorBlockBlink:
-			if cursorCol < len(line) {
-				// Show cursor as inverse video (background highlight) of the character
-				fmt.Printf("\033[7m%c\033[0m", line[cursorCol])
-			} else {
-				// Cursor at the end - show a block cursor
-				fmt.Print("\033[7m \033[0m")
-			}
-
-		case CursorUnderline, CursorUnderlineBlink:
-			if cursorCol < len(line) {
-				// Show cursor as underlined character
-				fmt.Printf("\033[4m%c\033[0m", line[cursorCol])
-			} else {
-				// Cursor at the end - show an underscore
-				fmt.Print("\033[4m \033[0m")
-			}
-		}
+		renderCursorChar(line, cursorCol, cursorStyle)
 	} else {
-		// Cursor is hidden (for blinking effect) - just print the character without styling
-		if cursorCol < len(line) {
-			fmt.Printf("%c", line[cursorCol])
-		} else {
-			fmt.Print(" ")
-		}
+		renderHiddenCursorChar(line, cursorCol)
 	}
-
-	// Print remaining text after cursor
 	if cursorCol+1 < len(line) {
 		fmt.Print(string(line[cursorCol+1:]))
 	}
 }
 
-// editMultiLine provides an interactive multi-line editor
+// editMultiLine provides an interactive multi-line editor.
+// Input reading, escape dispatch, and control key handling are delegated to
+// helpers in edit.multi.line.keys.go.
 func editMultiLine(prompt string, defaultValue string, cursorStyle CursorStyle) (string, error) {
-	// Enable raw mode
 	restoreCmd, err := enableRawMode()
 	if err != nil {
 		return "", err
 	}
 	defer disableRawMode(restoreCmd)
 
-	// Print prompt
 	fmt.Print(prompt)
-
-	// Hide the system cursor since we're drawing our own
 	fmt.Print(hideCursor)
 	defer fmt.Print(showCursor)
 
-	// Create editor
 	editor := NewMultiLineEditor(defaultValue, cursorStyle)
-
-	// Start cursor blinking if needed
 	editor.StartBlinking()
 	defer editor.StopBlinking()
 
-	// Track state from last render
 	var linesRendered, cursorLineAfterRender int
-
-	// Render the initial state
 	linesRendered, cursorLineAfterRender = renderMultiLine(editor, 0, 0)
 
-	// Channel to receive input bytes
-	inputChan := make(chan byte)
-	go func() {
-		inputBuf := make([]byte, 1)
-		for {
-			n, err := os.Stdin.Read(inputBuf)
-			if err != nil || n == 0 {
-				continue
-			}
-			inputChan <- inputBuf[0]
-		}
-	}()
+	inputChan := startInputReader()
 
-	// Read input byte by byte
 	escapeSeq := make([]byte, 0, 10)
 	inEscape := false
 
 	for {
-		var b byte
-
-		// Wait for either input or blink render request
-		if editor.needsRender != nil {
-			select {
-			case b = <-inputChan:
-				// Got input from stdin
-			case <-editor.needsRender:
-				// Cursor blink triggered a render
-				editor.cursorMutex.Lock()
-				linesRendered, cursorLineAfterRender = renderMultiLine(editor, linesRendered, cursorLineAfterRender)
-				editor.cursorMutex.Unlock()
-				continue
-			}
-		} else {
-			// No blinking, just wait for input
-			b = <-inputChan
+		b, skip := readInputOrBlink(inputChan, editor, &linesRendered, &cursorLineAfterRender)
+		if skip {
+			continue
 		}
 
-		// Reset cursor visibility on any keypress
 		editor.cursorMutex.Lock()
 		editor.cursorVisible = true
 
-		// Handle escape sequences
 		if inEscape {
-			escapeSeq = append(escapeSeq, b)
-
-			// Check if we have a complete escape sequence
-			if len(escapeSeq) >= 2 {
-				seq := string(escapeSeq)
-
-				// Arrow keys and other special keys
-				if strings.HasPrefix(seq, "[") {
-					switch {
-					case strings.HasSuffix(seq, "A"): // Up arrow
-						editor.MoveUp()
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-
-					case strings.HasSuffix(seq, "B"): // Down arrow
-						editor.MoveDown()
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-
-					case strings.HasSuffix(seq, "D"): // Left arrow
-						editor.MoveLeft()
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-
-					case strings.HasSuffix(seq, "C"): // Right arrow
-						editor.MoveRight()
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-
-					case strings.HasSuffix(seq, "H"): // Home
-						editor.MoveHome()
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-
-					case strings.HasSuffix(seq, "F"): // End
-						editor.MoveEnd()
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-
-					case strings.HasSuffix(seq, "~"): // Delete, Page Up/Down, etc.
-						if strings.HasPrefix(seq, "[3~") { // Delete
-							editor.Delete()
-						}
-						inEscape = false
-						escapeSeq = escapeSeq[:0]
-					}
-				}
-			}
-
+			var done bool
+			escapeSeq, done = appendAndDispatchEscape(escapeSeq, b, editor)
+			inEscape = !done
 			linesRendered, cursorLineAfterRender = renderMultiLine(editor, linesRendered, cursorLineAfterRender)
 			editor.cursorMutex.Unlock()
 			continue
 		}
 
-		// Check for escape sequence start
-		if b == 0x1b { // ESC
+		if b == 0x1b { // ESC — start of escape sequence
 			inEscape = true
 			escapeSeq = escapeSeq[:0]
 			editor.cursorMutex.Unlock()
 			continue
 		}
 
-		// Handle special characters
-		switch b {
-		case 0x03: // Ctrl+C
+		result := processMultiLineKey(b, editor)
+		if result.exit {
 			editor.cursorMutex.Unlock()
 			fmt.Println()
 			disableRawMode(restoreCmd)
 			os.Exit(0)
-
-		case 0x04: // Ctrl+D (Submit/EOF)
+		}
+		if result.done {
 			editor.cursorMutex.Unlock()
 			fmt.Println()
-			return editor.GetText(), nil
-
-		case 0x0d, 0x0a: // Enter (new line)
-			editor.InsertNewLine()
-
-		case 0x7f, 0x08: // Backspace
-			editor.Backspace()
-
-		case 0x01: // Ctrl+A (Home)
-			editor.MoveHome()
-
-		case 0x05: // Ctrl+E (End)
-			editor.MoveEnd()
-
-		case 0x02: // Ctrl+B (Left)
-			editor.MoveLeft()
-
-		case 0x06: // Ctrl+F (Right)
-			editor.MoveRight()
-
-		case 0x0b: // Ctrl+K (Kill line from cursor)
-			editor.KillToEnd()
-
-		case 0x15: // Ctrl+U (Kill line before cursor)
-			editor.KillToStart()
-
-		case 0x10: // Ctrl+P (Previous line / Up)
-			editor.MoveUp()
-
-		case 0x0e: // Ctrl+N (Next line / Down)
-			editor.MoveDown()
-
-		default:
-			// Insert printable characters
-			if unicode.IsPrint(rune(b)) {
-				editor.InsertRune(rune(b))
-			}
+			return result.text, nil
 		}
 
 		linesRendered, cursorLineAfterRender = renderMultiLine(editor, linesRendered, cursorLineAfterRender)
@@ -539,7 +391,7 @@ func (i *ColorInput) RunWithMultiLineEdit() (string, error) {
 		fmt.Print(ColorReset) // Reset color after input
 
 		if err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+			return "", fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input (trim leading/trailing whitespace from entire text)

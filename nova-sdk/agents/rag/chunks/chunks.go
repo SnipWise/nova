@@ -109,63 +109,51 @@ func SplitMarkdownBySection(sectionLevel int, markdown string) []string {
 	if markdown == "" || sectionLevel < 1 {
 		return []string{}
 	}
-
-	// Create regex that matches any markdown header
 	headerRegex := regexp.MustCompile(`(?m)^\s*(#+)\s+.*$`)
-
-	// Find all headers with their hash counts
 	lines := strings.Split(markdown, "\n")
-	var headerPositions []int
-	currentPos := 0
-
-	for _, line := range lines {
-		if matches := headerRegex.FindStringSubmatch(line); matches != nil {
-			// Count the number of # characters
-			hashCount := len(strings.TrimSpace(matches[1]))
-
-			// Only include headers that match our desired level
-			if hashCount == sectionLevel {
-				headerPositions = append(headerPositions, currentPos)
-			}
-		}
-		// Add line length + newline character
-		currentPos += len(line) + 1
-	}
-
+	headerPositions := collectHeaderPositions(lines, sectionLevel, headerRegex)
 	if len(headerPositions) == 0 {
-		// No headers of this level found, return entire content
 		return []string{strings.TrimSpace(markdown)}
 	}
+	return buildSections(markdown, headerPositions)
+}
 
+// collectHeaderPositions returns the byte offsets within markdown where headers
+// of exactly sectionLevel hashes begin.
+func collectHeaderPositions(lines []string, sectionLevel int, headerRegex *regexp.Regexp) []int {
+	var positions []int
+	currentPos := 0
+	for _, line := range lines {
+		if matches := headerRegex.FindStringSubmatch(line); matches != nil {
+			if len(strings.TrimSpace(matches[1])) == sectionLevel {
+				positions = append(positions, currentPos)
+			}
+		}
+		currentPos += len(line) + 1
+	}
+	return positions
+}
+
+// buildSections slices markdown into sections delimited by headerPositions,
+// prepending any content that precedes the first header.
+func buildSections(markdown string, headerPositions []int) []string {
 	var sections []string
-
-	// Handle content before first header of this level
 	if headerPositions[0] > 0 {
-		preHeader := strings.TrimSpace(markdown[:headerPositions[0]])
-		if preHeader != "" {
-			sections = append(sections, preHeader)
+		if pre := strings.TrimSpace(markdown[:headerPositions[0]]); pre != "" {
+			sections = append(sections, pre)
 		}
 	}
-
-	// Split by headers of the specified level
 	for i, pos := range headerPositions {
-		start := pos
 		var end int
-
 		if i < len(headerPositions)-1 {
-			// Not the last header, end at next header of same level
 			end = headerPositions[i+1]
 		} else {
-			// Last header, end at document end
 			end = len(markdown)
 		}
-
-		section := strings.TrimSpace(markdown[start:end])
-		if section != "" {
+		if section := strings.TrimSpace(markdown[pos:end]); section != "" {
 			sections = append(sections, section)
 		}
 	}
-
 	return sections
 }
 
@@ -263,26 +251,24 @@ func ChunkXML(xml string, targetTag string) []string {
 //
 //	chunks := ChunkYAML(yaml, "- id")
 //	// Returns two chunks, one for each list item
+//
+// buildChunkPattern returns a regex pattern that matches the target key at any indentation.
+// For "- id" it matches list item keys; for "snippet" it matches simple keys.
+func buildChunkPattern(targetKey string) string {
+	if strings.HasPrefix(targetKey, "- ") {
+		keyPart := regexp.QuoteMeta(strings.TrimPrefix(targetKey, "- "))
+		return `^(\s*)- ` + keyPart + `\s*:`
+	}
+	return `^(\s*)` + regexp.QuoteMeta(targetKey) + `\s*:`
+}
+
 func ChunkYAML(yaml string, targetKey string) []string {
 	if yaml == "" || targetKey == "" {
 		return []string{}
 	}
 
 	lines := strings.Split(yaml, "\n")
-
-	// Build regex to match the target key at a consistent indentation level
-	// For "- id", match lines like "  - id: value"
-	// For "snippet", match lines like "  snippet:"
-	var pattern string
-	if strings.HasPrefix(targetKey, "- ") {
-		// List item key: "- id" matches "  - id:" or "  - id: value"
-		keyPart := regexp.QuoteMeta(strings.TrimPrefix(targetKey, "- "))
-		pattern = `^(\s*)- ` + keyPart + `\s*:`
-	} else {
-		// Simple key: "snippet" matches "  snippet:"
-		pattern = `^(\s*)` + regexp.QuoteMeta(targetKey) + `\s*:`
-	}
-	re := regexp.MustCompile(pattern)
+	re := regexp.MustCompile(buildChunkPattern(targetKey))
 
 	// Find the indentation level of the first match
 	targetIndent := -1

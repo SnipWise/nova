@@ -39,56 +39,54 @@ func ParseMarkdownHierarchy(content string) []MarkdownChunk {
 	lines := strings.Split(content, "\n")
 	var chunks []MarkdownChunk
 	var stack []MarkdownChunk
-
 	headerRegex := regexp.MustCompile(`^(#+)\s+(.*)$`)
 
 	for i := range lines {
-		line := lines[i]
-		if matches := headerRegex.FindStringSubmatch(line); matches != nil {
-			level := len(matches[1])
-			header := matches[2]
-			prefix := matches[1]
-
-			// Find content for this header
-			contentLines := []string{}
-			for j := i + 1; j < len(lines); j++ {
-				if headerRegex.MatchString(lines[j]) {
-					break
-				}
-				contentLines = append(contentLines, lines[j])
-			}
-			content := strings.Join(contentLines, "\n")
-
-			// Determine parent header
-			var parent MarkdownChunk
-			for len(stack) > 0 && stack[len(stack)-1].Level >= level {
-				stack = stack[:len(stack)-1]
-			}
-			if len(stack) > 0 {
-				parent = stack[len(stack)-1]
-			}
-
-			// Build hierarchy
-			hierarchy := buildHierarchy(stack, header)
-
-			chunk := MarkdownChunk{
-				Level:        level,
-				Prefix:       prefix,
-				Header:       header,
-				Content:      strings.TrimSpace(content),
-				ParentPrefix: parent.Prefix,
-				ParentLevel:  parent.Level,
-				ParentHeader: parent.Header,
-				Hierarchy:    hierarchy,
-			}
-			//if chunk.Content != "" {
-			chunks = append(chunks, chunk)
-			stack = append(stack, chunk)
-			//}
+		matches := headerRegex.FindStringSubmatch(lines[i])
+		if matches == nil {
+			continue
 		}
+		level := len(matches[1])
+		header := matches[2]
+		prefix := matches[1]
+
+		headerContent := collectHeaderContent(lines, i, headerRegex)
+
+		for len(stack) > 0 && stack[len(stack)-1].Level >= level {
+			stack = stack[:len(stack)-1]
+		}
+		var parent MarkdownChunk
+		if len(stack) > 0 {
+			parent = stack[len(stack)-1]
+		}
+
+		chunk := MarkdownChunk{
+			Level:        level,
+			Prefix:       prefix,
+			Header:       header,
+			Content:      strings.TrimSpace(headerContent),
+			ParentPrefix: parent.Prefix,
+			ParentLevel:  parent.Level,
+			ParentHeader: parent.Header,
+			Hierarchy:    buildHierarchy(stack, header),
+		}
+		chunks = append(chunks, chunk)
+		stack = append(stack, chunk)
 	}
 
 	return chunks
+}
+
+// collectHeaderContent gathers lines following startIdx until the next header is encountered.
+func collectHeaderContent(lines []string, startIdx int, headerRegex *regexp.Regexp) string {
+	var contentLines []string
+	for j := startIdx + 1; j < len(lines); j++ {
+		if headerRegex.MatchString(lines[j]) {
+			break
+		}
+		contentLines = append(contentLines, lines[j])
+	}
+	return strings.Join(contentLines, "\n")
 }
 
 // buildHierarchy creates a hierarchical path string from the header stack

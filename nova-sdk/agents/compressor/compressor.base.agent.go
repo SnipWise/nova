@@ -3,13 +3,10 @@ package compressor
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/snipwise/nova/nova-sdk/agents"
 	"github.com/snipwise/nova/nova-sdk/agents/base"
-	"github.com/snipwise/nova/nova-sdk/messages"
 )
 
 // BaseAgent wraps the shared base.Agent and adds compression-specific functionality
@@ -74,21 +71,9 @@ func (agent *BaseAgent) CompressContext(messagesList []openai.ChatCompletionMess
 		openai.UserMessage(agent.compressionPrompt),
 	)
 
-	// Convert messages to text format
-	var textBuilder strings.Builder
-	stringMessages := messages.ConvertFromOpenAIMessages(messagesList)
-
-	for _, msg := range stringMessages {
-		textBuilder.WriteString(fmt.Sprintf("%s: ", msg.Role))
-		textBuilder.WriteString(msg.Content)
-		textBuilder.WriteString("\n")
-	}
-
-	text := textBuilder.String()
-
 	agent.ChatCompletionParams.Messages = append(
 		agent.ChatCompletionParams.Messages,
-		openai.UserMessage("CONVERSATION:\n"+text),
+		openai.UserMessage("CONVERSATION:\n"+buildConversationText(messagesList)),
 	)
 
 	completion, err := agent.OpenaiClient.Chat.Completions.New(agent.Ctx, agent.ChatCompletionParams)
@@ -119,21 +104,9 @@ func (agent *BaseAgent) CompressContextStream(
 		openai.UserMessage(agent.compressionPrompt),
 	)
 
-	// Convert messages to text format
-	var textBuilder strings.Builder
-	stringMessages := messages.ConvertFromOpenAIMessages(messagesList)
-
-	for _, msg := range stringMessages {
-		textBuilder.WriteString(fmt.Sprintf("%s: ", msg.Role))
-		textBuilder.WriteString(msg.Content)
-		textBuilder.WriteString("\n")
-	}
-
-	text := textBuilder.String()
-
 	agent.ChatCompletionParams.Messages = append(
 		agent.ChatCompletionParams.Messages,
-		openai.UserMessage("CONVERSATION:\n"+text),
+		openai.UserMessage("CONVERSATION:\n"+buildConversationText(messagesList)),
 	)
 
 	stream := agent.OpenaiClient.Chat.Completions.NewStreaming(agent.Ctx, agent.ChatCompletionParams)

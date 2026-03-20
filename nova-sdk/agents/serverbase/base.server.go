@@ -13,6 +13,32 @@ import (
 	"github.com/snipwise/nova/nova-sdk/toolbox/logger"
 )
 
+const (
+	headerContentType     = "Content-Type"
+	contentTypeJSON       = "application/json"
+	contentTypeSSE        = "text/event-stream"
+	headerCacheControl    = "Cache-Control"
+	headerConnection      = "Connection"
+	headerAccessControl   = "Access-Control-Allow-Origin"
+	cacheControlNoCache   = "no-cache"
+	connectionKeepAlive   = "keep-alive"
+	accessControlWildcard = "*"
+
+	errStreamingNotSupported = "Streaming not supported"
+	sseDataFmt               = "data: %s\n\n"
+)
+
+// setSSEHeaders configures SSE streaming headers and returns a flusher.
+// Returns nil, false if streaming is not supported by the ResponseWriter.
+func setSSEHeaders(w http.ResponseWriter) (http.Flusher, bool) {
+	w.Header().Set(headerContentType, contentTypeSSE)
+	w.Header().Set(headerCacheControl, cacheControlNoCache)
+	w.Header().Set(headerConnection, connectionKeepAlive)
+	w.Header().Set(headerAccessControl, accessControlWildcard)
+	flusher, ok := w.(http.Flusher)
+	return flusher, ok
+}
+
 // BaseServerAgent contains common server agent functionality
 type BaseServerAgent struct {
 	ChatAgent        ChatAgent
@@ -67,7 +93,7 @@ func NewBaseServerAgent(ctx context.Context, port string, chatAgent ChatAgent, e
 
 // HandleHealth handles the health check endpoint
 func (agent *BaseServerAgent) HandleHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
 		agent.Log.Error("Failed to encode health response: %v", err)
@@ -81,7 +107,7 @@ func (agent *BaseServerAgent) HandleMemoryReset(w http.ResponseWriter, r *http.R
 		agent.ToolsAgent.ResetMessages()
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(map[string]string{
 		"status":  "ok",
 		"message": "Memory reset successfully",
@@ -94,7 +120,7 @@ func (agent *BaseServerAgent) HandleMemoryReset(w http.ResponseWriter, r *http.R
 func (agent *BaseServerAgent) HandleMessagesList(w http.ResponseWriter, r *http.Request) {
 	messages := agent.ChatAgent.GetMessages()
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(MemoryResponse{Messages: messages}); err != nil {
 		agent.Log.Error("Failed to encode messages list response: %v", err)
 	}
@@ -106,7 +132,7 @@ func (agent *BaseServerAgent) HandleContextSize(w http.ResponseWriter, r *http.R
 	charactersCount := agent.ChatAgent.GetContextSize()
 	limit := agent.ContextSizeLimit
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(ContextSizeResponse{
 		MessagesCount:   count,
 		CharactersCount: charactersCount,
@@ -118,7 +144,7 @@ func (agent *BaseServerAgent) HandleContextSize(w http.ResponseWriter, r *http.R
 
 // HandleModelsInformation handles the models information endpoint
 func (agent *BaseServerAgent) HandleModelsInformation(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(http.StatusOK)
 
 	toolsModel := "none"
@@ -140,23 +166,24 @@ func (agent *BaseServerAgent) HandleModelsInformation(w http.ResponseWriter, r *
 	}
 }
 
-// HandleOperationValidate handles the operation validation endpoint
-func (agent *BaseServerAgent) HandleOperationValidate(w http.ResponseWriter, r *http.Request) {
+// handleOperationSSE processes a single pending operation via SSE,
+// sending notFoundMsg or successMsg then routing the response to the operation channel.
+func (agent *BaseServerAgent) handleOperationSSE(
+	w http.ResponseWriter,
+	r *http.Request,
+	notFoundMsg string,
+	successMsg string,
+	response tools.ConfirmationResponse,
+) {
 	var req OperationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Configure SSE streaming
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	flusher, ok := w.(http.Flusher)
+	flusher, ok := setSSEHeaders(w)
 	if !ok {
-		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		http.Error(w, errStreamingNotSupported, http.StatusInternalServerError)
 		return
 	}
 
@@ -168,105 +195,59 @@ func (agent *BaseServerAgent) HandleOperationValidate(w http.ResponseWriter, r *
 	agent.OperationsMutex.Unlock()
 
 	if !exists {
-		data := map[string]string{"message": fmt.Sprintf("❌ Operation %s not found", req.OperationID)}
-		jsonData, _ := json.Marshal(data)
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
+		jsonData, _ := json.Marshal(map[string]string{"message": fmt.Sprintf(notFoundMsg, req.OperationID)})
+		if _, err := fmt.Fprintf(w, sseDataFmt, string(jsonData)); err != nil {
 			agent.Log.Error("Failed to write operation not found response: %v", err)
 		}
 		flusher.Flush()
 		return
 	}
 
-	// Send confirmation message to UI
-	data := map[string]string{"message": fmt.Sprintf("✅ Operation %s validated<br>", req.OperationID)}
-	jsonData, _ := json.Marshal(data)
-	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-		agent.Log.Error("Failed to write validation response: %v", err)
+	jsonData, _ := json.Marshal(map[string]string{"message": fmt.Sprintf(successMsg, req.OperationID)})
+	if _, err := fmt.Fprintf(w, sseDataFmt, string(jsonData)); err != nil {
+		agent.Log.Error("Failed to write operation response: %v", err)
 		return
 	}
 	flusher.Flush()
+	op.Response <- response
+}
 
-	// Send confirmation to channel
-	op.Response <- tools.Confirmed
+// HandleOperationValidate handles the operation validation endpoint
+func (agent *BaseServerAgent) HandleOperationValidate(w http.ResponseWriter, r *http.Request) {
+	agent.handleOperationSSE(w, r,
+		"❌ Operation %s not found",
+		"✅ Operation %s validated<br>",
+		tools.Confirmed,
+	)
 }
 
 // HandleOperationCancel handles the operation cancellation endpoint
 func (agent *BaseServerAgent) HandleOperationCancel(w http.ResponseWriter, r *http.Request) {
-	var req OperationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Configure SSE streaming
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
-		return
-	}
-
-	agent.OperationsMutex.Lock()
-	op, exists := agent.PendingOperations[req.OperationID]
-	if exists {
-		delete(agent.PendingOperations, req.OperationID)
-	}
-	agent.OperationsMutex.Unlock()
-
-	if !exists {
-		data := map[string]string{"message": fmt.Sprintf("❌ Operation %s not found<br>", req.OperationID)}
-		jsonData, _ := json.Marshal(data)
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-			agent.Log.Error("Failed to write operation not found response: %v", err)
-		}
-		flusher.Flush()
-		return
-	}
-
-	// Send cancellation message to UI
-	data := map[string]string{"message": fmt.Sprintf("⛔️ Operation %s cancelled<br>", req.OperationID)}
-	jsonData, _ := json.Marshal(data)
-	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
-		agent.Log.Error("Failed to write cancellation response: %v", err)
-		return
-	}
-	flusher.Flush()
-
-	// Send denial to channel
-	op.Response <- tools.Denied
+	agent.handleOperationSSE(w, r,
+		"❌ Operation %s not found<br>",
+		"⛔️ Operation %s cancelled<br>",
+		tools.Denied,
+	)
 }
 
 // HandleOperationReset handles the operation reset endpoint
 func (agent *BaseServerAgent) HandleOperationReset(w http.ResponseWriter, r *http.Request) {
-	// Configure SSE streaming
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	flusher, ok := w.(http.Flusher)
+	flusher, ok := setSSEHeaders(w)
 	if !ok {
-		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		http.Error(w, errStreamingNotSupported, http.StatusInternalServerError)
 		return
 	}
 
 	agent.OperationsMutex.Lock()
 	count := len(agent.PendingOperations)
-	// Deny all pending operations
 	for id, op := range agent.PendingOperations {
 		op.Response <- tools.Quit
 		delete(agent.PendingOperations, id)
 	}
 	agent.OperationsMutex.Unlock()
 
-	// Send confirmation message to UI
-	data := map[string]string{"message": fmt.Sprintf("🔄 All pending operations cancelled (%d operations)", count)}
-	jsonData, _ := json.Marshal(data)
-	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(jsonData)); err != nil {
+	jsonData, _ := json.Marshal(map[string]string{"message": fmt.Sprintf("🔄 All pending operations cancelled (%d operations)", count)})
+	if _, err := fmt.Fprintf(w, sseDataFmt, string(jsonData)); err != nil {
 		agent.Log.Error("Failed to write reset response: %v", err)
 	}
 	flusher.Flush()

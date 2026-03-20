@@ -51,7 +51,7 @@ func (i *Input) Run() (string, error) {
 		// Read user input
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+			return "", fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input
@@ -109,7 +109,7 @@ func (c *Confirm) Run() (bool, error) {
 		// Read user input
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return false, fmt.Errorf("error reading input: %w", err)
+			return false, fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input
@@ -161,15 +161,8 @@ func (s *Select) SetDefault(value string) *Select {
 	return s
 }
 
-// Run displays the selection prompt and returns the selected value
-func (s *Select) Run() (string, error) {
-	if len(s.choices) == 0 {
-		return "", fmt.Errorf("no choices available")
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-
-	// Display choices
+// displayChoices prints the numbered list of choices for the Select prompt.
+func (s *Select) displayChoices() {
 	fmt.Println(s.message)
 	for i, choice := range s.choices {
 		prefix := fmt.Sprintf("%d)", i+1)
@@ -179,6 +172,17 @@ func (s *Select) Run() (string, error) {
 			fmt.Printf("  %s %s\n", prefix, choice.Label)
 		}
 	}
+}
+
+// Run displays the selection prompt and returns the selected value
+func (s *Select) Run() (string, error) {
+	if len(s.choices) == 0 {
+		return "", fmt.Errorf("no choices available")
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	s.displayChoices()
 
 	for {
 		// Display the prompt
@@ -191,7 +195,7 @@ func (s *Select) Run() (string, error) {
 		// Read user input
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+			return "", fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input
@@ -246,15 +250,8 @@ func (m *MultiChoice) SetDefaults(values []string) *MultiChoice {
 	return m
 }
 
-// Run displays the multi-choice prompt and returns the selected values
-func (m *MultiChoice) Run() ([]string, error) {
-	if len(m.choices) == 0 {
-		return nil, fmt.Errorf("no choices available")
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-
-	// Display choices
+// displayChoices prints the numbered list of choices for the MultiChoice prompt.
+func (m *MultiChoice) displayChoices() {
 	fmt.Println(m.message)
 	for i, choice := range m.choices {
 		prefix := fmt.Sprintf("%d)", i+1)
@@ -271,6 +268,17 @@ func (m *MultiChoice) Run() ([]string, error) {
 			fmt.Printf("  %s %s\n", prefix, choice.Label)
 		}
 	}
+}
+
+// Run displays the multi-choice prompt and returns the selected values
+func (m *MultiChoice) Run() ([]string, error) {
+	if len(m.choices) == 0 {
+		return nil, fmt.Errorf("no choices available")
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	m.displayChoices()
 
 	for {
 		// Display the prompt
@@ -279,7 +287,7 @@ func (m *MultiChoice) Run() ([]string, error) {
 		// Read user input
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return nil, fmt.Errorf("error reading input: %w", err)
+			return nil, fmt.Errorf(errReadInput, err)
 		}
 
 		// Clean the input

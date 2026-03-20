@@ -236,7 +236,13 @@ func NewAgent(
 	baseAgent := serverbase.NewBaseServerAgent(ctx, agent.portConfig, chatAgent, agent.executeFnConfig)
 	agent.BaseServerAgent = baseAgent
 
-	// Apply configuration from temporary fields to BaseServerAgent
+	agent.applyConfigFields()
+
+	return agent, nil
+}
+
+// applyConfigFields transfers temporary config fields to the embedded BaseServerAgent.
+func (agent *ServerAgent) applyConfigFields() {
 	if agent.toolsAgentConfig != nil {
 		agent.ToolsAgent = agent.toolsAgentConfig
 	}
@@ -255,20 +261,14 @@ func NewAgent(
 			agent.ContextSizeLimit = agent.contextSizeLimitConfig
 		}
 	}
-
-	// Set executeFunction to default if not provided
 	if agent.ExecuteFn == nil {
 		agent.ExecuteFn = agent.executeFunction
 	}
-
-	// Set confirmationPromptFn to provided or default CLI confirmation
 	if agent.confirmationPromptFnConfig != nil {
 		agent.ConfirmationPromptFn = agent.confirmationPromptFnConfig
 	} else {
 		agent.ConfirmationPromptFn = agent.cliConfirmationPrompt
 	}
-
-	return agent, nil
 }
 
 // SetPort sets the HTTP port
@@ -396,7 +396,7 @@ func (agent *ServerAgent) StartServer() error {
 
 	// Routes using base handlers
 	mux.HandleFunc("POST /completion", agent.handleCompletion)
-	mux.HandleFunc("POST /completion/stop", agent.handleCompletionStop)
+	mux.HandleFunc("POST /completion/stop", agent.HandleCompletionStop)
 	mux.HandleFunc("POST /memory/reset", agent.HandleMemoryReset)
 	mux.HandleFunc("GET /memory/messages/list", agent.HandleMessagesList)
 	mux.HandleFunc("GET /memory/messages/context-size", agent.HandleContextSize)

@@ -307,7 +307,17 @@ func NewAgent(ctx context.Context, options ...CrewServerAgentOption) (*CrewServe
 	baseAgent := serverbase.NewBaseServerAgent(ctx, agent.portConfig, agent.currentChatAgent, agent.executeFnConfig)
 	agent.BaseServerAgent = baseAgent
 
-	// Apply configuration from temporary fields to BaseServerAgent
+	agent.applyConfigFields()
+	agent.applyDefaultFunctions()
+
+	agent.Log.Info("👥 CrewServerAgent initialized with chat agents, starting with agent ID: %s", agent.selectedAgentId)
+
+	return agent, nil
+}
+
+// applyConfigFields transfers temporary configuration fields to the embedded BaseServerAgent.
+// Called from NewAgent after the BaseServerAgent is created.
+func (agent *CrewServerAgent) applyConfigFields() {
 	if agent.toolsAgentConfig != nil {
 		agent.ToolsAgent = agent.toolsAgentConfig
 	}
@@ -326,13 +336,14 @@ func NewAgent(ctx context.Context, options ...CrewServerAgentOption) (*CrewServe
 			agent.ContextSizeLimit = agent.contextSizeLimitConfig
 		}
 	}
-
-	// Set confirmationPromptFn if provided
 	if agent.confirmationPromptFnConfig != nil {
 		agent.ConfirmationPromptFn = agent.confirmationPromptFnConfig
 	}
+}
 
-	// Set default matchAgentIdToTopicFn if not provided
+// applyDefaultFunctions sets default matchAgentIdToTopicFn and ExecuteFn when not provided.
+// Called from NewAgent after all options are applied and the agent is validated.
+func (agent *CrewServerAgent) applyDefaultFunctions() {
 	if agent.matchAgentIdToTopicFn == nil {
 		agent.matchAgentIdToTopicFn = func(currentAgent, topic string) string {
 			var agentId string
@@ -343,15 +354,9 @@ func NewAgent(ctx context.Context, options ...CrewServerAgentOption) (*CrewServe
 			return agentId
 		}
 	}
-
-	// Set default executeFn if not provided
 	if agent.ExecuteFn == nil {
 		agent.ExecuteFn = agent.executeFunction
 	}
-
-	agent.Log.Info("👥 CrewServerAgent initialized with chat agents, starting with agent ID: %s", agent.selectedAgentId)
-
-	return agent, nil
 }
 
 // SetPort sets the HTTP port
@@ -528,7 +533,7 @@ func (agent *CrewServerAgent) StartServer() error {
 
 	// Routes using base handlers
 	mux.HandleFunc("POST /completion", agent.handleCompletion)
-	mux.HandleFunc("POST /completion/stop", agent.handleCompletionStop)
+	mux.HandleFunc("POST /completion/stop", agent.HandleCompletionStop)
 	mux.HandleFunc("POST /memory/reset", agent.HandleMemoryReset)
 	mux.HandleFunc("GET /memory/messages/list", agent.HandleMessagesList)
 	mux.HandleFunc("GET /memory/messages/context-size", agent.HandleContextSize)
