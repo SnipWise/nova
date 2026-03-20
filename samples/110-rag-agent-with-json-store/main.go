@@ -42,7 +42,10 @@ func main() {
 			EngineURL: "http://localhost:12434/engines/llama.cpp/v1",
 		},
 		models.Config{
-			Name: "ai/mxbai-embed-large:latest",
+			//Name: "ai/mxbai-embed-large:latest",
+			Name: "ai/embeddinggemma:latest",
+
+
 		},
 		rag.WithJsonStore(storePathFile),
 		// DocumentLoadModeOverwrite: will clear existing data and load new documents

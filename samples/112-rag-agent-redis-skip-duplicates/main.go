@@ -68,7 +68,8 @@ func main() {
 	fmt.Println("Testing Similarity Search...")
 
 	// Test similarity search
-	query := "What do animals do in winter?"
+	//query := "What do animals do in winter?"
+	query := "which animals swim?"
 	fmt.Printf("🔍 Query: %s\n", query)
 	fmt.Println()
 
