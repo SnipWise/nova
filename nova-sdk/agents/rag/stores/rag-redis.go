@@ -97,7 +97,7 @@ func (rvs *RedisVectorStore) ensureIndexExists() error {
 		"SCHEMA",
 		"prompt", "TEXT",
 		"embedding", "VECTOR", "HNSW", "6",
-		"TYPE", "FLOAT64",
+		"TYPE", "FLOAT32",
 		"DIM", strconv.Itoa(rvs.dimension),
 		"DISTANCE_METRIC", "COSINE",
 	}
@@ -225,15 +225,17 @@ func (rvs *RedisVectorStore) SearchTopNSimilarities(embeddingFromQuestion Vector
 // parseScoreField converts a raw Redis "score" field value to cosine similarity.
 // Redis COSINE distance = 1 - cosine_similarity, so similarity = 1.0 - distance.
 func parseScoreField(raw interface{}) (float64, bool) {
-	scoreStr, ok := raw.(string)
-	if !ok {
-		return 0, false
+	switch v := raw.(type) {
+	case string:
+		distance, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return 0, false
+		}
+		return 1.0 - distance, true
+	case float64:
+		return 1.0 - v, true
 	}
-	distance, err := strconv.ParseFloat(scoreStr, 64)
-	if err != nil {
-		return 0, false
-	}
-	return 1.0 - distance, true
+	return 0, false
 }
 
 // parseDocumentFields parses the flat field-value pairs returned by FT.SEARCH
@@ -298,20 +300,20 @@ func (rvs *RedisVectorStore) parseSearchResults(result interface{}, similarityLi
 	return records, nil
 }
 
-// floatsToBytes converts a float64 slice to bytes for Redis storage
+// floatsToBytes converts a float64 slice to bytes for Redis storage (FLOAT32 encoding)
 func floatsToBytes(floats []float64) []byte {
-	bytes := make([]byte, len(floats)*8)
+	bytes := make([]byte, len(floats)*4)
 	for i, f := range floats {
-		binary.LittleEndian.PutUint64(bytes[i*8:(i+1)*8], math.Float64bits(f))
+		binary.LittleEndian.PutUint32(bytes[i*4:(i+1)*4], math.Float32bits(float32(f)))
 	}
 	return bytes
 }
 
-// bytesToFloats converts bytes back to float64 slice
+// bytesToFloats converts bytes back to float64 slice (FLOAT32 encoding)
 func bytesToFloats(bytes []byte) []float64 {
-	floats := make([]float64, len(bytes)/8)
+	floats := make([]float64, len(bytes)/4)
 	for i := range floats {
-		floats[i] = math.Float64frombits(binary.LittleEndian.Uint64(bytes[i*8 : (i+1)*8]))
+		floats[i] = float64(math.Float32frombits(binary.LittleEndian.Uint32(bytes[i*4 : (i+1)*4])))
 	}
 	return floats
 }
